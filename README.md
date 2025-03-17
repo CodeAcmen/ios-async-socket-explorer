@@ -83,9 +83,9 @@
 
 ## 技术栈
 
-- **编程语言**：Swift，Objective-C
+- **编程语言**：Objective-C
 - **工具**：Xcode，Wireshark，Charles
-- **网络协议**：TCP, UDP, HTTP, HTTPS
+- **网络协议**：TCP，UDP，HTTP，HTTPS
 - **其他技术**：SSL/TLS，Socket编程，GCD，Protocol Buffers，JSON，VIPER架构，Typhoon框架，AOP
 
 ## 学习资源
