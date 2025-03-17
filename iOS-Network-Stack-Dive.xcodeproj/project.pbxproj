@@ -6,8 +6,15 @@
 	objectVersion = 77;
 	objects = {
 
+/* Begin PBXBuildFile section */
+		24C50012F14F83F293E426BE /* Pods_iOS_Network_Stack_Dive.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 4F2EA2A7836F1CD8C4C3AC53 /* Pods_iOS_Network_Stack_Dive.framework */; };
+/* End PBXBuildFile section */
+
 /* Begin PBXFileReference section */
+		4F2EA2A7836F1CD8C4C3AC53 /* Pods_iOS_Network_Stack_Dive.framework */ = {isa = PBXFileReference; explicitFileType = wrapper.framework; includeInIndex = 0; path = Pods_iOS_Network_Stack_Dive.framework; sourceTree = BUILT_PRODUCTS_DIR; };
+		66780951CD89AF39D328AE34 /* Pods-iOS-Network-Stack-Dive.release.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-iOS-Network-Stack-Dive.release.xcconfig"; path = "Target Support Files/Pods-iOS-Network-Stack-Dive/Pods-iOS-Network-Stack-Dive.release.xcconfig"; sourceTree = "<group>"; };
 		962A7EC22D8830A6009FAD4E /* iOS-Network-Stack-Dive.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = "iOS-Network-Stack-Dive.app"; sourceTree = BUILT_PRODUCTS_DIR; };
+		9F441CEC2666DAA60D9D506D /* Pods-iOS-Network-Stack-Dive.debug.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-iOS-Network-Stack-Dive.debug.xcconfig"; path = "Target Support Files/Pods-iOS-Network-Stack-Dive/Pods-iOS-Network-Stack-Dive.debug.xcconfig"; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
@@ -36,17 +43,29 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				24C50012F14F83F293E426BE /* Pods_iOS_Network_Stack_Dive.framework in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
 /* End PBXFrameworksBuildPhase section */
 
 /* Begin PBXGroup section */
+		435473B925D2EDC36316A6B6 /* Pods */ = {
+			isa = PBXGroup;
+			children = (
+				9F441CEC2666DAA60D9D506D /* Pods-iOS-Network-Stack-Dive.debug.xcconfig */,
+				66780951CD89AF39D328AE34 /* Pods-iOS-Network-Stack-Dive.release.xcconfig */,
+			);
+			path = Pods;
+			sourceTree = "<group>";
+		};
 		962A7EB92D8830A6009FAD4E = {
 			isa = PBXGroup;
 			children = (
 				962A7EC42D8830A6009FAD4E /* iOS-Network-Stack-Dive */,
 				962A7EC32D8830A6009FAD4E /* Products */,
+				435473B925D2EDC36316A6B6 /* Pods */,
+				BC0BA4C581DDCA5BDF41CE12 /* Frameworks */,
 			);
 			sourceTree = "<group>";
 		};
@@ -58,6 +77,14 @@
 			name = Products;
 			sourceTree = "<group>";
 		};
+		BC0BA4C581DDCA5BDF41CE12 /* Frameworks */ = {
+			isa = PBXGroup;
+			children = (
+				4F2EA2A7836F1CD8C4C3AC53 /* Pods_iOS_Network_Stack_Dive.framework */,
+			);
+			name = Frameworks;
+			sourceTree = "<group>";
+		};
 /* End PBXGroup section */
 
 /* Begin PBXNativeTarget section */
@@ -65,9 +92,11 @@
 			isa = PBXNativeTarget;
 			buildConfigurationList = 962A7EDA2D8830A7009FAD4E /* Build configuration list for PBXNativeTarget "iOS-Network-Stack-Dive" */;
 			buildPhases = (
+				E0E86FAE27DECE0BD8EC9700 /* [CP] Check Pods Manifest.lock */,
 				962A7EBE2D8830A6009FAD4E /* Sources */,
 				962A7EBF2D8830A6009FAD4E /* Frameworks */,
 				962A7EC02D8830A6009FAD4E /* Resources */,
+				3293DA1E5CBB6EDAA548E21D /* [CP] Embed Pods Frameworks */,
 			);
 			buildRules = (
 			);
@@ -77,8 +106,6 @@
 				962A7EC42D8830A6009FAD4E /* iOS-Network-Stack-Dive */,
 			);
 			name = "iOS-Network-Stack-Dive";
-			packageProductDependencies = (
-			);
 			productName = "iOS-Network-Stack-Dive";
 			productReference = 962A7EC22D8830A6009FAD4E /* iOS-Network-Stack-Dive.app */;
 			productType = "com.apple.product-type.application";
@@ -126,6 +153,48 @@
 		};
 /* End PBXResourcesBuildPhase section */
 
+/* Begin PBXShellScriptBuildPhase section */
+		3293DA1E5CBB6EDAA548E21D /* [CP] Embed Pods Frameworks */ = {
+			isa = PBXShellScriptBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			inputFileListPaths = (
+				"${PODS_ROOT}/Target Support Files/Pods-iOS-Network-Stack-Dive/Pods-iOS-Network-Stack-Dive-frameworks-${CONFIGURATION}-input-files.xcfilelist",
+			);
+			name = "[CP] Embed Pods Frameworks";
+			outputFileListPaths = (
+				"${PODS_ROOT}/Target Support Files/Pods-iOS-Network-Stack-Dive/Pods-iOS-Network-Stack-Dive-frameworks-${CONFIGURATION}-output-files.xcfilelist",
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "\"${PODS_ROOT}/Target Support Files/Pods-iOS-Network-Stack-Dive/Pods-iOS-Network-Stack-Dive-frameworks.sh\"\n";
+			showEnvVarsInLog = 0;
+		};
+		E0E86FAE27DECE0BD8EC9700 /* [CP] Check Pods Manifest.lock */ = {
+			isa = PBXShellScriptBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			inputFileListPaths = (
+			);
+			inputPaths = (
+				"${PODS_PODFILE_DIR_PATH}/Podfile.lock",
+				"${PODS_ROOT}/Manifest.lock",
+			);
+			name = "[CP] Check Pods Manifest.lock";
+			outputFileListPaths = (
+			);
+			outputPaths = (
+				"$(DERIVED_FILE_DIR)/Pods-iOS-Network-Stack-Dive-checkManifestLockResult.txt",
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "diff \"${PODS_PODFILE_DIR_PATH}/Podfile.lock\" \"${PODS_ROOT}/Manifest.lock\" > /dev/null\nif [ $? != 0 ] ; then\n    # print error to STDERR\n    echo \"error: The sandbox is not in sync with the Podfile.lock. Run 'pod install' or update your CocoaPods installation.\" >&2\n    exit 1\nfi\n# This output is used by Xcode 'outputs' to avoid re-running this script phase.\necho \"SUCCESS\" > \"${SCRIPT_OUTPUT_FILE_0}\"\n";
+			showEnvVarsInLog = 0;
+		};
+/* End PBXShellScriptBuildPhase section */
+
 /* Begin PBXSourcesBuildPhase section */
 		962A7EBE2D8830A6009FAD4E /* Sources */ = {
 			isa = PBXSourcesBuildPhase;
@@ -139,6 +208,7 @@
 /* Begin XCBuildConfiguration section */
 		962A7EDB2D8830A7009FAD4E /* Debug */ = {
 			isa = XCBuildConfiguration;
+			baseConfigurationReference = 9F441CEC2666DAA60D9D506D /* Pods-iOS-Network-Stack-Dive.debug.xcconfig */;
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
@@ -165,6 +235,7 @@
 		};
 		962A7EDC2D8830A7009FAD4E /* Release */ = {
 			isa = XCBuildConfiguration;
+			baseConfigurationReference = 66780951CD89AF39D328AE34 /* Pods-iOS-Network-Stack-Dive.release.xcconfig */;
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;

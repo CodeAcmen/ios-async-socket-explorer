@@ -1,0 +1,6 @@
+framework module Pods_iOS_Network_Stack_Dive {
+  umbrella header "Pods-iOS-Network-Stack-Dive-umbrella.h"
+
+  export *
+  module * { export * }
+}
