@@ -110,17 +110,57 @@
 
 ```plaintext
 iOS-Network-Stack-Dive
-├── 01-Practice/                 # 实践案例：网络请求与通信
-│   ├── TCP_UDP_Basics/          # TCP/UDP基础实践
-│   ├── NetworkPerformance/      # 网络性能优化实践
-│   └── Security/                # 安全传输实践
-├── 02-Theory/                   # 理论学习：网络协议与原理
-│   ├── TCP_UDP_Theory/          # TCP/UDP理论
-│   ├── BinaryProtocolDesign/    # 自定义二进制协议设计
-│   └── NetworkSecurity/         # 网络安全理论
-└── 03-Advanced/                 # 进阶实践与技术应用
-    ├── AdvancedNetworking/      # 高级网络编程
-    └── RealWorldCases/          # 实际项目中的网络应用
+# 📂 项目结构深度设计
+
+```text
+iOS-Network-Stack-Dive/
+├── Docs/                           # 文档
+│   ├── Journey/                
+│   │   ├── Phase1-TCP-UDP-Core.md 
+│   │   ├── Phase2-Protocol-Design.md
+│   │   └── Phase3-Arch-Integration.md
+│   └── RFC/                       # 协议标准文档
+│       ├── RFC793-TCP.pdf         
+│       └── RFC768-UDP.pdf
+├── Labs/                          
+│   ├── NetworkFundamentals/       
+│   │   ├── Lab1-Socket-API/       # BSD Socket实践
+│   │   └── Lab2-NSStream-Analysis/ # 流解析实验
+│   └── AdvancedLabs/              
+│       ├── CustomProtocol-Lab/    # 协议设计沙盒
+│       └── WeakNetwork-Simulation/ # 弱网模拟测试
+├── ArchitectureExtensions/        # 生产级架构扩展
+│   ├── VIPER-Integration/         # VIPER架构适配
+│   │   ├── NetworkService/        # 网络服务层
+│   │   │   ├── ConnectionManager/ # 连接池管理
+│   │   │   └── ProtocolAdapter/   # 协议适配器
+│   │   └── DI Container/          # 依赖注入实现
+│   └── AOP/                       # 切面编程组件
+│       ├── NetworkMonitor/        # 网络监控切面
+│       └── LoggingAspect/         # 日志追踪切面
+├── CoreNetworkStack/              # 核心网络栈实现
+│   ├── TransportLayer/            # 传输层实现
+│   │   ├── TCP-State-Machine/     # TCP状态机实现
+│   │   └── Reliable-UDP/          # 可靠UDP实现
+│   └── ProtocolLayer/             # 协议层实现
+│       ├── BinaryProtocol/        # 自定义二进制协议
+│       │   ├── Encoder-Decoder/   # 编解码器
+│       │   └── CRC-Checker/       # 校验模块
+│       └── Security/              # 安全层
+│           ├── KeyExchange/       # 密钥交换
+│           └── PacketEncryption/  # 数据加密
+├── Tools/                         
+│   ├── NetworkDebugger/           # 网络调试工具集
+│   │   ├── PacketSniffer/         # 抓包分析器
+│   │   └── LatencySimulator/      # 延迟模拟器
+│   └── CI-Scripts/                # 持续集成脚本
+│       ├── CoverageReport         # 覆盖率检测
+│       └── MemoryChecker          # 内存检测
+└── ProductionBridge/              # 生产衔接案例
+    ├── CaseStudy-WeChat.pcapng    # 协议抓包分析
+    └── VIPER-Sample/              # 真实项目代码片段
+        └── MessageModule/         # 消息模块实现
+
 
 ```
 ## 贡献
