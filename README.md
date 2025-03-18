@@ -155,28 +155,6 @@ Socket通信模块架构
 ## 项目结构
 
 ```
-
-iOS-Network-Stack-Dive/
-
-├── Architecture/                 # 架构扩展
-│   ├── VIPER/                   # VIPER适配
-│   │   ├── NetworkService/      # 网络服务
-│   │   └── DI Container/        # 依赖注入
-│   └── AOP/                     # 切面编程
-│       ├── Monitor/             # 性能监控
-│       └── Logger/              # 请求追踪
-├── Labs/                        # 实验体系
-│   ├── SocketLab/               # BSD Socket实验
-│   └── ProtocolLab/             # 协议设计沙盒
-├── Tools/                       # 开发支持
-│   ├── Debugger/                # 网络调试工具
-│   └── Simulator/               # 弱网模拟器
-└── Production/                  # 生产衔接
-    ├── CaseStudy/               # 微信协议分析
-    └── VIPER-Sample/            # 真实模块实现
-
-
-```
 iOS-Network-Stack-Dive
 # 项目结构设计（后续会慢慢调整）
 
