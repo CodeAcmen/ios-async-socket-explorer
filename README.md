@@ -155,6 +155,28 @@ Socket通信模块架构
 ## 项目结构
 
 ```
+
+iOS-Network-Stack-Dive/
+
+├── Architecture/                 # 架构扩展
+│   ├── VIPER/                   # VIPER适配
+│   │   ├── NetworkService/      # 网络服务
+│   │   └── DI Container/        # 依赖注入
+│   └── AOP/                     # 切面编程
+│       ├── Monitor/             # 性能监控
+│       └── Logger/              # 请求追踪
+├── Labs/                        # 实验体系
+│   ├── SocketLab/               # BSD Socket实验
+│   └── ProtocolLab/             # 协议设计沙盒
+├── Tools/                       # 开发支持
+│   ├── Debugger/                # 网络调试工具
+│   └── Simulator/               # 弱网模拟器
+└── Production/                  # 生产衔接
+    ├── CaseStudy/               # 微信协议分析
+    └── VIPER-Sample/            # 真实模块实现
+
+
+```
 iOS-Network-Stack-Dive
 # 项目结构设计（后续会慢慢调整）
 
@@ -174,8 +196,8 @@ iOS-Network-Stack-Dive/
 │   └── AdvancedLabs/              
 │       ├── CustomProtocol-Lab/    # 协议设计沙盒
 │       └── WeakNetwork-Simulation/ # 弱网模拟测试
-├── ArchitectureExtensions/        # 生产级架构扩展
-│   ├── VIPER-Integration/         # VIPER架构适配
+├── ArchitectureExtensions/       
+│   ├── VIPER-Integration/         # 生产级VIPER架构
 │   │   ├── NetworkService/        # 网络服务层
 │   │   │   ├── ConnectionManager/ # 连接池管理
 │   │   │   └── ProtocolAdapter/   # 协议适配器
@@ -183,7 +205,7 @@ iOS-Network-Stack-Dive/
 │   └── AOP/                       # 切面编程组件
 │       ├── NetworkMonitor/        # 网络监控切面
 │       └── LoggingAspect/         # 日志追踪切面
-├── CoreNetworkStack/              # 核心网络栈实现
+├── CoreNetworkStack/              
 │   ├── TransportLayer/            # 传输层实现
 │   │   ├── TCP-State-Machine/     # TCP状态机实现
 │   │   └── Reliable-UDP/          # 可靠UDP实现
