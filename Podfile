@@ -7,5 +7,6 @@ target 'iOS-Network-Stack-Dive' do
 
   # Pods for iOS-Network-Stack-Dive
   pod 'CocoaAsyncSocket'
+  pod 'Reachability', '3.7.5'
 
 end

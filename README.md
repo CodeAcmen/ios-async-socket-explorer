@@ -146,6 +146,7 @@ Socket通信模块架构
 - [Wireshark](https://www.wireshark.org/) - 网络协议分析工具，帮助开发者监控和分析网络通信数据，调试网络层问题。
 - [Charles Proxy](https://www.charlesproxy.com/) - 网络请求调试工具，适用于捕获、分析和调试HTTP/HTTPS请求。
 - [Typhoon](https://github.com/appsquickly/Typhoon) - 一个依赖注入框架，用于iOS项目中管理对象依赖，帮助解耦组件，提升代码可维护性、可测试性。通过Typhoon可以实现清晰的依赖关系管理，支持生产级应用中的架构设计。
+- [Reachability](https://github.com/tonymillion/Reachability) - 非常常用的网络状态监听库，用来检测设备当前的网络连接状态。
 
 ### 在线资源
 - [TCP/IP详解在线教程](http://www.tcpipguide.com/) - 一份详尽的TCP/IP协议教程，涵盖了从基础到高级的各个方面。

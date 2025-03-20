@@ -3,7 +3,7 @@
 //  iOS-Network-Stack-Dive
 //
 //  Created by 唐佳鹏 on 2025/3/18.
-//  粘包问题解决方案
+//  解决粘包问题的基本方式
 
 #import <UIKit/UIKit.h>
 

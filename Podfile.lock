@@ -1,16 +1,20 @@
 PODS:
   - CocoaAsyncSocket (7.6.5)
+  - Reachability (3.7.5)
 
 DEPENDENCIES:
   - CocoaAsyncSocket
+  - Reachability (= 3.7.5)
 
 SPEC REPOS:
   trunk:
     - CocoaAsyncSocket
+    - Reachability
 
 SPEC CHECKSUMS:
   CocoaAsyncSocket: 065fd1e645c7abab64f7a6a2007a48038fdc6a99
+  Reachability: 44d15955cdaee6cef699877e1f6647dd6f6698cc
 
-PODFILE CHECKSUM: f3dae3db2b5034579f74b430956b69797e326a14
+PODFILE CHECKSUM: ba3f415bc78ff1672d92b05771a6a94ec2c76e98
 
 COCOAPODS: 1.16.2
