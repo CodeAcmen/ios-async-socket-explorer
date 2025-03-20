@@ -13,21 +13,31 @@
 		0CD72127DA641AD9C10CF2DB2D352C6D /* CocoaAsyncSocket-umbrella.h in Headers */ = {isa = PBXBuildFile; fileRef = 77E95E35ABDD10F5593A9DBC71540619 /* CocoaAsyncSocket-umbrella.h */; settings = {ATTRIBUTES = (Public, ); }; };
 		138463D749696B86F3324AC0882A64EB /* GCDAsyncSocket.m in Sources */ = {isa = PBXBuildFile; fileRef = CADA6E116BE4E6092F1C0BCAD991C871 /* GCDAsyncSocket.m */; };
 		147A5463FF6FFE40426B898B60344085 /* CFNetwork.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 2F48E77F65314EA95BDDD2E3F4D6E00A /* CFNetwork.framework */; };
+		265465EF30F2D757B410CDD7691963D2 /* Pods-iOS-Network-Stack-DiveTests-umbrella.h in Headers */ = {isa = PBXBuildFile; fileRef = B275907EF77749FCFDEB8012C68FD2AF /* Pods-iOS-Network-Stack-DiveTests-umbrella.h */; settings = {ATTRIBUTES = (Public, ); }; };
 		561D1F03868EC8BA84A2B6A22031CB49 /* Foundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 243E25DDC7264B2D54D4F8E086BB1C7D /* Foundation.framework */; };
 		5884BE5A453A9E0417728E3FB8063EDD /* GCDAsyncSocket.h in Headers */ = {isa = PBXBuildFile; fileRef = 0707CD175F4C9CFF14FC48554F288B9B /* GCDAsyncSocket.h */; settings = {ATTRIBUTES = (Public, ); }; };
 		69B92D1883A2D2069444FAE5AAE6272A /* CocoaAsyncSocket-dummy.m in Sources */ = {isa = PBXBuildFile; fileRef = C609C8FE879DBCBE793060AB18EDA1BA /* CocoaAsyncSocket-dummy.m */; };
 		6E261D72B6817096F7A6E136C3B32A9F /* Reachability.m in Sources */ = {isa = PBXBuildFile; fileRef = 0EBC4953D45BD7CEBAE587AF2B11357A /* Reachability.m */; };
+		7FA24120022FEADB88091AB3EC4CBA41 /* Pods-iOS-Network-Stack-DiveTests-dummy.m in Sources */ = {isa = PBXBuildFile; fileRef = 117A01C6A59D9C5E9760376F1F0E3188 /* Pods-iOS-Network-Stack-DiveTests-dummy.m */; };
 		8632C5137523138C2CE74247D24B9B31 /* Reachability-umbrella.h in Headers */ = {isa = PBXBuildFile; fileRef = D33F7C85190FC8035A12BBEFF26D2775 /* Reachability-umbrella.h */; settings = {ATTRIBUTES = (Public, ); }; };
 		95621F7EE7F56B1ACF4141E6EFB175A8 /* GCDAsyncUdpSocket.h in Headers */ = {isa = PBXBuildFile; fileRef = 9A472C60F685713D030FA1EE6218801A /* GCDAsyncUdpSocket.h */; settings = {ATTRIBUTES = (Public, ); }; };
 		A8E58BF4665F9CC4142EA41D80CD6E17 /* Reachability-dummy.m in Sources */ = {isa = PBXBuildFile; fileRef = E5F9ED01DD8DA5367B47286997229367 /* Reachability-dummy.m */; };
 		AA14FA452C6E6DCB9D55BEC86A91ECB2 /* SystemConfiguration.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = C36E0A5600B094F72AECD2A67070D6AD /* SystemConfiguration.framework */; };
-		B05B70384051BCEFE34B63C01428884C /* Pods-iOS-Network-Stack-Dive-dummy.m in Sources */ = {isa = PBXBuildFile; fileRef = 73B4E57FA780871B0B667CDFCA0AED77 /* Pods-iOS-Network-Stack-Dive-dummy.m */; };
-		BB4F6E962A50C2177569293796725202 /* Pods-iOS-Network-Stack-Dive-umbrella.h in Headers */ = {isa = PBXBuildFile; fileRef = D3617612BB5AE319ABF6248D928A0114 /* Pods-iOS-Network-Stack-Dive-umbrella.h */; settings = {ATTRIBUTES = (Public, ); }; };
+		B05B70384051BCEFE34B63C01428884C /* Pods-iOS-Network-Stack-Dive-dummy.m in Sources */ = {isa = PBXBuildFile; fileRef = 1DA1069720847BFB84B79C8D76FBBDE1 /* Pods-iOS-Network-Stack-Dive-dummy.m */; };
+		BB4F6E962A50C2177569293796725202 /* Pods-iOS-Network-Stack-Dive-umbrella.h in Headers */ = {isa = PBXBuildFile; fileRef = C79EF6479624C980805DBAF0EE0BEAB9 /* Pods-iOS-Network-Stack-Dive-umbrella.h */; settings = {ATTRIBUTES = (Public, ); }; };
 		D875F931575EA6C3308F17F716CC8748 /* Foundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 243E25DDC7264B2D54D4F8E086BB1C7D /* Foundation.framework */; };
 		DE5CB39DB19EE9A2F044B3AD41BCE22D /* Reachability.h in Headers */ = {isa = PBXBuildFile; fileRef = 916F144977251C9D6C65919356A00782 /* Reachability.h */; settings = {ATTRIBUTES = (Public, ); }; };
+		E01CB0AF9BAABDA843276DC1D580CBA5 /* Foundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 243E25DDC7264B2D54D4F8E086BB1C7D /* Foundation.framework */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
+		21B34C4D7D50534AA11D42202ADB833C /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = BFDFE7DC352907FC980B868725387E98 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 630AEC5FE2D10DE4AF88009DC6EC819A;
+			remoteInfo = "Pods-iOS-Network-Stack-Dive";
+		};
 		46F2F1EC523BEF4726F8975F32CDF747 /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
 			containerPortal = BFDFE7DC352907FC980B868725387E98 /* Project object */;
@@ -47,41 +57,50 @@
 /* Begin PBXFileReference section */
 		0707CD175F4C9CFF14FC48554F288B9B /* GCDAsyncSocket.h */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.c.h; name = GCDAsyncSocket.h; path = Source/GCD/GCDAsyncSocket.h; sourceTree = "<group>"; };
 		0A011E01CFD7E2EA3B7C4E54D08211A9 /* Reachability.release.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; path = Reachability.release.xcconfig; sourceTree = "<group>"; };
-		0CA3C5A0FCD5B42FA994D2C3B8922BC0 /* Pods-iOS-Network-Stack-Dive.modulemap */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.module; path = "Pods-iOS-Network-Stack-Dive.modulemap"; sourceTree = "<group>"; };
 		0EBC4953D45BD7CEBAE587AF2B11357A /* Reachability.m */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.c.objc; path = Reachability.m; sourceTree = "<group>"; };
-		0F9797065B3FF50D21FBE8AC939D2A38 /* Pods-iOS-Network-Stack-Dive-acknowledgements.plist */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.plist.xml; path = "Pods-iOS-Network-Stack-Dive-acknowledgements.plist"; sourceTree = "<group>"; };
+		117A01C6A59D9C5E9760376F1F0E3188 /* Pods-iOS-Network-Stack-DiveTests-dummy.m */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.c.objc; path = "Pods-iOS-Network-Stack-DiveTests-dummy.m"; sourceTree = "<group>"; };
+		1DA1069720847BFB84B79C8D76FBBDE1 /* Pods-iOS-Network-Stack-Dive-dummy.m */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.c.objc; path = "Pods-iOS-Network-Stack-Dive-dummy.m"; sourceTree = "<group>"; };
 		1DF156E2144DC7424B36094557F596F4 /* Reachability-Info.plist */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.plist.xml; path = "Reachability-Info.plist"; sourceTree = "<group>"; };
 		243E25DDC7264B2D54D4F8E086BB1C7D /* Foundation.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Foundation.framework; path = Platforms/iPhoneOS.platform/Developer/SDKs/iPhoneOS18.0.sdk/System/Library/Frameworks/Foundation.framework; sourceTree = DEVELOPER_DIR; };
 		2F48E77F65314EA95BDDD2E3F4D6E00A /* CFNetwork.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = CFNetwork.framework; path = Platforms/iPhoneOS.platform/Developer/SDKs/iPhoneOS18.0.sdk/System/Library/Frameworks/CFNetwork.framework; sourceTree = DEVELOPER_DIR; };
 		2FA1C3A65453B454E9F5FF949633CD2D /* CocoaAsyncSocket-Info.plist */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.plist.xml; path = "CocoaAsyncSocket-Info.plist"; sourceTree = "<group>"; };
+		33A454DEA65F890B5D541AFA9112D042 /* Pods-iOS-Network-Stack-Dive.release.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; path = "Pods-iOS-Network-Stack-Dive.release.xcconfig"; sourceTree = "<group>"; };
 		3A2BAEA5B451E34DEC37D636FB3AF991 /* CocoaAsyncSocket.modulemap */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.module; path = CocoaAsyncSocket.modulemap; sourceTree = "<group>"; };
-		3FF40F765B4497251EA36720C67C9DE1 /* Pods-iOS-Network-Stack-Dive.debug.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; path = "Pods-iOS-Network-Stack-Dive.debug.xcconfig"; sourceTree = "<group>"; };
 		400FF55D0451E7A8F33A3D0D3E11C1B9 /* Reachability */ = {isa = PBXFileReference; explicitFileType = wrapper.framework; includeInIndex = 0; name = Reachability; path = Reachability.framework; sourceTree = BUILT_PRODUCTS_DIR; };
 		4333FDE3D91A727D8108607671F2115D /* CocoaAsyncSocket.release.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; path = CocoaAsyncSocket.release.xcconfig; sourceTree = "<group>"; };
-		5DFBA58AE38969346DF4F197DC19CCBE /* Pods-iOS-Network-Stack-Dive-acknowledgements.markdown */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text; path = "Pods-iOS-Network-Stack-Dive-acknowledgements.markdown"; sourceTree = "<group>"; };
+		49EC910F7C71E31AC70316BCD6E737B5 /* Pods-iOS-Network-Stack-Dive-acknowledgements.markdown */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text; path = "Pods-iOS-Network-Stack-Dive-acknowledgements.markdown"; sourceTree = "<group>"; };
 		6B2F806F1DC79612A349FE23E2B2517F /* Reachability.debug.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; path = Reachability.debug.xcconfig; sourceTree = "<group>"; };
 		6C682FF2980AA5973297C504CC89C2EF /* GCDAsyncUdpSocket.m */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.c.objc; name = GCDAsyncUdpSocket.m; path = Source/GCD/GCDAsyncUdpSocket.m; sourceTree = "<group>"; };
 		6CBEFE4F9E22AFDC6347A739BB35FF8C /* CocoaAsyncSocket */ = {isa = PBXFileReference; explicitFileType = wrapper.framework; includeInIndex = 0; name = CocoaAsyncSocket; path = CocoaAsyncSocket.framework; sourceTree = BUILT_PRODUCTS_DIR; };
 		6CF6A0955BE32AB601ACF2C4277C0A76 /* Reachability.modulemap */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.module; path = Reachability.modulemap; sourceTree = "<group>"; };
-		73B4E57FA780871B0B667CDFCA0AED77 /* Pods-iOS-Network-Stack-Dive-dummy.m */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.c.objc; path = "Pods-iOS-Network-Stack-Dive-dummy.m"; sourceTree = "<group>"; };
 		77E95E35ABDD10F5593A9DBC71540619 /* CocoaAsyncSocket-umbrella.h */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.c.h; path = "CocoaAsyncSocket-umbrella.h"; sourceTree = "<group>"; };
+		7B0E9580E517368AC6031FB248C4AD51 /* Pods-iOS-Network-Stack-Dive-Info.plist */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.plist.xml; path = "Pods-iOS-Network-Stack-Dive-Info.plist"; sourceTree = "<group>"; };
 		7CA8BAF3CEA75065052F2E2D92CDBF33 /* Reachability-prefix.pch */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.c.h; path = "Reachability-prefix.pch"; sourceTree = "<group>"; };
 		8AEA2F92AE161A3CD9059649BB497327 /* Pods-iOS-Network-Stack-Dive */ = {isa = PBXFileReference; explicitFileType = wrapper.framework; includeInIndex = 0; name = "Pods-iOS-Network-Stack-Dive"; path = Pods_iOS_Network_Stack_Dive.framework; sourceTree = BUILT_PRODUCTS_DIR; };
+		90F13A8AD2C27DC922F09C77AAF6C115 /* Pods-iOS-Network-Stack-DiveTests-acknowledgements.plist */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.plist.xml; path = "Pods-iOS-Network-Stack-DiveTests-acknowledgements.plist"; sourceTree = "<group>"; };
 		916F144977251C9D6C65919356A00782 /* Reachability.h */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.c.h; path = Reachability.h; sourceTree = "<group>"; };
+		93818A6E60EF89659AA9A3A7CC97D4AF /* Pods-iOS-Network-Stack-Dive.modulemap */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.module; path = "Pods-iOS-Network-Stack-Dive.modulemap"; sourceTree = "<group>"; };
 		9422EB2E3A05772966F911C94D3A48DC /* Security.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Security.framework; path = Platforms/iPhoneOS.platform/Developer/SDKs/iPhoneOS18.0.sdk/System/Library/Frameworks/Security.framework; sourceTree = DEVELOPER_DIR; };
 		9A472C60F685713D030FA1EE6218801A /* GCDAsyncUdpSocket.h */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.c.h; name = GCDAsyncUdpSocket.h; path = Source/GCD/GCDAsyncUdpSocket.h; sourceTree = "<group>"; };
+		9AEFD803520F17319B6541B0999F0696 /* Pods-iOS-Network-Stack-DiveTests.debug.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; path = "Pods-iOS-Network-Stack-DiveTests.debug.xcconfig"; sourceTree = "<group>"; };
 		9D940727FF8FB9C785EB98E56350EF41 /* Podfile */ = {isa = PBXFileReference; explicitFileType = text.script.ruby; includeInIndex = 1; indentWidth = 2; lastKnownFileType = text; name = Podfile; path = ../Podfile; sourceTree = SOURCE_ROOT; tabWidth = 2; xcLanguageSpecificationIdentifier = xcode.lang.ruby; };
+		A0B69FC91C5F8873BBE543A74DF736B7 /* Pods-iOS-Network-Stack-Dive.debug.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; path = "Pods-iOS-Network-Stack-Dive.debug.xcconfig"; sourceTree = "<group>"; };
+		A26F7C6DBEFDDB6D93146E4B561DFAEA /* Pods-iOS-Network-Stack-Dive-acknowledgements.plist */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.plist.xml; path = "Pods-iOS-Network-Stack-Dive-acknowledgements.plist"; sourceTree = "<group>"; };
+		A443C69F8A192846AC63B3202379F32A /* Pods-iOS-Network-Stack-DiveTests */ = {isa = PBXFileReference; explicitFileType = wrapper.framework; includeInIndex = 0; name = "Pods-iOS-Network-Stack-DiveTests"; path = Pods_iOS_Network_Stack_DiveTests.framework; sourceTree = BUILT_PRODUCTS_DIR; };
 		A5862D1EFD353DCDDD109BACB6649ED4 /* CocoaAsyncSocket-prefix.pch */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.c.h; path = "CocoaAsyncSocket-prefix.pch"; sourceTree = "<group>"; };
-		B891CAADE0DE0987E2EE5FA320FE2FD1 /* Pods-iOS-Network-Stack-Dive-frameworks.sh */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.script.sh; path = "Pods-iOS-Network-Stack-Dive-frameworks.sh"; sourceTree = "<group>"; };
+		B275907EF77749FCFDEB8012C68FD2AF /* Pods-iOS-Network-Stack-DiveTests-umbrella.h */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.c.h; path = "Pods-iOS-Network-Stack-DiveTests-umbrella.h"; sourceTree = "<group>"; };
+		B4589468CC799EC2FEC5C297878A17C2 /* Pods-iOS-Network-Stack-DiveTests.modulemap */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.module; path = "Pods-iOS-Network-Stack-DiveTests.modulemap"; sourceTree = "<group>"; };
 		C36E0A5600B094F72AECD2A67070D6AD /* SystemConfiguration.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = SystemConfiguration.framework; path = Platforms/iPhoneOS.platform/Developer/SDKs/iPhoneOS18.0.sdk/System/Library/Frameworks/SystemConfiguration.framework; sourceTree = DEVELOPER_DIR; };
 		C609C8FE879DBCBE793060AB18EDA1BA /* CocoaAsyncSocket-dummy.m */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.c.objc; path = "CocoaAsyncSocket-dummy.m"; sourceTree = "<group>"; };
+		C79EF6479624C980805DBAF0EE0BEAB9 /* Pods-iOS-Network-Stack-Dive-umbrella.h */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.c.h; path = "Pods-iOS-Network-Stack-Dive-umbrella.h"; sourceTree = "<group>"; };
 		CADA6E116BE4E6092F1C0BCAD991C871 /* GCDAsyncSocket.m */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.c.objc; name = GCDAsyncSocket.m; path = Source/GCD/GCDAsyncSocket.m; sourceTree = "<group>"; };
-		D1838892430A08C39A7FE9B4821920BE /* Pods-iOS-Network-Stack-Dive-Info.plist */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.plist.xml; path = "Pods-iOS-Network-Stack-Dive-Info.plist"; sourceTree = "<group>"; };
 		D33F7C85190FC8035A12BBEFF26D2775 /* Reachability-umbrella.h */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.c.h; path = "Reachability-umbrella.h"; sourceTree = "<group>"; };
-		D3617612BB5AE319ABF6248D928A0114 /* Pods-iOS-Network-Stack-Dive-umbrella.h */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.c.h; path = "Pods-iOS-Network-Stack-Dive-umbrella.h"; sourceTree = "<group>"; };
-		DF48C6F46C9BBB7BB7D9C25655E62241 /* Pods-iOS-Network-Stack-Dive.release.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; path = "Pods-iOS-Network-Stack-Dive.release.xcconfig"; sourceTree = "<group>"; };
 		E3FC23557DC05DA473E0F7F3F581247F /* CocoaAsyncSocket.debug.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; path = CocoaAsyncSocket.debug.xcconfig; sourceTree = "<group>"; };
 		E5F9ED01DD8DA5367B47286997229367 /* Reachability-dummy.m */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.c.objc; path = "Reachability-dummy.m"; sourceTree = "<group>"; };
+		E7315AFCD27A8D64CD42250723F06F93 /* Pods-iOS-Network-Stack-Dive-frameworks.sh */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.script.sh; path = "Pods-iOS-Network-Stack-Dive-frameworks.sh"; sourceTree = "<group>"; };
+		EE09B4445A8A3E160E5F18036CEB84BC /* Pods-iOS-Network-Stack-DiveTests-Info.plist */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.plist.xml; path = "Pods-iOS-Network-Stack-DiveTests-Info.plist"; sourceTree = "<group>"; };
+		EED32A01BC55B9597B4324A0187B6304 /* Pods-iOS-Network-Stack-DiveTests-acknowledgements.markdown */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text; path = "Pods-iOS-Network-Stack-DiveTests-acknowledgements.markdown"; sourceTree = "<group>"; };
+		EF602B1ADA5E3FF97F6D515061F8C58F /* Pods-iOS-Network-Stack-DiveTests.release.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; path = "Pods-iOS-Network-Stack-DiveTests.release.xcconfig"; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -102,6 +121,14 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		C1240B421F4054AB73F1035DD513264A /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				E01CB0AF9BAABDA843276DC1D580CBA5 /* Foundation.framework in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 		FA3F4FA98DFFB612E3B16EA4A609DAB7 /* Frameworks */ = {
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
@@ -115,6 +142,15 @@
 /* End PBXFrameworksBuildPhase section */
 
 /* Begin PBXGroup section */
+		07DDD37A13850F3886206441E96DF6EC /* Targets Support Files */ = {
+			isa = PBXGroup;
+			children = (
+				615FDF13B84149E886B6C67FF4ACF3EE /* Pods-iOS-Network-Stack-Dive */,
+				90AA35B7BEDA2062E7E265BCE43078FE /* Pods-iOS-Network-Stack-DiveTests */,
+			);
+			name = "Targets Support Files";
+			sourceTree = "<group>";
+		};
 		280E583C11EA630F3E6C6741DD5E6208 /* Support Files */ = {
 			isa = PBXGroup;
 			children = (
@@ -141,14 +177,21 @@
 			name = iOS;
 			sourceTree = "<group>";
 		};
-		6302819A40FEDA2C62B54303CECD59BB /* Products */ = {
+		615FDF13B84149E886B6C67FF4ACF3EE /* Pods-iOS-Network-Stack-Dive */ = {
 			isa = PBXGroup;
 			children = (
-				6CBEFE4F9E22AFDC6347A739BB35FF8C /* CocoaAsyncSocket */,
-				8AEA2F92AE161A3CD9059649BB497327 /* Pods-iOS-Network-Stack-Dive */,
-				400FF55D0451E7A8F33A3D0D3E11C1B9 /* Reachability */,
+				93818A6E60EF89659AA9A3A7CC97D4AF /* Pods-iOS-Network-Stack-Dive.modulemap */,
+				49EC910F7C71E31AC70316BCD6E737B5 /* Pods-iOS-Network-Stack-Dive-acknowledgements.markdown */,
+				A26F7C6DBEFDDB6D93146E4B561DFAEA /* Pods-iOS-Network-Stack-Dive-acknowledgements.plist */,
+				1DA1069720847BFB84B79C8D76FBBDE1 /* Pods-iOS-Network-Stack-Dive-dummy.m */,
+				E7315AFCD27A8D64CD42250723F06F93 /* Pods-iOS-Network-Stack-Dive-frameworks.sh */,
+				7B0E9580E517368AC6031FB248C4AD51 /* Pods-iOS-Network-Stack-Dive-Info.plist */,
+				C79EF6479624C980805DBAF0EE0BEAB9 /* Pods-iOS-Network-Stack-Dive-umbrella.h */,
+				A0B69FC91C5F8873BBE543A74DF736B7 /* Pods-iOS-Network-Stack-Dive.debug.xcconfig */,
+				33A454DEA65F890B5D541AFA9112D042 /* Pods-iOS-Network-Stack-Dive.release.xcconfig */,
 			);
-			name = Products;
+			name = "Pods-iOS-Network-Stack-Dive";
+			path = "Target Support Files/Pods-iOS-Network-Stack-Dive";
 			sourceTree = "<group>";
 		};
 		7623C6122432905CB1297210B578F7F4 /* Support Files */ = {
@@ -166,21 +209,20 @@
 			path = "../Target Support Files/Reachability";
 			sourceTree = "<group>";
 		};
-		981596B4AF4CECD54544172C8E5BD334 /* Pods-iOS-Network-Stack-Dive */ = {
+		90AA35B7BEDA2062E7E265BCE43078FE /* Pods-iOS-Network-Stack-DiveTests */ = {
 			isa = PBXGroup;
 			children = (
-				0CA3C5A0FCD5B42FA994D2C3B8922BC0 /* Pods-iOS-Network-Stack-Dive.modulemap */,
-				5DFBA58AE38969346DF4F197DC19CCBE /* Pods-iOS-Network-Stack-Dive-acknowledgements.markdown */,
-				0F9797065B3FF50D21FBE8AC939D2A38 /* Pods-iOS-Network-Stack-Dive-acknowledgements.plist */,
-				73B4E57FA780871B0B667CDFCA0AED77 /* Pods-iOS-Network-Stack-Dive-dummy.m */,
-				B891CAADE0DE0987E2EE5FA320FE2FD1 /* Pods-iOS-Network-Stack-Dive-frameworks.sh */,
-				D1838892430A08C39A7FE9B4821920BE /* Pods-iOS-Network-Stack-Dive-Info.plist */,
-				D3617612BB5AE319ABF6248D928A0114 /* Pods-iOS-Network-Stack-Dive-umbrella.h */,
-				3FF40F765B4497251EA36720C67C9DE1 /* Pods-iOS-Network-Stack-Dive.debug.xcconfig */,
-				DF48C6F46C9BBB7BB7D9C25655E62241 /* Pods-iOS-Network-Stack-Dive.release.xcconfig */,
+				B4589468CC799EC2FEC5C297878A17C2 /* Pods-iOS-Network-Stack-DiveTests.modulemap */,
+				EED32A01BC55B9597B4324A0187B6304 /* Pods-iOS-Network-Stack-DiveTests-acknowledgements.markdown */,
+				90F13A8AD2C27DC922F09C77AAF6C115 /* Pods-iOS-Network-Stack-DiveTests-acknowledgements.plist */,
+				117A01C6A59D9C5E9760376F1F0E3188 /* Pods-iOS-Network-Stack-DiveTests-dummy.m */,
+				EE09B4445A8A3E160E5F18036CEB84BC /* Pods-iOS-Network-Stack-DiveTests-Info.plist */,
+				B275907EF77749FCFDEB8012C68FD2AF /* Pods-iOS-Network-Stack-DiveTests-umbrella.h */,
+				9AEFD803520F17319B6541B0999F0696 /* Pods-iOS-Network-Stack-DiveTests.debug.xcconfig */,
+				EF602B1ADA5E3FF97F6D515061F8C58F /* Pods-iOS-Network-Stack-DiveTests.release.xcconfig */,
 			);
-			name = "Pods-iOS-Network-Stack-Dive";
-			path = "Target Support Files/Pods-iOS-Network-Stack-Dive";
+			name = "Pods-iOS-Network-Stack-DiveTests";
+			path = "Target Support Files/Pods-iOS-Network-Stack-DiveTests";
 			sourceTree = "<group>";
 		};
 		A0BC8ECCA684188A06390AB0E54413FE /* Reachability */ = {
@@ -192,6 +234,17 @@
 			);
 			name = Reachability;
 			path = Reachability;
+			sourceTree = "<group>";
+		};
+		B7B3ACD52012D396DB96E1E849C57AE8 /* Products */ = {
+			isa = PBXGroup;
+			children = (
+				6CBEFE4F9E22AFDC6347A739BB35FF8C /* CocoaAsyncSocket */,
+				8AEA2F92AE161A3CD9059649BB497327 /* Pods-iOS-Network-Stack-Dive */,
+				A443C69F8A192846AC63B3202379F32A /* Pods-iOS-Network-Stack-DiveTests */,
+				400FF55D0451E7A8F33A3D0D3E11C1B9 /* Reachability */,
+			);
+			name = Products;
 			sourceTree = "<group>";
 		};
 		BA4F31F07263C99FC76E66D632A59F09 /* Frameworks */ = {
@@ -208,8 +261,8 @@
 				9D940727FF8FB9C785EB98E56350EF41 /* Podfile */,
 				BA4F31F07263C99FC76E66D632A59F09 /* Frameworks */,
 				EF5B98FC1CCFB24DAE62E891BB564B6B /* Pods */,
-				6302819A40FEDA2C62B54303CECD59BB /* Products */,
-				FB826AEBE08F76642995250019ABE93F /* Targets Support Files */,
+				B7B3ACD52012D396DB96E1E849C57AE8 /* Products */,
+				07DDD37A13850F3886206441E96DF6EC /* Targets Support Files */,
 			);
 			sourceTree = "<group>";
 		};
@@ -235,14 +288,6 @@
 			name = Pods;
 			sourceTree = "<group>";
 		};
-		FB826AEBE08F76642995250019ABE93F /* Targets Support Files */ = {
-			isa = PBXGroup;
-			children = (
-				981596B4AF4CECD54544172C8E5BD334 /* Pods-iOS-Network-Stack-Dive */,
-			);
-			name = "Targets Support Files";
-			sourceTree = "<group>";
-		};
 /* End PBXGroup section */
 
 /* Begin PBXHeadersBuildPhase section */
@@ -251,6 +296,14 @@
 			buildActionMask = 2147483647;
 			files = (
 				BB4F6E962A50C2177569293796725202 /* Pods-iOS-Network-Stack-Dive-umbrella.h in Headers */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		1A8622E72D37845A481115337333CECB /* Headers */ = {
+			isa = PBXHeadersBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				265465EF30F2D757B410CDD7691963D2 /* Pods-iOS-Network-Stack-DiveTests-umbrella.h in Headers */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -276,6 +329,25 @@
 /* End PBXHeadersBuildPhase section */
 
 /* Begin PBXNativeTarget section */
+		498F16FB9B1AF5229DA97AFD7402676F /* Pods-iOS-Network-Stack-DiveTests */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = FA978F0433BE9AB3BB2BD42922346B4D /* Build configuration list for PBXNativeTarget "Pods-iOS-Network-Stack-DiveTests" */;
+			buildPhases = (
+				1A8622E72D37845A481115337333CECB /* Headers */,
+				9724F8399E7C19B699CC2DF48956BC6A /* Sources */,
+				C1240B421F4054AB73F1035DD513264A /* Frameworks */,
+				DEE28D8DB2CEAFE6CB22BB3A9441BEEB /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				DE2477660D94436F95E8607A88C2D510 /* PBXTargetDependency */,
+			);
+			name = "Pods-iOS-Network-Stack-DiveTests";
+			productName = Pods_iOS_Network_Stack_DiveTests;
+			productReference = A443C69F8A192846AC63B3202379F32A /* Pods-iOS-Network-Stack-DiveTests */;
+			productType = "com.apple.product-type.framework";
+		};
 		6083682834ABE0AE7BD1CBF06CADD036 /* CocoaAsyncSocket */ = {
 			isa = PBXNativeTarget;
 			buildConfigurationList = 7C5D55F9FC3A8A30A56D403120D1C06B /* Build configuration list for PBXNativeTarget "CocoaAsyncSocket" */;
@@ -352,12 +424,13 @@
 			mainGroup = CF1408CF629C7361332E53B88F7BD30C;
 			minimizedProjectReferenceProxies = 0;
 			preferredProjectObjectVersion = 77;
-			productRefGroup = 6302819A40FEDA2C62B54303CECD59BB /* Products */;
+			productRefGroup = B7B3ACD52012D396DB96E1E849C57AE8 /* Products */;
 			projectDirPath = "";
 			projectRoot = "";
 			targets = (
 				6083682834ABE0AE7BD1CBF06CADD036 /* CocoaAsyncSocket */,
 				630AEC5FE2D10DE4AF88009DC6EC819A /* Pods-iOS-Network-Stack-Dive */,
+				498F16FB9B1AF5229DA97AFD7402676F /* Pods-iOS-Network-Stack-DiveTests */,
 				CAA047C0F5E4106F3904E8497FA17F97 /* Reachability */,
 			);
 		};
@@ -372,6 +445,13 @@
 			runOnlyForDeploymentPostprocessing = 0;
 		};
 		AD591B1ADF4AA6BD222E6FD36DB9138E /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		DEE28D8DB2CEAFE6CB22BB3A9441BEEB /* Resources */ = {
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
@@ -415,6 +495,14 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		9724F8399E7C19B699CC2DF48956BC6A /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				7FA24120022FEADB88091AB3EC4CBA41 /* Pods-iOS-Network-Stack-DiveTests-dummy.m in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 /* End PBXSourcesBuildPhase section */
 
 /* Begin PBXTargetDependency section */
@@ -429,6 +517,12 @@
 			name = CocoaAsyncSocket;
 			target = 6083682834ABE0AE7BD1CBF06CADD036 /* CocoaAsyncSocket */;
 			targetProxy = 756520EB096FE091079B7B3A50468615 /* PBXContainerItemProxy */;
+		};
+		DE2477660D94436F95E8607A88C2D510 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			name = "Pods-iOS-Network-Stack-Dive";
+			target = 630AEC5FE2D10DE4AF88009DC6EC819A /* Pods-iOS-Network-Stack-Dive */;
+			targetProxy = 21B34C4D7D50534AA11D42202ADB833C /* PBXContainerItemProxy */;
 		};
 /* End PBXTargetDependency section */
 
@@ -575,7 +669,7 @@
 		};
 		6254A1D69187463832D72D1EFB0762BE /* Debug */ = {
 			isa = XCBuildConfiguration;
-			baseConfigurationReference = 3FF40F765B4497251EA36720C67C9DE1 /* Pods-iOS-Network-Stack-Dive.debug.xcconfig */;
+			baseConfigurationReference = A0B69FC91C5F8873BBE543A74DF736B7 /* Pods-iOS-Network-Stack-Dive.debug.xcconfig */;
 			buildSettings = {
 				ALWAYS_EMBED_SWIFT_STANDARD_LIBRARIES = NO;
 				CLANG_ENABLE_OBJC_WEAK = NO;
@@ -717,9 +811,88 @@
 			};
 			name = Debug;
 		};
+		BF1FA353FB7F61237DE3BEA7B4761084 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			baseConfigurationReference = 9AEFD803520F17319B6541B0999F0696 /* Pods-iOS-Network-Stack-DiveTests.debug.xcconfig */;
+			buildSettings = {
+				ALWAYS_EMBED_SWIFT_STANDARD_LIBRARIES = NO;
+				CLANG_ENABLE_OBJC_WEAK = NO;
+				"CODE_SIGN_IDENTITY[sdk=appletvos*]" = "";
+				"CODE_SIGN_IDENTITY[sdk=iphoneos*]" = "";
+				"CODE_SIGN_IDENTITY[sdk=watchos*]" = "";
+				CURRENT_PROJECT_VERSION = 1;
+				DEFINES_MODULE = YES;
+				DYLIB_COMPATIBILITY_VERSION = 1;
+				DYLIB_CURRENT_VERSION = 1;
+				DYLIB_INSTALL_NAME_BASE = "@rpath";
+				ENABLE_MODULE_VERIFIER = NO;
+				ENABLE_USER_SCRIPT_SANDBOXING = NO;
+				INFOPLIST_FILE = "Target Support Files/Pods-iOS-Network-Stack-DiveTests/Pods-iOS-Network-Stack-DiveTests-Info.plist";
+				INSTALL_PATH = "$(LOCAL_LIBRARY_DIR)/Frameworks";
+				IPHONEOS_DEPLOYMENT_TARGET = 15.6;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@loader_path/Frameworks",
+				);
+				MACH_O_TYPE = staticlib;
+				MODULEMAP_FILE = "Target Support Files/Pods-iOS-Network-Stack-DiveTests/Pods-iOS-Network-Stack-DiveTests.modulemap";
+				OTHER_LDFLAGS = "";
+				OTHER_LIBTOOLFLAGS = "";
+				PODS_ROOT = "$(SRCROOT)";
+				PRODUCT_BUNDLE_IDENTIFIER = "org.cocoapods.${PRODUCT_NAME:rfc1034identifier}";
+				PRODUCT_NAME = "$(TARGET_NAME:c99extidentifier)";
+				SDKROOT = iphoneos;
+				SKIP_INSTALL = YES;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				VERSIONING_SYSTEM = "apple-generic";
+				VERSION_INFO_PREFIX = "";
+			};
+			name = Debug;
+		};
+		D1B86CE90CB6C980FC2CF96438E48143 /* Release */ = {
+			isa = XCBuildConfiguration;
+			baseConfigurationReference = EF602B1ADA5E3FF97F6D515061F8C58F /* Pods-iOS-Network-Stack-DiveTests.release.xcconfig */;
+			buildSettings = {
+				ALWAYS_EMBED_SWIFT_STANDARD_LIBRARIES = NO;
+				CLANG_ENABLE_OBJC_WEAK = NO;
+				"CODE_SIGN_IDENTITY[sdk=appletvos*]" = "";
+				"CODE_SIGN_IDENTITY[sdk=iphoneos*]" = "";
+				"CODE_SIGN_IDENTITY[sdk=watchos*]" = "";
+				CURRENT_PROJECT_VERSION = 1;
+				DEFINES_MODULE = YES;
+				DYLIB_COMPATIBILITY_VERSION = 1;
+				DYLIB_CURRENT_VERSION = 1;
+				DYLIB_INSTALL_NAME_BASE = "@rpath";
+				ENABLE_MODULE_VERIFIER = NO;
+				ENABLE_USER_SCRIPT_SANDBOXING = NO;
+				INFOPLIST_FILE = "Target Support Files/Pods-iOS-Network-Stack-DiveTests/Pods-iOS-Network-Stack-DiveTests-Info.plist";
+				INSTALL_PATH = "$(LOCAL_LIBRARY_DIR)/Frameworks";
+				IPHONEOS_DEPLOYMENT_TARGET = 15.6;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@loader_path/Frameworks",
+				);
+				MACH_O_TYPE = staticlib;
+				MODULEMAP_FILE = "Target Support Files/Pods-iOS-Network-Stack-DiveTests/Pods-iOS-Network-Stack-DiveTests.modulemap";
+				OTHER_LDFLAGS = "";
+				OTHER_LIBTOOLFLAGS = "";
+				PODS_ROOT = "$(SRCROOT)";
+				PRODUCT_BUNDLE_IDENTIFIER = "org.cocoapods.${PRODUCT_NAME:rfc1034identifier}";
+				PRODUCT_NAME = "$(TARGET_NAME:c99extidentifier)";
+				SDKROOT = iphoneos;
+				SKIP_INSTALL = YES;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				VALIDATE_PRODUCT = YES;
+				VERSIONING_SYSTEM = "apple-generic";
+				VERSION_INFO_PREFIX = "";
+			};
+			name = Release;
+		};
 		F5FECBFF71AD94E4C33ADE6F96F9EC7C /* Release */ = {
 			isa = XCBuildConfiguration;
-			baseConfigurationReference = DF48C6F46C9BBB7BB7D9C25655E62241 /* Pods-iOS-Network-Stack-Dive.release.xcconfig */;
+			baseConfigurationReference = 33A454DEA65F890B5D541AFA9112D042 /* Pods-iOS-Network-Stack-Dive.release.xcconfig */;
 			buildSettings = {
 				ALWAYS_EMBED_SWIFT_STANDARD_LIBRARIES = NO;
 				CLANG_ENABLE_OBJC_WEAK = NO;
@@ -829,6 +1002,15 @@
 			buildConfigurations = (
 				6254A1D69187463832D72D1EFB0762BE /* Debug */,
 				F5FECBFF71AD94E4C33ADE6F96F9EC7C /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		FA978F0433BE9AB3BB2BD42922346B4D /* Build configuration list for PBXNativeTarget "Pods-iOS-Network-Stack-DiveTests" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				BF1FA353FB7F61237DE3BEA7B4761084 /* Debug */,
+				D1B86CE90CB6C980FC2CF96438E48143 /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;

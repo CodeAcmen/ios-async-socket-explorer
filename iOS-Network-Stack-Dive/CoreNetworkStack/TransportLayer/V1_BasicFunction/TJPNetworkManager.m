@@ -7,27 +7,27 @@
 
 #import "TJPNetworkManager.h"
 #import <Reachability/Reachability.h>
+#import <GCDAsyncSocket.h>
 #import <zlib.h>
 
 #import "TJPNetworkProtocol.h"
 #import "JZNetworkDefine.h"
 #import "TJPNETError.h"
 #import "TJPNETErrorHandler.h"
+#import "TJPSession.h"
 
 static const NSInteger kMaxReconnectAttempts = 5;
 //一般应用来说 30秒的最大延迟时间基本够用
 static const NSTimeInterval kMaxReconnectDelay = 30;
 
 
-@interface TJPNetworkManager () {
+@interface TJPNetworkManager ()  {
     //网络状态
     Reachability *_networkReachability;
     //网络队列
     dispatch_queue_t _networkQueue;
     //处理队列
     dispatch_queue_t _parseQueue;
-    //当前序列号
-    NSUInteger _currentSequence;
     //重试次数
     NSInteger _reconnectAttempt;
     //当前协议头
@@ -37,16 +37,11 @@ static const NSTimeInterval kMaxReconnectDelay = 30;
 @property (nonatomic, copy) NSString *host;
 @property (nonatomic, assign) uint16_t port;
 
-@property (atomic, assign) BOOL isConnected;
-
 //缓冲区
 @property (nonatomic, strong) NSMutableData *parseBuffer;
 //标志位
 @property (nonatomic, assign) BOOL isParsingHeader;
 
-
-//待确认消息
-@property (nonatomic, strong) NSMutableDictionary<NSNumber *, NSData *> *pendingMessages;
 //待确认心跳包
 @property (nonatomic, strong) NSMutableDictionary<NSNumber *, NSDate *> *pendingHeartbeats;
 
@@ -107,6 +102,8 @@ static const NSTimeInterval kMaxReconnectDelay = 30;
         if (!self.isConnected) return;
         
         NSData *packet = [self _buildPacketWithType:TJPMessageTypeNormalData data:data];
+        
+        [self.socket writeData:packet withTimeout:-1 tag:self->_currentSequence];
         
         //加入队列
         self.pendingMessages[@(self->_currentSequence)] = data;
