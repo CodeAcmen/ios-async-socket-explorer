@@ -7,12 +7,12 @@
 
 #import "TJPNETErrorHandler.h"
 #import "TJPNETError.h"
-#import "TJPNetworkManager.h"
+#import "TJPNetworkManagerV1.h"
 #import "JZNetworkDefine.h"
 
 @implementation TJPNETErrorHandler
 
-+ (void)handleError:(NSError *)error inManager:(TJPNetworkManager *)manager {
++ (void)handleError:(NSError *)error inManager:(TJPNetworkManagerV1 *)manager {
     switch ((TJPNETErrorCode)error.code) {
         case TJPNETErrorHeartbeatTimeout:
             [manager scheduleReconnect];

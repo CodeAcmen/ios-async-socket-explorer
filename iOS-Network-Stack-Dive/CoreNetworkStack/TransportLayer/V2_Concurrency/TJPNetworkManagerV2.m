@@ -1,11 +1,11 @@
 //
-//  TJPNetworkManager.m
+//  TJPNetworkManagerV2.m
 //  iOS-Network-Stack-Dive
 //
-//  Created by 唐佳鹏 on 2025/3/19.
+//  Created by 唐佳鹏 on 2025/3/21.
 //
 
-#import "TJPNetworkManager.h"
+#import "TJPNetworkManagerV2.h"
 #import <Reachability/Reachability.h>
 #import <GCDAsyncSocket.h>
 #import <zlib.h>
@@ -14,14 +14,13 @@
 #import "JZNetworkDefine.h"
 #import "TJPNETError.h"
 #import "TJPNETErrorHandler.h"
-#import "TJPSession.h"
 
 static const NSInteger kMaxReconnectAttempts = 5;
 //一般应用来说 30秒的最大延迟时间基本够用
 static const NSTimeInterval kMaxReconnectDelay = 30;
 
 
-@interface TJPNetworkManager ()  {
+@interface TJPNetworkManagerV2 () {
     //网络状态
     Reachability *_networkReachability;
     //网络队列
@@ -51,14 +50,13 @@ static const NSTimeInterval kMaxReconnectDelay = 30;
 
 @end
 
-@implementation TJPNetworkManager
-
+@implementation TJPNetworkManagerV2
 #pragma mark - Instancetype
 + (instancetype)shared {
-    static TJPNetworkManager *instance = nil;
+    static TJPNetworkManagerV2 *instance = nil;
     static dispatch_once_t onceToken;
     dispatch_once(&onceToken, ^{
-        instance = [[TJPNetworkManager alloc] init];
+        instance = [[TJPNetworkManagerV2 alloc] init];
     });
     return instance;
 }
@@ -106,13 +104,10 @@ static const NSTimeInterval kMaxReconnectDelay = 30;
         [self.socket writeData:packet withTimeout:-1 tag:self->_currentSequence];
         
         //加入队列
-        self.pendingMessages[@(self->_currentSequence)] = data;
-        dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(15 * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
-            if (self.pendingMessages[@(self->_currentSequence)]) {
-                TJPLOG_WARN(@"消息 %lu 超时未确认", (unsigned long)self->_currentSequence);
-                [self resendPacket:self->_currentSequence];
-            }
-        });
+        [self addPendingMessage:data forSequence:self->_currentSequence];
+        //检查超时
+        [self checkPendingMessageTimeoutForSequence:self->_currentSequence];
+
     });
 }
 
@@ -177,7 +172,7 @@ static const NSTimeInterval kMaxReconnectDelay = 30;
     [self.parseBuffer appendData:data];
     
     while (YES) {
-        if (self.isParsingHeader) {
+        if ([self isParsingHeaderSafe]) {
             if (self.parseBuffer.length < sizeof(TJPAdavancedHeader)) break;
             
             TJPAdavancedHeader currentHeader = {0};
@@ -192,7 +187,7 @@ static const NSTimeInterval kMaxReconnectDelay = 30;
                 return;
             }
             _currentHeader = currentHeader;
-            self.isParsingHeader = NO;
+            [self setIsParsingHeader:NO];
             // 移除已处理的Header数据
             [self.parseBuffer replaceBytesInRange:NSMakeRange(0, sizeof(TJPAdavancedHeader)) withBytes:NULL length:0];
         }
@@ -208,7 +203,7 @@ static const NSTimeInterval kMaxReconnectDelay = 30;
         //移除已处理部分
         [self.parseBuffer replaceBytesInRange:NSMakeRange(0, bodyLength) withBytes:NULL length:0];
 
-        self.isParsingHeader = YES;
+        [self setIsParsingHeader:YES];
     }
     //继续监听数据
     [sock readDataWithTimeout:-1 tag:0];
@@ -342,6 +337,42 @@ static const NSTimeInterval kMaxReconnectDelay = 30;
 }
 
 
+#pragma mark - Thread Safe Method
+- (void)setIsParsingHeaderSafe:(BOOL)value {
+    dispatch_async(self->_networkQueue, ^{
+        self->_isParsingHeader = value;
+    });
+}
+
+- (BOOL)isParsingHeaderSafe {
+    __block BOOL result;
+    dispatch_sync(self->_networkQueue, ^{
+        result = self->_isParsingHeader;
+    });
+    return result;
+}
+
+- (void)addPendingMessage:(NSData *)data forSequence:(NSUInteger)sequence {
+    dispatch_async(self->_networkQueue, ^{
+        self.pendingMessages[@(sequence)] = data;
+    });
+}
+
+- (void)removePendingMessageForSequence:(NSUInteger)sequence {
+    dispatch_async(self->_networkQueue, ^{
+        [self.pendingMessages removeObjectForKey:@(sequence)];
+    });
+}
+
+- (void)checkPendingMessageTimeoutForSequence:(NSUInteger)sequence {
+    dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(15 * NSEC_PER_SEC)), self->_networkQueue, ^{
+        if (self.pendingMessages[@(sequence)]) {
+            TJPLOG_WARN(@"消息 %lu 超时未确认", sequence);
+            [self resendPacket:sequence];
+        }
+    });
+}
+
 //ack确认
 - (void)sendACKForSequence:(uint32_t)sequence {
     dispatch_async(self->_networkQueue, ^{
@@ -371,10 +402,8 @@ static const NSTimeInterval kMaxReconnectDelay = 30;
 }
 
 - (void)handleACK:(uint32_t)sequence {
-    dispatch_async(self->_networkQueue, ^{
-        [self.pendingMessages removeObjectForKey:@(sequence)];
-        TJPLOG_INFO(@"收到 %u 的ACK", sequence);
-    });
+    TJPLOG_INFO(@"收到 %u 的ACK", sequence);
+    [self removePendingMessageForSequence:sequence];
 }
 
 
@@ -482,6 +511,4 @@ static const NSTimeInterval kMaxReconnectDelay = 30;
     }
     return _parseBuffer;
 }
-
-
 @end

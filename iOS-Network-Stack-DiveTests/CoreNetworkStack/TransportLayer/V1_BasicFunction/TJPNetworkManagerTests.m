@@ -6,11 +6,11 @@
 //  
 
 #import <XCTest/XCTest.h>
-#import "TJPNetworkManager.h"
+#import "TJPNetworkManagerV1.h"
 
 @interface TJPNetworkManagerTests : XCTestCase
 
-@property (nonatomic, strong) TJPNetworkManager *networkManager;
+@property (nonatomic, strong) TJPNetworkManagerV1 *networkManager;
 
 
 @end
@@ -18,7 +18,7 @@
 @implementation TJPNetworkManagerTests
 
 - (void)setUp {
-    self.networkManager = [TJPNetworkManager shared];
+    self.networkManager = [TJPNetworkManagerV1 shared];
 }
 
 - (void)tearDown {

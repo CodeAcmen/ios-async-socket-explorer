@@ -1,19 +1,18 @@
 //
-//  TJPNetworkManager.h
+//  TJPNetworkManagerV1.h
 //  iOS-Network-Stack-Dive
 //
 //  Created by 唐佳鹏 on 2025/3/19.
 //  1.0版本的网络核心是一个能用但存在并发问题的管理类  仅仅用于学习演示
-//  ⚠️【当前存在的问题】
-//  1️⃣ **并发问题**
+//   **并发问题**
 //     - `pendingMessages` 是 `NSMutableDictionary`，多线程访问时可能会崩溃。
 //     - `_currentSequence` 不是线程安全的，多线程操作可能导致序列号重复或丢失。
 //     - `isConnected` 虽然是 `atomic`，但仍然在高并发情况下存在竞态条件。
 //
-//  2️⃣ **断线重连机制问题**
+//   **断线重连机制问题**
 //     - `scheduleReconnect` 逻辑可能导致重复连接，特别是在 `reachableBlock` 回调中。
 //
-//  3️⃣ **数据解析问题**
+//   **数据解析问题**
 //     - `parseBuffer` 在高并发情况下可能出现数据解析不完整的问题。
 //     - `isParsingHeader` 状态可能导致数据处理异常。
 
@@ -23,11 +22,12 @@
 
 NS_ASSUME_NONNULL_BEGIN
 
-@interface TJPNetworkManager : NSObject <GCDAsyncSocketDelegate> {
+@interface TJPNetworkManagerV1 : NSObject <GCDAsyncSocketDelegate> {
     //当前序列号
 //    NSUInteger _currentSequence;
 }
 
+//声明成属性用于单元测试
 @property (nonatomic, assign) NSUInteger currentSequence;
 //待确认消息
 @property (nonatomic, strong) NSMutableDictionary<NSNumber *, NSData *> *pendingMessages;

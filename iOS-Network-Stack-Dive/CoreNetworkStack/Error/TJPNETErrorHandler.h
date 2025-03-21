@@ -8,10 +8,10 @@
 #import <Foundation/Foundation.h>
 
 NS_ASSUME_NONNULL_BEGIN
-@class TJPNetworkManager;
+@class TJPNetworkManagerV1;
 @interface TJPNETErrorHandler : NSObject
 
-+ (void)handleError:(NSError *)error inManager:(TJPNetworkManager *)manager;
++ (void)handleError:(NSError *)error inManager:(TJPNetworkManagerV1 *)manager;
 
 @end
 
