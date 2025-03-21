@@ -27,7 +27,7 @@
 - (void)viewDidLoad {
     [super viewDidLoad];
     self.view.backgroundColor = [UIColor whiteColor];
-
+    
     self.server = [[SocketChatServer alloc] init];
     self.server.delegate = self;
     [self.server startServerOnPort:8080];

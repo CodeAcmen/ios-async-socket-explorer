@@ -15,6 +15,7 @@
 #define TJPLOG_INFO(fmt, ...) NSLog(@"[INFO] " fmt, ##__VA_ARGS__)
 #define TJPLOG_WARN(fmt, ...) NSLog(@"[WARN] " fmt, ##__VA_ARGS__)
 #define TJPLOG_ERROR(fmt, ...) NSLog(@"[ERROR] " fmt, ##__VA_ARGS__)
+#define TJPLOG_MOCK(fmt, ...) NSLog(@"[MOCK] " fmt, ##__VA_ARGS__)
 
 
 

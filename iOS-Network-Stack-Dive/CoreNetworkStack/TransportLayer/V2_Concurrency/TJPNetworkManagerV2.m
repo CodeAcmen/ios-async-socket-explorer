@@ -10,7 +10,6 @@
 #import <GCDAsyncSocket.h>
 #import <zlib.h>
 
-#import "TJPNetworkProtocol.h"
 #import "JZNetworkDefine.h"
 #import "TJPNETError.h"
 #import "TJPNETErrorHandler.h"
@@ -41,12 +40,15 @@ static const NSTimeInterval kMaxReconnectDelay = 30;
 //标志位
 @property (nonatomic, assign) BOOL isParsingHeader;
 
-//待确认心跳包
-@property (nonatomic, strong) NSMutableDictionary<NSNumber *, NSDate *> *pendingHeartbeats;
 
 //心跳机制
 @property (nonatomic, strong) dispatch_source_t heartbeatTimer;
 @property (nonatomic, strong) NSDate *lastHeartbeatTime;
+
+
+//单元测试时关闭TLS
+@property (nonatomic, assign) BOOL enableTLS;
+
 
 @end
 
@@ -155,9 +157,11 @@ static const NSTimeInterval kMaxReconnectDelay = 30;
     self.isConnected = YES;
     _reconnectAttempt = 0;
     
-    //开启TLS/SSL
-    NSDictionary<NSString *, NSObject *> *settings = @{(id)kCFStreamSSLPeerName: host};
-    [sock startTLS:settings];
+    if (self.enableTLS) {
+        //开启TLS/SSL
+        NSDictionary<NSString *, NSObject *> *settings = @{(id)kCFStreamSSLPeerName: host};
+        [sock startTLS:settings];
+    }
     
     //开始心跳
     [self startHeartbeat];
@@ -168,17 +172,26 @@ static const NSTimeInterval kMaxReconnectDelay = 30;
 
 //接收到数据时会触发
 - (void)socket:(GCDAsyncSocket *)sock didReadData:(NSData *)data withTag:(long)tag {
+    dispatch_async(self->_networkQueue, ^{
+        //缓冲区填充内容
+        [self.parseBuffer appendData:data];
+        TJPLOG_MOCK(@"[客户端] 收到数据，parseBuffer 当前长度: %lu", (unsigned long)self.parseBuffer.length);
+        [self tryParseNextMessageIfNeeded];
+    });
     
-    [self.parseBuffer appendData:data];
-    
-    while (YES) {
-        if ([self isParsingHeaderSafe]) {
-            if (self.parseBuffer.length < sizeof(TJPAdavancedHeader)) break;
-            
+    //继续监听数据
+    [sock readDataWithTimeout:-1 tag:0];
+}
+
+- (void)tryParseNextMessageIfNeeded {
+    while (true) {
+        if (self->_isParsingHeader) {
+            if (self.parseBuffer.length < sizeof(TJPAdavancedHeader)) return;
+
             TJPAdavancedHeader currentHeader = {0};
             //解析头部
             [self.parseBuffer getBytes:&currentHeader length:sizeof(TJPAdavancedHeader)];
-            
+
             //校验魔数
             if (ntohl(currentHeader.magic) != kProtocolMagic) {
                 //魔数校验失败
@@ -186,30 +199,31 @@ static const NSTimeInterval kMaxReconnectDelay = 30;
                 [self resetParse];
                 return;
             }
-            _currentHeader = currentHeader;
-            [self setIsParsingHeader:NO];
+
+            self->_currentHeader = currentHeader;
             // 移除已处理的Header数据
             [self.parseBuffer replaceBytesInRange:NSMakeRange(0, sizeof(TJPAdavancedHeader)) withBytes:NULL length:0];
+            self->_isParsingHeader = NO;
         }
-        
+
         //读取消息体
-        uint32_t bodyLength = ntohl(_currentHeader.bodyLength);
-        if (self.parseBuffer.length < bodyLength) break;
-        
+        uint32_t bodyLength = ntohl(self->_currentHeader.bodyLength);
+        if (self.parseBuffer.length < bodyLength) return;
+
         //处理消息体
         NSData *payload = [self.parseBuffer subdataWithRange:NSMakeRange(0, bodyLength)];
-        [self processMessage:_currentHeader payload:payload];
-        
-        //移除已处理部分
         [self.parseBuffer replaceBytesInRange:NSMakeRange(0, bodyLength) withBytes:NULL length:0];
 
-        [self setIsParsingHeader:YES];
+        //移除已处理部分
+        [self processMessage:self->_currentHeader payload:payload];
+        self->_isParsingHeader = YES;
     }
-    //继续监听数据
-    [sock readDataWithTimeout:-1 tag:0];
 }
 
+
+
 - (void)processMessage:(TJPAdavancedHeader)header payload:(NSData *)payload {
+    TJPLOG_MOCK(@"[客户端] 成功触发 processMessage，payload 长度 = %lu 类型为:%i", payload.length, header.msgType);
     switch (ntohs(header.msgType)) {
         case TJPMessageTypeNormalData:
             [self handleDataMessage:header payload:payload];
@@ -221,11 +235,19 @@ static const NSTimeInterval kMaxReconnectDelay = 30;
             [self handleACK:ntohl(header.sequence)];
             break;
     }
+    
+    if (self.onMessageParsed) {
+        NSString *str = [[NSString alloc] initWithData:payload encoding:NSUTF8StringEncoding];
+        self.onMessageParsed(str);
+    }
 }
 
 
 
 - (void)socketDidDisconnect:(GCDAsyncSocket *)sock withError:(NSError *)err {
+    TJPLOG_ERROR(@"[客户端] socketDidDisconnect 被调用，error = %@", err);
+//    TJPLOG_WARN(@"[DEBUG] 断开原因堆栈: %@", [NSThread callStackSymbols]);
+    
     self.isConnected = NO;
     //停止心跳
     [self stopHeartbeat];
@@ -266,7 +288,7 @@ static const NSTimeInterval kMaxReconnectDelay = 30;
         weakSelf.lastHeartbeatTime = [NSDate date];
         
         //超时心跳检查
-        if ([[NSDate date] timeIntervalSinceDate:weakSelf.lastHeartbeatTime] > 30) {
+        if ([[NSDate date] timeIntervalSinceDate:self->_lastHeartbeatTime] > 30) {
             TJPLOG_WARN(@"心跳超时，主动断开连接");
             [weakSelf disconnectAndRetry];
         }
@@ -295,6 +317,11 @@ static const NSTimeInterval kMaxReconnectDelay = 30;
     
     // 记录发出的心跳包
     self.pendingHeartbeats[@(_currentSequence)] = [NSDate date];
+    
+    // 触发测试 hook
+    if (self.onSocketWrite) {
+        self.onSocketWrite(packet, 0);
+    }
 }
 
 
@@ -318,7 +345,7 @@ static const NSTimeInterval kMaxReconnectDelay = 30;
     uint16_t msgType = ntohs(header.msgType);
     switch (msgType) {
         case TJPMessageTypeNormalData:
-            TJPLOG_INFO(@"收到正常消息");
+            TJPLOG_INFO(@"收到正常消息  消息为:%@", [[NSString alloc] initWithData:payload encoding:NSUTF8StringEncoding]);
             //TODO 准备分发给业务层
             break;
             
@@ -336,42 +363,6 @@ static const NSTimeInterval kMaxReconnectDelay = 30;
     }
 }
 
-
-#pragma mark - Thread Safe Method
-- (void)setIsParsingHeaderSafe:(BOOL)value {
-    dispatch_async(self->_networkQueue, ^{
-        self->_isParsingHeader = value;
-    });
-}
-
-- (BOOL)isParsingHeaderSafe {
-    __block BOOL result;
-    dispatch_sync(self->_networkQueue, ^{
-        result = self->_isParsingHeader;
-    });
-    return result;
-}
-
-- (void)addPendingMessage:(NSData *)data forSequence:(NSUInteger)sequence {
-    dispatch_async(self->_networkQueue, ^{
-        self.pendingMessages[@(sequence)] = data;
-    });
-}
-
-- (void)removePendingMessageForSequence:(NSUInteger)sequence {
-    dispatch_async(self->_networkQueue, ^{
-        [self.pendingMessages removeObjectForKey:@(sequence)];
-    });
-}
-
-- (void)checkPendingMessageTimeoutForSequence:(NSUInteger)sequence {
-    dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(15 * NSEC_PER_SEC)), self->_networkQueue, ^{
-        if (self.pendingMessages[@(sequence)]) {
-            TJPLOG_WARN(@"消息 %lu 超时未确认", sequence);
-            [self resendPacket:sequence];
-        }
-    });
-}
 
 //ack确认
 - (void)sendACKForSequence:(uint32_t)sequence {
@@ -398,7 +389,8 @@ static const NSTimeInterval kMaxReconnectDelay = 30;
 }
 
 - (void)handleHeartbeat {
-    _lastHeartbeatTime = [NSDate date];
+    TJPLOG_INFO(@"收到心跳响应，更新时间戳");
+    self.lastHeartbeatTime = [NSDate date];
 }
 
 - (void)handleACK:(uint32_t)sequence {
@@ -489,6 +481,74 @@ static const NSTimeInterval kMaxReconnectDelay = 30;
 }
 
 
+
+#pragma mark - Thread Safe Method
+- (void)setIsParsingHeaderSafe:(BOOL)value {
+    dispatch_async(self->_networkQueue, ^{
+        self->_isParsingHeader = value;
+    });
+}
+
+- (void)addPendingMessage:(NSData *)data forSequence:(NSUInteger)sequence {
+    dispatch_async(self->_networkQueue, ^{
+        self.pendingMessages[@(sequence)] = data;
+    });
+}
+
+- (void)removePendingMessageForSequence:(NSUInteger)sequence {
+    dispatch_async(self->_networkQueue, ^{
+        [self.pendingMessages removeObjectForKey:@(sequence)];
+    });
+}
+
+- (void)checkPendingMessageTimeoutForSequence:(NSUInteger)sequence {
+    dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(5 * NSEC_PER_SEC)), self->_networkQueue, ^{
+        if (self.pendingMessages[@(sequence)]) {
+            TJPLOG_WARN(@"消息 %lu 超时未确认", sequence);
+            [self resendPacket:sequence];
+        }
+    });
+}
+
+- (void)clearParseBuffer {
+    dispatch_async(self->_networkQueue, ^{
+        [self.parseBuffer setLength:0];
+    });
+}
+
+
+- (void)readFromParseBufferWithLength:(NSUInteger)length completion:(void (^)(NSData *data))completion {
+    dispatch_async(self->_networkQueue, ^{
+        if (self.parseBuffer.length < length) {
+            if (completion) completion(nil);
+            return;
+        }
+        NSData *data = [self.parseBuffer subdataWithRange:NSMakeRange(0, length)];
+        if (completion) completion(data);
+    });
+}
+
+- (void)replaceParseBufferBytesInRange:(NSRange)range {
+    dispatch_async(self->_networkQueue, ^{
+        if (NSMaxRange(range) <= self.parseBuffer.length) {
+            [self.parseBuffer replaceBytesInRange:range withBytes:NULL length:0];
+        } else {
+            TJPLOG_WARN(@"替换超出 buffer 范围，已忽略操作");
+        }
+    });
+}
+
+
+- (void)getBytesFromParseBufferWithLength:(NSUInteger)length completion:(void (^)(const void *bytes))completion {
+    dispatch_async(self->_networkQueue, ^{
+        if (self.parseBuffer.length < length) {
+            if (completion) completion(NULL);
+            return;
+        }
+        const void *bytes = [self.parseBuffer bytes];
+        if (completion) completion(bytes);
+    });
+}
 
 #pragma mark - Lazy
 - (NSMutableDictionary<NSNumber *,NSData *> *)pendingMessages {

@@ -13,10 +13,12 @@
 //  gcd串行队列: 行队列的任务切换开销更小，避免了死锁、锁竞争等复杂问题
 //  结果:单元测试万级并发量依然稳定运行
 //
-//
+// v2.0具备:线程安全/工程级可复用/高并发下的稳定性
 
 #import <Foundation/Foundation.h>
 #import <GCDAsyncSocket.h>
+#import "TJPNetworkProtocol.h"
+
 
 NS_ASSUME_NONNULL_BEGIN
 
@@ -29,7 +31,8 @@ NS_ASSUME_NONNULL_BEGIN
 @property (nonatomic, assign) NSUInteger currentSequence;
 //待确认消息
 @property (nonatomic, strong) NSMutableDictionary<NSNumber *, NSData *> *pendingMessages;
-
+//待确认心跳包
+@property (nonatomic, strong) NSMutableDictionary<NSNumber *, NSDate *> *pendingHeartbeats;
 
 @property (nonatomic, strong) GCDAsyncSocket *socket;
 @property (atomic, assign) BOOL isConnected;
@@ -45,8 +48,18 @@ NS_ASSUME_NONNULL_BEGIN
 /// 重置连接
 - (void)resetConnection;
 
+- (void)resetParse;
+
 //并发安全写入
 - (void)addPendingMessage:(NSData *)data forSequence:(NSUInteger)sequence;
+
+
+
+
+//单元测试用的hook
+@property (nonatomic, copy) void (^onMessageParsed)(NSString *payloadStr);
+@property (nonatomic, copy) void (^onSocketWrite)(NSData *data, long tag);
+
 
 @end
 
