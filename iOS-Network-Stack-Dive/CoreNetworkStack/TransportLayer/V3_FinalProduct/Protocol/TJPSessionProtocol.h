@@ -9,8 +9,10 @@
 #import "TJPCoreTypes.h"
 
 NS_ASSUME_NONNULL_BEGIN
-
 @protocol TJPSessionProtocol <NSObject>
+
+@property (nonatomic, readonly) TJPConnectState connectState;
+
 /// 每个会话会有独立的id
 @property (nonatomic, copy, readonly) NSString *sessionId;
 
@@ -18,6 +20,8 @@ NS_ASSUME_NONNULL_BEGIN
 - (void)connectToHost:(NSString *)host port:(uint16_t)port;
 /// 发送消息
 - (void)sendData:(NSData *)data;
+/// 更新连接状态
+- (void)updateConnectionState:(TJPConnectState)state;
 /// 断开连接原因
 - (void)disconnectWithReason:(TJPDisconnectReason)reason;
 

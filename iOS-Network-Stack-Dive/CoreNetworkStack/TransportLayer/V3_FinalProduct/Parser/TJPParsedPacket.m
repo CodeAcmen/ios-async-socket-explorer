@@ -7,9 +7,7 @@
 
 #import "TJPParsedPacket.h"
 
-@implementation TJPParsedPacket {
-}
-
+@implementation TJPParsedPacket 
 
 + (instancetype)packetWithHeader:(TJPFinalAdavancedHeader)header payload:(NSData *)payload {
     TJPParsedPacket *packet = [[TJPParsedPacket alloc] init];

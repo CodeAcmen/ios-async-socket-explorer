@@ -10,10 +10,13 @@
 NS_ASSUME_NONNULL_BEGIN
 
 @interface TJPSequenceManager : NSObject
+/// 当前序列号
 @property (nonatomic, assign, readonly) uint32_t currentSequence;
 
 
+/// 获取下个序列号
 - (uint32_t)nextSequence;
+/// 重置序列号
 - (void)resetSequence;
 
 @end

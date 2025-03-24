@@ -3,7 +3,7 @@
 //  iOS-Network-Stack-Dive
 //
 //  Created by 唐佳鹏 on 2025/3/21.
-//  消息上下文
+//  消息上下文 用于记录相关元数据
 
 #import <Foundation/Foundation.h>
 

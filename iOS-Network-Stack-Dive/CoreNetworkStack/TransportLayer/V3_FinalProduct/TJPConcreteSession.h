@@ -3,7 +3,7 @@
 //  iOS-Network-Stack-Dive
 //
 //  Created by 唐佳鹏 on 2025/3/21.
-//
+//  会话类 核心之一
 
 #import <Foundation/Foundation.h>
 #import "TJPSessionProtocol.h"

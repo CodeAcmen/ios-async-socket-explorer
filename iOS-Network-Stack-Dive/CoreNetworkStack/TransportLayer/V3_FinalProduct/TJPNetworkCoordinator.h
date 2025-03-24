@@ -3,7 +3,7 @@
 //  iOS-Network-Stack-Dive
 //
 //  Created by 唐佳鹏 on 2025/3/21.
-//  
+//  中心管理类 核心类之一
 
 #import <Foundation/Foundation.h>
 #import "TJPCoreTypes.h"
@@ -13,7 +13,7 @@
 NS_ASSUME_NONNULL_BEGIN
 
 @protocol TJPSessionProtocol;
-@class Reachability;
+@class Reachability, TJPNetworkConfig;
 
 @interface TJPNetworkCoordinator : NSObject <TJPSessionDelegate>
 
@@ -21,8 +21,7 @@ NS_ASSUME_NONNULL_BEGIN
 @property (nonatomic, strong, readonly) NSMapTable<NSString *, id<TJPSessionProtocol>> *sessionMap;
 
 
-@property (nonatomic, strong) Reachability *networkReachability;
-
+@property (nonatomic, strong) Reachability *reachability;
 
 
 /// I/O专用队列
@@ -36,7 +35,7 @@ NS_ASSUME_NONNULL_BEGIN
 /// 创建会话方法
 - (id<TJPSessionProtocol>)createSessionWithConfiguration:(TJPNetworkConfig *)config;
 /// 统一更新所有会话状态
-- (void)updateAllSessionsStste:(TJPConnecationState)state;
+- (void)updateAllSessionsStste:(TJPConnectState)state;
 @end
 
 NS_ASSUME_NONNULL_END

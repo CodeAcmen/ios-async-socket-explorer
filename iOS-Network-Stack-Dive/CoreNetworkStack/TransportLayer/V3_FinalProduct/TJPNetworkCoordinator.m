@@ -16,8 +16,9 @@
 
 
 
-
 @interface TJPNetworkCoordinator () <TJPSessionDelegate>
+
+@property (nonatomic, strong) TJPNetworkConfig *currConfig;
 @end
 
 @implementation TJPNetworkCoordinator 
@@ -52,13 +53,62 @@
 }
 
 - (void)setupNetworkMonitoring {
+    // 初始化网络监控
+    self.reachability = [Reachability reachabilityForInternetConnection];
     
+    __weak typeof(self) weakSelf = self;
+    // 网络状态变更回调
+    self.reachability.reachableBlock = ^(Reachability *reachability) {
+        [weakSelf handleNetworkStateChange:reachability];
+    };
+    
+    self.reachability.unreachableBlock = ^(Reachability *reachability) {
+        [weakSelf handleNetworkStateChange:reachability];
+    };
+    
+    [self.reachability startNotifier];
 }
+
+- (void)handleNetworkStateChange:(Reachability *)reachability {
+    NetworkStatus status = [reachability currentReachabilityStatus];
+    
+    // 根据网络状态更新所有会话
+    switch (status) {
+        case NotReachable:
+            // 网络不可达时强制断开所有连接
+            [self updateAllSessionsState:TJPConnectStateDisconnected];
+            break;
+            
+        case ReachableViaWiFi:
+        case ReachableViaWWAN:
+            // 网络恢复时自动重连处于断开状态的会话
+            [self triggerAutoReconnect];
+            break;
+    }
+}
+
+
+- (void)triggerAutoReconnect {
+    dispatch_barrier_async(self.ioQueue, ^{
+        NSEnumerator *enumerator = [self.sessionMap objectEnumerator];
+        id<TJPSessionProtocol> session;
+        
+        while ((session = [enumerator nextObject])) {
+            if ([session.connectState isEqualToString:TJPConnectStateDisconnected]) {
+                // 只重连因网络问题断开的会话
+                [session connectToHost:self.currConfig.host port:self.currConfig.port];
+            }
+        }
+    });
+}
+
+
 
 
 
 #pragma mark - Public Method
 - (id<TJPSessionProtocol>)createSessionWithConfiguration:(TJPNetworkConfig *)config {
+    _currConfig = config;
     TJPConcreteSession *session = [[TJPConcreteSession alloc] initWithConfiguration:config];
     session.delegate = self;
     dispatch_barrier_async(self->_ioQueue, ^{
@@ -68,8 +118,25 @@
 }
 
 
-- (void)updateAllSessionsStste:(TJPConnecationState)state {
+- (void)updateAllSessionsState:(TJPConnectState)state {
+    dispatch_barrier_async(self.ioQueue, ^{
+        NSEnumerator *enumerator = [self.sessionMap objectEnumerator];
+        id<TJPSessionProtocol> session;
+        
+        while ((session = [enumerator nextObject])) {
+            if ([session respondsToSelector:@selector(updateConnectionState:)]) {
+                // 强制更新会话状态
+                [session updateConnectionState:state];
+                
+                // 特殊处理断开状态
+                if ([state isEqualToString:TJPConnectStateDisconnected]) {
+                    [session disconnectWithReason:TJPDisconnectReasonNetworkError];
+                }
+            }
+        }
+    });
 }
+
 
 #pragma mark - TJPSessionDelegate
 /// 接收到消息
@@ -78,8 +145,8 @@
     [[NSNotificationCenter defaultCenter] postNotificationName:kSessionDataReceiveNotification object:@{@"session": session, @"data": data}];
 }
 /// 状态改变
-- (void)session:(id<TJPSessionProtocol>)session stateChanged:(TJPConnecationState)state {
-    if (state == TJPConnecationStateDisconnected) {
+- (void)session:(id<TJPSessionProtocol>)session stateChanged:(TJPConnectState)state {
+    if ([state isEqualToString:TJPConnectStateDisconnected] ) {
         dispatch_barrier_async(self->_ioQueue, ^{
             [self.sessionMap removeObjectForKey:session.sessionId];
         });
@@ -88,3 +155,4 @@
 
 
 @end
+

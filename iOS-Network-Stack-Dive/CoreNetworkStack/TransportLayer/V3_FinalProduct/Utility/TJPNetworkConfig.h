@@ -3,13 +3,19 @@
 //  iOS-Network-Stack-Dive
 //
 //  Created by 唐佳鹏 on 2025/3/23.
-//
+//  配置类
 
 #import <Foundation/Foundation.h>
 
 NS_ASSUME_NONNULL_BEGIN
 
 @interface TJPNetworkConfig : NSObject
+
+/// 主机
+@property (nonatomic, copy) NSString *host;
+
+///端口号
+@property (nonatomic, assign) uint16_t port;
 
 /// 最大重试次数 默认5
 @property (nonatomic, assign) NSUInteger maxRetry;

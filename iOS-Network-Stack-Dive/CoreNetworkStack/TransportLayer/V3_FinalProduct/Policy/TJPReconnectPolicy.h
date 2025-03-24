@@ -12,7 +12,9 @@ NS_ASSUME_NONNULL_BEGIN
 
 @interface TJPReconnectPolicy : NSObject
 
+/// 最大尝试数
 @property (nonatomic, assign) NSInteger maxAttempts;
+/// 基础延迟
 @property (nonatomic, assign) NSTimeInterval baseDelay;
 
 

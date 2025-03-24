@@ -52,7 +52,7 @@ static const NSTimeInterval kMaxReconnectDelay = 30;
     //在指定的QoS级别的全局队列中调度重试任务
     dispatch_queue_t queue = dispatch_get_global_queue(_qosClass, 0);
     dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(delay * NSEC_PER_SEC)), queue, ^{
-        if ([TJPNetworkCoordinator shared].networkReachability) {
+        if ([TJPNetworkCoordinator shared].reachability) {
             if (connectionBlock) connectionBlock();
             self->_currentAttempt++;
         }

@@ -80,17 +80,6 @@ extern TJPConnectEvent const TJPConnectEventDisconnect;
 extern TJPConnectEvent const TJPConnectEventDisconnectComplete;
 
 
-TJPConnectState const TJPConnectStateDisconnected = @"Disconnected";
-TJPConnectState const TJPConnectStateConnecting = @"Connecting";
-TJPConnectState const TJPConnectStateConnected = @"Connected";
-TJPConnectState const TJPConnectStateDisconnecting = @"Disconnecting";
-
-TJPConnectEvent const TJPConnectEventConnect = @"Connect";                              //连接事件
-TJPConnectEvent const TJPConnectEventConnectSuccess = @"ConnectSuccess";                //连接成功事件
-TJPConnectEvent const TJPConnectEventConnectFailed = @"Failed";                         //连接错误事件
-TJPConnectEvent const TJPConnectEventDisconnect = @"Disconnect";                        //断开连接事件
-TJPConnectEvent const TJPConnectEventDisconnectComplete = @"DisconnectComplete";        //断开完成事件
-
 
 
 #endif /* TJPCoreTypes_h */

@@ -25,22 +25,19 @@
 
 static const NSTimeInterval kDefaultRetryInterval = 10;
 
-
 @interface TJPConcreteSession () <GCDAsyncSocketDelegate>
 
 @property (nonatomic, strong) GCDAsyncSocket *socket;
 @property (nonatomic, strong) dispatch_queue_t internalQueu;
 
-//连接状态机
+/// 连接状态机
 @property (nonatomic, strong) TJPConnectStateMachine *stateMachine;
-//连接状态
-//@property (nonatomic, assign) TJPConnecationState state;
 
 /// 重试策略
 @property (nonatomic, strong) TJPReconnectPolicy *reconnectPolicy;
 /// 动态心跳
 @property (nonatomic, strong) TJPDynamicHeartbeat *heartbeatManager;
-// 序列号
+/// 序列号管理
 @property (nonatomic, strong) TJPSequenceManager *seqManager;
 
 /// 协议处理
@@ -48,7 +45,7 @@ static const NSTimeInterval kDefaultRetryInterval = 10;
 /// 缓冲区
 @property (nonatomic, strong) NSMutableData *buffer;
 
-//待确认消息
+/// 待确认消息
 @property (nonatomic, strong) NSMutableDictionary<NSNumber *, TJPMessageContext *> *pendingMessages;
 
 
@@ -102,12 +99,12 @@ static const NSTimeInterval kDefaultRetryInterval = 10;
     __weak typeof(self) weakSelf = self;
     [_stateMachine onStateChange:^(TJPConnectState  _Nonnull oldState, TJPConnectState  _Nonnull newState) {
         TJPLOG_INFO(@"连接状态变更: 旧状态:%@ -> 新状态:%@", oldState, newState);
-        if (self.delegate && [self.delegate respondsToSelector:@selector(session:stateChanged:)]) {
-            [self.delegate session:self stateChanged:newState];
+        if (weakSelf.delegate && [weakSelf.delegate respondsToSelector:@selector(session:stateChanged:)]) {
+            [weakSelf.delegate session:weakSelf stateChanged:newState];
         }
         
         if ([newState isEqualToString:TJPConnectStateConnected]) {
-            [self flushPendingMessages];
+            [weakSelf flushPendingMessages];
         }
     }];
 
@@ -176,6 +173,10 @@ static const NSTimeInterval kDefaultRetryInterval = 10;
         [self.pendingMessages removeAllObjects];
     });
     
+}
+
+- (TJPConnectState)connectState {
+    return self.stateMachine.currentState;
 }
 
 #pragma mark - GCDAsyncSocketDelegate
@@ -294,13 +295,6 @@ static const NSTimeInterval kDefaultRetryInterval = 10;
     }
 }
 
-//状态变更通知
-- (void)notifyStateChange {
-    if (self.delegate && [self.delegate respondsToSelector:@selector(session:stateChanged:)]) {
-        [self.delegate session:self stateChanged:self.state];
-    }
-}
-
 - (void)handleError:(NSError *)error {
     TJPLOG_INFO(@"连接错误: %@", error.description);
     [self disconnectWithReason:TJPDisconnectReasonNetworkError];
@@ -315,11 +309,9 @@ static const NSTimeInterval kDefaultRetryInterval = 10;
     });
 }
 
-
 - (void)resetConnection {
     [self.heartbeatManager.sequenceManager resetSequence];
 }
-
 
 
 #pragma mark - Lazy
