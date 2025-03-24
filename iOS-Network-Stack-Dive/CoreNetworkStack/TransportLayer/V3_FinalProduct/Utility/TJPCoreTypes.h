@@ -78,6 +78,7 @@ extern TJPConnectEvent const TJPConnectEventConnectSuccess;
 extern TJPConnectEvent const TJPConnectEventConnectFailed;
 extern TJPConnectEvent const TJPConnectEventDisconnect;
 extern TJPConnectEvent const TJPConnectEventDisconnectComplete;
+extern TJPConnectEvent const TJPConnectEventForceDisconnect;       
 
 
 

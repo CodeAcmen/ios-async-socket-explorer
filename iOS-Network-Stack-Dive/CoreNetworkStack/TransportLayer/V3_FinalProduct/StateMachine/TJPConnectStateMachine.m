@@ -18,6 +18,7 @@ TJPConnectEvent const TJPConnectEventConnectSuccess = @"ConnectSuccess";        
 TJPConnectEvent const TJPConnectEventConnectFailed = @"Failed";                         //连接错误事件
 TJPConnectEvent const TJPConnectEventDisconnect = @"Disconnect";                        //断开连接事件
 TJPConnectEvent const TJPConnectEventDisconnectComplete = @"DisconnectComplete";        //断开完成事件
+TJPConnectEvent const TJPConnectEventForceDisconnect = @"ForceDisconnect";              //强制断开事件
 
 @interface TJPConnectStateMachine ()
 

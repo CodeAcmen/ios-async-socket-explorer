@@ -17,7 +17,7 @@ NS_ASSUME_NONNULL_BEGIN
 
 @interface TJPNetworkCoordinator : NSObject <TJPSessionDelegate>
 
-@property (nonatomic, strong, readonly) id<TJPSessionProtocol> defaultSession;
+//@property (nonatomic, strong, readonly) id<TJPSessionProtocol> defaultSession;
 @property (nonatomic, strong, readonly) NSMapTable<NSString *, id<TJPSessionProtocol>> *sessionMap;
 
 
@@ -35,7 +35,8 @@ NS_ASSUME_NONNULL_BEGIN
 /// 创建会话方法
 - (id<TJPSessionProtocol>)createSessionWithConfiguration:(TJPNetworkConfig *)config;
 /// 统一更新所有会话状态
-- (void)updateAllSessionsStste:(TJPConnectState)state;
+- (void)updateAllSessionsState:(TJPConnectState)state;
+
 @end
 
 NS_ASSUME_NONNULL_END

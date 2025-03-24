@@ -105,7 +105,6 @@
 
 
 
-
 #pragma mark - Public Method
 - (id<TJPSessionProtocol>)createSessionWithConfiguration:(TJPNetworkConfig *)config {
     _currConfig = config;
@@ -125,17 +124,13 @@
         
         while ((session = [enumerator nextObject])) {
             if ([session respondsToSelector:@selector(updateConnectionState:)]) {
-                // 强制更新会话状态
+                //事件驱动状态变更
                 [session updateConnectionState:state];
-                
-                // 特殊处理断开状态
-                if ([state isEqualToString:TJPConnectStateDisconnected]) {
-                    [session disconnectWithReason:TJPDisconnectReasonNetworkError];
-                }
             }
         }
     });
 }
+
 
 
 #pragma mark - TJPSessionDelegate

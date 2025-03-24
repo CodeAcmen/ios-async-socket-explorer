@@ -82,8 +82,14 @@ static const NSTimeInterval kDefaultRetryInterval = 10;
     _buffer = [NSMutableData data];
 }
 
+//制定转换规则
 - (void)setupStateMachine {
-    //制定转换规则
+    //增加强制断开规则：允许从任何状态直接进入 Disconnected
+    [_stateMachine addTransitionFromState:TJPConnectStateConnected toState:TJPConnectStateDisconnected forEvent:TJPConnectEventForceDisconnect];
+    [_stateMachine addTransitionFromState:TJPConnectStateConnecting toState:TJPConnectStateDisconnected forEvent:TJPConnectEventForceDisconnect];
+    [_stateMachine addTransitionFromState:TJPConnectStateDisconnecting toState:TJPConnectStateDisconnected forEvent:TJPConnectEventForceDisconnect];
+
+    
     //未连接->连接中 连接事件
     [_stateMachine addTransitionFromState:TJPConnectStateDisconnected toState:TJPConnectStateConnecting forEvent:TJPConnectEventConnect];
     //连接中->已连接 连接成功事件
@@ -172,7 +178,14 @@ static const NSTimeInterval kDefaultRetryInterval = 10;
         [self.heartbeatManager stopMonitoring];
         [self.pendingMessages removeAllObjects];
     });
-    
+}
+
+- (void)updateConnectionState:(TJPConnectState)state {
+    //事件驱动状态变更
+    TJPConnectEvent event = [self eventForTargetState:state];
+    if (event) {
+        [self.stateMachine sendEvent:event];
+    }
 }
 
 - (TJPConnectState)connectState {
@@ -314,6 +327,22 @@ static const NSTimeInterval kDefaultRetryInterval = 10;
 }
 
 
+- (TJPConnectEvent)eventForTargetState:(TJPConnectState)targetState {
+    // 定义状态到事件的映射规则
+    static NSDictionary<NSString *, NSString *> *stateEventMap;
+    static dispatch_once_t onceToken;
+    dispatch_once(&onceToken, ^{
+        stateEventMap = @{
+            TJPConnectStateDisconnected: TJPConnectEventDisconnectComplete,
+            TJPConnectStateConnecting: TJPConnectEventConnect,
+            TJPConnectStateConnected: TJPConnectEventConnectSuccess,
+            TJPConnectStateDisconnecting: TJPConnectEventDisconnect
+        };
+    });
+    return stateEventMap[targetState];
+}
+
+
 #pragma mark - Lazy
 - (NSMutableDictionary<NSNumber *, TJPMessageContext *> *)pendingMessages {
     if (!_pendingMessages) {
@@ -325,3 +354,4 @@ static const NSTimeInterval kDefaultRetryInterval = 10;
 
 
 @end
+
