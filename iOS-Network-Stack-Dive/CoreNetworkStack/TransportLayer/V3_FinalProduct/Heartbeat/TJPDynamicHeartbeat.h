@@ -20,7 +20,7 @@ NS_ASSUME_NONNULL_BEGIN
 
 
 /// 初始化方法
-- (instancetype)initWithBaseInterval:(NSTimeInterval)baseInterval;
+- (instancetype)initWithBaseInterval:(NSTimeInterval)baseInterval seqManager:(TJPSequenceManager *)seqManager;
 
 /// 开始监听
 - (void)startMonitoringForSession:(id<TJPSessionProtocol>)session;

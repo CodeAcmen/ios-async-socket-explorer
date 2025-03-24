@@ -68,18 +68,18 @@ static const NSTimeInterval kDefaultRetryInterval = 10;
 }
 
 - (void)setupComponentWithConfig:(TJPNetworkConfig *)config {
-    //初始化重连策略
-    _reconnectPolicy = [[TJPReconnectPolicy alloc] initWithMaxAttempst:config.maxRetry baseDelay:config.baseDelay qos:TJPNetworkQoSDefault];
-    
-    //初始化心跳管理
-    _heartbeatManager = [[TJPDynamicHeartbeat alloc] initWithBaseInterval:config.heartbeat];
-    
     //序列号管理
     _seqManager = [[TJPSequenceManager alloc] init];
     
     //初始化协议解析器
     _parser = [[TJPMessageParser alloc] init];
     _buffer = [NSMutableData data];
+    
+    //初始化重连策略
+    _reconnectPolicy = [[TJPReconnectPolicy alloc] initWithMaxAttempst:config.maxRetry baseDelay:config.baseDelay qos:TJPNetworkQoSDefault];
+    
+    //初始化心跳管理
+    _heartbeatManager = [[TJPDynamicHeartbeat alloc] initWithBaseInterval:config.heartbeat seqManager:_seqManager];
 }
 
 //制定转换规则
@@ -149,12 +149,14 @@ static const NSTimeInterval kDefaultRetryInterval = 10;
         if (![self.stateMachine.currentState isEqualToString:TJPConnectStateConnected]) {
             TJPLOG_INFO(@"当前状态发送消息失败,当前状态为: %@", self.stateMachine.currentState);
         }
-
+        //创建序列号
+        uint32_t seq = [self.seqManager nextSequence];
+        
         //构造协议包  实际通过Socket发送的协议包(协议头+原始数据)
-        NSData *packet = [self _buildPacketWithData:data];
+        NSData *packet = [self _buildPacketWithData:data seq:seq];
         
         //消息的上下文,用于跟踪消息状态(发送时间,重试次数,序列号)
-        TJPMessageContext *context = [TJPMessageContext contextWithData:data];
+        TJPMessageContext *context = [TJPMessageContext contextWithData:data seq:seq];
         //存储待确认消息
         self.pendingMessages[@(context.sequence)] = context;
         
@@ -242,14 +244,14 @@ static const NSTimeInterval kDefaultRetryInterval = 10;
 
 
 #pragma mark - Private Method
-- (NSData *)_buildPacketWithData:(NSData *)data {
+- (NSData *)_buildPacketWithData:(NSData *)data seq:(uint32_t)seq {
     // 初始化协议头
     TJPFinalAdavancedHeader header = {0};
     header.magic = htonl(kProtocolMagic);
     header.version_major = kProtocolVersionMajor;
     header.version_minor = kProtocolVersionMinor;
     header.msgType = htons(TJPMessageTypeNormalData); // 普通消息类型
-    header.sequence = htonl([self.seqManager nextSequence]);
+    header.sequence = htonl(seq);
     header.bodyLength = htonl((uint32_t)data.length);
     header.checksum = [TJPNetworkUtil crc32ForData:data];
     
@@ -303,7 +305,12 @@ static const NSTimeInterval kDefaultRetryInterval = 10;
 
 //处理ACK确认
 - (void)handleACKForSequence:(uint32_t)sequence {
-    if (sequence == [self.heartbeatManager.sequenceManager currentSequence]) {
+    // ✅ 统一处理所有 ACK
+    if ([self.pendingMessages objectForKey:@(sequence)]) {
+        // 普通消息 ACK：移除待确认队列
+        [self.pendingMessages removeObjectForKey:@(sequence)];
+    } else if (sequence == [self.heartbeatManager.sequenceManager currentSequence]) {
+        // 心跳 ACK：通知心跳管理器
         [self.heartbeatManager heartbeatACKNowledgedForSequence:sequence];
     }
 }

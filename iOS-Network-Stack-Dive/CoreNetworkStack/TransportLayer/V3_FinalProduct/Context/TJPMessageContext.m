@@ -17,11 +17,12 @@
     NSData *_originData;
 }
 
-+ (instancetype)contextWithData:(NSData *)data {
++ (instancetype)contextWithData:(NSData *)data seq:(uint32_t)seq {
     TJPMessageContext *context = [TJPMessageContext new];
     context->_originData = data;
     context.sendTime = [NSDate date];
     context.retryCount = 0;
+    context.sequence = seq;
     return context;
 }
 

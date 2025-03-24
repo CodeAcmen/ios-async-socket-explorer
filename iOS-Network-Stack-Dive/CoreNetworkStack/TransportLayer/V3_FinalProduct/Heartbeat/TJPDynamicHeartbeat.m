@@ -27,9 +27,9 @@
 
 }
 
-- (instancetype)initWithBaseInterval:(NSTimeInterval)baseInterval {
+- (instancetype)initWithBaseInterval:(NSTimeInterval)baseInterval seqManager:(nonnull TJPSequenceManager *)seqManager {
     if (self = [super init]) {
-        _sequenceManager = [TJPSequenceManager new];
+        _sequenceManager = seqManager;
         _baseInterval = baseInterval;
 
     }
@@ -101,7 +101,6 @@
 
 - (void)heartbeatACKNowledgedForSequence:(uint32_t)sequence {
     [self.pendingHeartbeats removeObjectForKey:@(sequence)];
-    
 }
 
 - (NSData *)buildHeartbeatPacket {

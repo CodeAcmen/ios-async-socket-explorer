@@ -20,7 +20,7 @@ NS_ASSUME_NONNULL_BEGIN
 
 
 
-+ (instancetype)contextWithData:(NSData *)data;
++ (instancetype)contextWithData:(NSData *)data seq:(uint32_t)seq;
 - (NSData *)buildRetryPacket;
 
 @end
