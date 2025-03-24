@@ -13,10 +13,16 @@ NS_ASSUME_NONNULL_BEGIN
 @protocol TJPSessionProtocol;
 @interface TJPDynamicHeartbeat : NSObject
 
+@property (nonatomic, strong) NSDate *lastHeartbeatTime;
+
 @property (nonatomic, strong) TJPSequenceManager *sequenceManager;
 
 @property (nonatomic, assign) NSTimeInterval baseInterval;
 @property (nonatomic, assign) NSTimeInterval currentInterval;
+
+//改为声明在属性是为了单元测试
+@property (nonatomic, strong) NSMutableDictionary<NSNumber *, NSDate *> *pendingHeartbeats;
+
 
 
 /// 初始化方法

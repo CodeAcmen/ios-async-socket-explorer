@@ -14,11 +14,7 @@
 
 
 @interface TJPDynamicHeartbeat ()
-
-@property (nonatomic, strong) NSDate *lastHeartbeatTime;
-@property (nonatomic, strong) NSMutableDictionary<NSNumber *, NSDate *> *pendingHeartbeats;
-
-
+//@property (nonatomic, strong) NSMutableDictionary<NSNumber *, NSDate *> *pendingHeartbeats;
 @end
 
 @implementation TJPDynamicHeartbeat {
@@ -31,7 +27,6 @@
     if (self = [super init]) {
         _sequenceManager = seqManager;
         _baseInterval = baseInterval;
-
     }
     return self;
 }
@@ -41,13 +36,18 @@
     _session = session;
     _currentInterval = _baseInterval;
     
+    //根据优先级创建全局队列  QOS_CLASS_UTILITY确保不会占用系统过多资源
     dispatch_queue_t queue = dispatch_get_global_queue(QOS_CLASS_UTILITY, 0);
+    //发送心跳包的定时器
     _heartbeatTimer = dispatch_source_create(DISPATCH_SOURCE_TYPE_TIMER, 0, 0, queue);
     
+    //设置定时器的触发时间
     dispatch_source_set_timer(_heartbeatTimer, DISPATCH_TIME_NOW, _currentInterval * NSEC_PER_SEC, 1 * NSEC_PER_SEC);
+    //设置定时器的事件处理顺序
     dispatch_source_set_event_handler(_heartbeatTimer, ^{
         [self sendHeartbeat];
     });
+    //启动定时器
     dispatch_resume(_heartbeatTimer);
 }
 
@@ -72,12 +72,15 @@
             break;
     }
     
-    // 拥塞时特殊处理
+    // 当网络拥塞时 心跳调整为60秒一次
     if (condition.isCongested) {
-        _currentInterval = MAX(_currentInterval, 60); // 最低60秒一次
+        _currentInterval = MAX(_currentInterval, 60);
     }
-    
-    // 新间隔
+    if (_heartbeatTimer == nil) {
+        TJPLOG_ERROR(@"当前_heartbeatTimer定时器不存在,更新间隔失败,请检查!!!");
+        return;
+    }
+    // 根据网络状态设置新间隔
     dispatch_source_set_timer(_heartbeatTimer, DISPATCH_TIME_NOW, _currentInterval * NSEC_PER_SEC, 1 * NSEC_PER_SEC);
 }
 

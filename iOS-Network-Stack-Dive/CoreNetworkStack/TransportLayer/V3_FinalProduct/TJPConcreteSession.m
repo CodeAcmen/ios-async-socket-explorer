@@ -60,7 +60,7 @@ static const NSTimeInterval kDefaultRetryInterval = 10;
         _internalQueu = dispatch_queue_create("com.concreteSession.tjp.interalQueue", DISPATCH_QUEUE_CONCURRENT);
         [self setupComponentWithConfig:config];
         
-        _stateMachine = [[TJPConnectStateMachine alloc] init];
+        _stateMachine = [[TJPConnectStateMachine alloc] initWithInitialState:TJPConnectStateDisconnected];
         [self setupStateMachine];
         
     }
