@@ -9,13 +9,13 @@
 #import <objc/runtime.h>
 #import <zlib.h>
 
-#import "TJPNetworkManagerV2.h"
+#import "TJPConcurrentNetworkManager.h"
 #import "TJPNetworkProtocol.h"
 #import "TJPMockTCPServer.h"
 
 
 @interface TJPNetworkManagerV2Tests : XCTestCase
-@property (nonatomic, strong) TJPNetworkManagerV2 *networkManager;
+@property (nonatomic, strong) TJPConcurrentNetworkManager *networkManager;
 
 @property (nonatomic, strong) TJPMockTCPServer *server;
 
@@ -25,7 +25,7 @@
 @implementation TJPNetworkManagerV2Tests
 
 - (void)setUp {
-    self.networkManager = [TJPNetworkManagerV2 shared];
+    self.networkManager = [TJPConcurrentNetworkManager shared];
 }
 
 
@@ -100,7 +100,7 @@
     NSError *error = nil;
     XCTAssertTrue([self.server startOnPort:54321 error:&error]);
 
-    TJPNetworkManagerV2 *manager = [TJPNetworkManagerV2 shared];
+    TJPConcurrentNetworkManager *manager = [TJPConcurrentNetworkManager shared];
     [manager resetParse];
     [manager connectToHost:@"127.0.0.1" port:54321];
 

@@ -1,5 +1,5 @@
 //
-//  TJPNetworkManagerV2.h
+//  TJPConcurrentNetworkManager.h
 //  iOS-Network-Stack-Dive
 //
 //  Created by 唐佳鹏 on 2025/3/21.
@@ -11,7 +11,7 @@
 //  **方案选型对比**   
 //  加锁:锁的粒度控制相对困难,更容易出现死锁或者串行过度化  多处加锁相对维护困难
 //  gcd串行队列: 行队列的任务切换开销更小，避免了死锁、锁竞争等复杂问题
-//  结果:单元测试万级并发量依然稳定运行
+//  结果:万级并发量依然稳定运行
 //
 // v2.0具备:线程安全/工程级可复用/高并发下的稳定性
 
@@ -22,7 +22,7 @@
 
 NS_ASSUME_NONNULL_BEGIN
 
-@interface TJPNetworkManagerV2 : NSObject <GCDAsyncSocketDelegate> {
+@interface TJPConcurrentNetworkManager : NSObject <GCDAsyncSocketDelegate> {
     //当前序列号
 //    NSUInteger _currentSequence;
 }

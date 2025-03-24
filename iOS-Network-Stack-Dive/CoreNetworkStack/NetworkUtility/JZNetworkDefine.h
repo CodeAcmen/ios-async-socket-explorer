@@ -20,6 +20,7 @@
 
 
 #define kNetworkFatalErrorNotification @"kNetworkFatalErrorNotification"
+#define kSessionDataReceiveNotification @"kSessionDataReceiveNotification"
 
 
 

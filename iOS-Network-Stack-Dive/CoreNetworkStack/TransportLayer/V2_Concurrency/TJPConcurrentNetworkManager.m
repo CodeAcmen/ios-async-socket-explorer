@@ -1,11 +1,11 @@
 //
-//  TJPNetworkManagerV2.m
+//  TJPConcurrentNetworkManager.m
 //  iOS-Network-Stack-Dive
 //
 //  Created by 唐佳鹏 on 2025/3/21.
 //
 
-#import "TJPNetworkManagerV2.h"
+#import "TJPConcurrentNetworkManager.h"
 #import <Reachability/Reachability.h>
 #import <GCDAsyncSocket.h>
 #import <zlib.h>
@@ -19,7 +19,7 @@ static const NSInteger kMaxReconnectAttempts = 5;
 static const NSTimeInterval kMaxReconnectDelay = 30;
 
 
-@interface TJPNetworkManagerV2 () {
+@interface TJPConcurrentNetworkManager () {
     //网络状态
     Reachability *_networkReachability;
     //网络队列
@@ -52,13 +52,13 @@ static const NSTimeInterval kMaxReconnectDelay = 30;
 
 @end
 
-@implementation TJPNetworkManagerV2
+@implementation TJPConcurrentNetworkManager
 #pragma mark - Instancetype
 + (instancetype)shared {
-    static TJPNetworkManagerV2 *instance = nil;
+    static TJPConcurrentNetworkManager *instance = nil;
     static dispatch_once_t onceToken;
     dispatch_once(&onceToken, ^{
-        instance = [[TJPNetworkManagerV2 alloc] init];
+        instance = [[TJPConcurrentNetworkManager alloc] init];
     });
     return instance;
 }
