@@ -34,6 +34,8 @@ NS_ASSUME_NONNULL_BEGIN
 - (void)stopMonitoring;
 /// 调整心跳频率
 - (void)adjustIntervalWithNetworkCondition:(TJPNetworkCondition *)condition;
+/// 发送心跳
+- (void)sendHeartbeat;
 /// 心跳回应
 - (void)heartbeatACKNowledgedForSequence:(uint32_t)sequence;
 @end

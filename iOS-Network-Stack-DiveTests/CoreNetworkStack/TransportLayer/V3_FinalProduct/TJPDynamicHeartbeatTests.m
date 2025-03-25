@@ -83,36 +83,40 @@
 
 
 - (void)testHeartbeatACKNowledgedForSequence_highConcurrency {
-    // 测试1000个并发操作
-    const NSInteger concurrencyCount = 1000;
+    const NSInteger concurrencyCount = 10000;
     
-    // 在并发情况下添加序列号到 pendingHeartbeats
+    // 使用异步队列来模拟并发
     dispatch_queue_t queue = dispatch_queue_create("com.test.heartbeat.concurrent", DISPATCH_QUEUE_CONCURRENT);
     
-    // 用 XCTestExpectation 来确保所有的操作完成后再进行验证
+    // 创建期望对象，确保所有操作完成后再进行验证
     XCTestExpectation *expectation = [self expectationWithDescription:@"Concurrent operations completed"];
     
-    // 添加多个并发操作来模拟并发访问
+    // 在并发情况下添加序列号到 pendingHeartbeats
     dispatch_apply(concurrencyCount, queue, ^(size_t i) {
         // 随机生成序列号并添加到 pendingHeartbeats
         uint32_t newSequence = (uint32_t)(i + 1);
-        [self.heartbeatManager.pendingHeartbeats setObject:[NSDate date] forKey:@(newSequence)];
+        
+        // 模拟发送心跳包
+        [self.heartbeatManager sendHeartbeat];
+        
+        // 模拟心跳ACK操作
+        dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(1 * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
+            // 随机选择一个序列号，并模拟收到 ACK
+            uint32_t ackSequence = arc4random_uniform((uint32_t)concurrencyCount) + 1;
+            [self.heartbeatManager heartbeatACKNowledgedForSequence:ackSequence];
+            
+            // 验证随机选择的序列号是否已被移除
+            XCTAssertNil(self.heartbeatManager.pendingHeartbeats[@(ackSequence)], @"Heartbeat should be removed after ACK is received in high concurrency");
+            
+            // 完成期望
+            if (i == concurrencyCount - 1) {
+                [expectation fulfill];
+            }
+        });
     });
     
-    // 模拟心跳 ACK 收到的操作
-    dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(1 * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
-        // 随机选择一个序列号，并模拟收到 ACK
-        uint32_t ackSequence = arc4random_uniform((uint32_t)concurrencyCount) + 1;
-        [self.heartbeatManager heartbeatACKNowledgedForSequence:ackSequence];
-        
-        // 验证随机选择的序列号是否已被移除
-        XCTAssertNil(self.heartbeatManager.pendingHeartbeats[@(ackSequence)], @"Heartbeat should be removed after ACK is received in high concurrency");
-        
-        [expectation fulfill]; // 操作完成，通知测试框架
-    });
-
     // 等待期望的完成
-    [self waitForExpectationsWithTimeout:5.0 handler:nil];
+    [self waitForExpectationsWithTimeout:10.0 handler:nil];
 }
 
 
