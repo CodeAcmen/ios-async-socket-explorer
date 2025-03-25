@@ -79,4 +79,15 @@
     _currentHeader = (TJPFinalAdavancedHeader){0};
 }
 
+
+
+#pragma mark - 单元测试
+- (NSMutableData *)buffer {
+    return _buffer;
+}
+
+
+- (TJPFinalAdavancedHeader)currentHeader {
+    return _currentHeader;
+}
 @end
