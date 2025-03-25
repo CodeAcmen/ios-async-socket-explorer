@@ -307,7 +307,7 @@ static const NSTimeInterval kDefaultRetryInterval = 10;
 
 //处理ACK确认
 - (void)handleACKForSequence:(uint32_t)sequence {
-    // ✅ 统一处理所有 ACK
+    // 统一处理所有 ACK
     if ([self.pendingMessages objectForKey:@(sequence)]) {
         // 普通消息 ACK：移除待确认队列
         [self.pendingMessages removeObjectForKey:@(sequence)];

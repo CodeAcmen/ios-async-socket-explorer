@@ -23,7 +23,8 @@
     header.msgType = htons(type);
     header.sequence = htonl(sequence);
     header.bodyLength = htonl((uint32_t)data.length);
-    header.checksum = [self crc32ForData:data];
+    //crc32ForData需要转换为网络字节序
+    header.checksum = htonl([self crc32ForData:data]);
     
     //构建完整包
     NSMutableData *packet = [NSMutableData dataWithBytes:&header length:sizeof(header)];
@@ -35,8 +36,11 @@
 + (uint32_t)crc32ForData:(NSData *)data {
     uLong crc = crc32(0L, Z_NULL, 0);
     crc = crc32(crc, [data bytes], (uInt)[data length]);
+    
+    NSLog(@"Calculated CRC32: %u", crc);  // 输出计算的 CRC32 值
     return (uint32_t)crc;
 }
+
 
 
 + (NSData *)compressData:(NSData *)data {
