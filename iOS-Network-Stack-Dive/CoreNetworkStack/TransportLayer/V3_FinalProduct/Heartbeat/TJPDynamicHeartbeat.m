@@ -14,6 +14,7 @@
 
 
 @interface TJPDynamicHeartbeat ()
+
 @property (nonatomic, strong) dispatch_queue_t heartbeatQueue;
 //@property (nonatomic, strong) NSMutableDictionary<NSNumber *, NSDate *> *pendingHeartbeats;
 @end
@@ -26,6 +27,7 @@
 
 - (instancetype)initWithBaseInterval:(NSTimeInterval)baseInterval seqManager:(nonnull TJPSequenceManager *)seqManager {
     if (self = [super init]) {
+        _networkCondition = [[TJPNetworkCondition alloc] init];
         _sequenceManager = seqManager;
         _baseInterval = baseInterval;
         _heartbeatQueue = dispatch_queue_create("com.tjp.dynamicHeartbeat.serialQueue", DISPATCH_QUEUE_SERIAL);
@@ -56,7 +58,7 @@
     //发送心跳包的定时器
     _heartbeatTimer = dispatch_source_create(DISPATCH_SOURCE_TYPE_TIMER, 0, 0, self.heartbeatQueue);
     //设置定时器的触发时间
-    dispatch_source_set_timer(_heartbeatTimer, DISPATCH_TIME_NOW, _currentInterval * NSEC_PER_SEC, 1 * NSEC_PER_SEC);
+    dispatch_source_set_timer(_heartbeatTimer, DISPATCH_TIME_NOW, _baseInterval * NSEC_PER_SEC, 1 * NSEC_PER_SEC);
     //设置定时器的事件处理顺序
     dispatch_source_set_event_handler(_heartbeatTimer, ^{
         [self sendHeartbeat];
@@ -79,7 +81,7 @@
 
 - (void)adjustIntervalWithNetworkCondition:(TJPNetworkCondition *)condition {
     dispatch_async(self.heartbeatQueue, ^{
-        // 基础调整规则
+        //规则调整
         [self _calculateQualityLevel:condition];
         
         if (self->_heartbeatTimer == nil) {
@@ -92,25 +94,24 @@
 }
 
 - (void)_calculateQualityLevel:(TJPNetworkCondition *)condition {
-    switch (condition.qualityLevel) {
-        case TJPNetworkQualityExcellent:
-            _currentInterval = _baseInterval * 0.8; // 良好网络加速心跳
-            break;
-        case TJPNetworkQualityGood:
-            _currentInterval = _baseInterval;
-            break;
-        case TJPNetworkQualityFair:
-            _currentInterval = _baseInterval * 1.5; // 网络不佳时降低频率
-            break;
-        case TJPNetworkQualityPoor:
-            _currentInterval = _baseInterval * 2.0; // 恶劣网络大幅降低
-            break;
+    if (condition.qualityLevel == TJPNetworkQualityPoor) {
+        //恶劣网络大幅降低
+        _currentInterval = _baseInterval * 2.5;
+    }else if (condition.qualityLevel == TJPNetworkQualityFair || condition.qualityLevel == TJPNetworkQualityUnknown) {
+        //未知网络&&网络不佳时降低频率
+        _currentInterval = _baseInterval * 1.5;
+    }else {
+        //基于滑动窗口动态调整
+        CGFloat rttFactor = condition.roundTripTime / 200.0;
+        _currentInterval = _baseInterval * MAX(rttFactor, 1.0);
     }
     
-    // 当网络拥塞时 心跳调整为60秒一次
-    if (condition.isCongested) {
-        _currentInterval = MAX(_currentInterval, 60);
-    }
+    //增加随机扰动 抗抖动设计  单元测试时需要注释
+    CGFloat randomFactor = 0.9 + (arc4random_uniform(200) / 1000.0); //0.9 - 1.1
+    _currentInterval *= randomFactor;
+    
+    //再设置硬性限制 防止出现夸张边界问题  15-300s
+    _currentInterval = MIN(MAX(_currentInterval, 15), 300);
 }
 
 - (void)sendHeartbeat {
@@ -126,17 +127,20 @@
         //组装心跳包
         NSData *packet = [self buildHeartbeatPacket:sequence];
         
-        //记录发送时间
-        self.lastHeartbeatTime = [NSDate date];
+        //记录发送时间(毫秒级)
+        NSDate *sendTime = [NSDate date];
         
         //将心跳包的序列号和发送时间存入 pendingHeartbeats
-        [self.pendingHeartbeats setObject:self.lastHeartbeatTime forKey:@(sequence)];
+        [self.pendingHeartbeats setObject:sendTime forKey:@(sequence)];
             
         //发送心跳包
         [self->_session sendData:packet];
         
+        //动态设置超时阈值 2倍 平均RTT
+        self->_currentInterval = MAX(2 * self.networkCondition.roundTripTime / 1000.0, 2.0);
+        
         //超时检测
-        dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(self.currentInterval * NSEC_PER_SEC)), self.heartbeatQueue, ^{
+        dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(self->_currentInterval * NSEC_PER_SEC)), self.heartbeatQueue, ^{
             if (self.pendingHeartbeats[@(sequence)]) {
                 [self _removeHeartbeatsForSequence:sequence];
                 [self handleHeaderbeatTimeoutForSequence:sequence];
@@ -147,11 +151,34 @@
 
 - (void)heartbeatACKNowledgedForSequence:(uint32_t)sequence {
     dispatch_async(self.heartbeatQueue, ^{
+        NSDate *sendTime = self.pendingHeartbeats[@(sequence)];
+        if (sendTime) {
+            //计算RTT并更新网络状态
+            NSTimeInterval rtt = [[NSDate date] timeIntervalSinceDate:sendTime] * 1000; //转毫秒
+            [self.networkCondition updateRTTWithSample:rtt];
+            [self.networkCondition updateLostWithSample:NO];
+        }
         [self _removeHeartbeatsForSequence:sequence];
     });
 }
 
+- (void)handleHeaderbeatTimeoutForSequence:(uint32_t)sequence {
+    id<TJPSessionProtocol> strongSession = _session;
+    if (!strongSession) return;
+    
+    if (self.pendingHeartbeats[@(sequence)]) {
+        TJPLOG_INFO(@"心跳包 %u 超时未确认", sequence);
+        //更新丢包率
+        [self.networkCondition updateLostWithSample:YES];
+        //触发动态调整
+        [self adjustIntervalWithNetworkCondition:self.networkCondition];
+        
+        [_session disconnectWithReason:TJPDisconnectReasonHeartbeatTimeout];
+    }
+}
+
 - (void)_removeHeartbeatsForSequence:(uint32_t)sequence {
+    if (!sequence) return;
     [self.pendingHeartbeats removeObjectForKey:@(sequence)];
 }
 
@@ -167,16 +194,7 @@
     
 }
 
-- (void)handleHeaderbeatTimeoutForSequence:(uint32_t)sequence {
-    id<TJPSessionProtocol> strongSession = _session;
-    if (!strongSession) {
-        return;
-    }
-    if (self.pendingHeartbeats[@(sequence)]) {
-        TJPLOG_INFO(@"心跳包 %u 超时未确认", sequence);
-        [_session disconnectWithReason:TJPDisconnectReasonHeartbeatTimeout];
-    }
-}
+
 
 
 - (NSMutableDictionary<NSNumber *,NSDate *> *)pendingHeartbeats {

@@ -33,18 +33,6 @@
     // Put teardown code here. This method is called after the invocation of each test method in the class.
 }
 
-- (void)testStartMonitoringForSession {
-    XCTestExpectation *expectation = [self expectationWithDescription:@"Heartbeat sent"];
-
-    [self.heartbeatManager startMonitoringForSession:self.mockSession];
-    
-    dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(5 * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
-        XCTAssertNotNil(self.heartbeatManager.lastHeartbeatTime, @"Heartbeat time should not be nil after sending");
-        [expectation fulfill];
-    });
-    
-    [self waitForExpectationsWithTimeout:6.0 handler:nil];
-}
 
 
 - (void)testAdjustIntervalWithNetworkCondition {
@@ -118,6 +106,34 @@
     // 等待期望的完成
     [self waitForExpectationsWithTimeout:10.0 handler:nil];
 }
+
+// 模拟网络波动场景
+- (void)testNetworkFluctuation {
+    TJPDynamicHeartbeat *heartbeat = [[TJPDynamicHeartbeat alloc] initWithBaseInterval:60 seqManager:self.seqManager];
+    
+    // 第一阶段：优质网络（RTT=150ms, 丢包率0%）
+    for (int i=0; i<10; i++) {
+        [heartbeat.networkCondition updateRTTWithSample:150];
+        [heartbeat.networkCondition updateLostWithSample:NO];
+    }
+    [heartbeat adjustIntervalWithNetworkCondition:heartbeat.networkCondition];
+    XCTAssertEqual(heartbeat.currentInterval, 60 * (150/200)); // 期望45秒
+    
+    // 第二阶段：RTT恶化到800ms（触发Poor等级）
+    for (int i=0; i<10; i++) {
+        [heartbeat.networkCondition updateRTTWithSample:800];
+    }
+    [heartbeat adjustIntervalWithNetworkCondition:heartbeat.networkCondition];
+    XCTAssertEqual(heartbeat.currentInterval, 60 * 2.5); // 期望150秒
+    
+    // 第三阶段：高丢包率（20%）
+    for (int i=0; i<10; i++) {
+        [heartbeat.networkCondition updateLostWithSample:(i < 2)]; // 20%丢包
+    }
+    [heartbeat adjustIntervalWithNetworkCondition:heartbeat.networkCondition];
+    XCTAssertEqual(heartbeat.currentInterval, 60 * 2.5); // 仍为Poor等级，保持150秒
+}
+
 
 
 

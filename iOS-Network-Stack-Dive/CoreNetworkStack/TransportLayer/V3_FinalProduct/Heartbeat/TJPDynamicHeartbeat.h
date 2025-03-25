@@ -13,7 +13,7 @@ NS_ASSUME_NONNULL_BEGIN
 @protocol TJPSessionProtocol;
 @interface TJPDynamicHeartbeat : NSObject
 
-@property (nonatomic, strong) NSDate *lastHeartbeatTime;
+@property (nonatomic, strong) TJPNetworkCondition *networkCondition;
 
 @property (nonatomic, strong) TJPSequenceManager *sequenceManager;
 

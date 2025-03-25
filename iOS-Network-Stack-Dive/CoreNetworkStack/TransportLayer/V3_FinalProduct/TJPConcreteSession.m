@@ -20,6 +20,7 @@
 #import "TJPSequenceManager.h"
 #import "TJPNetworkUtil.h"
 #import "TJPConnectStateMachine.h"
+#import "TJPNetworkCondition.h"
 
 
 
@@ -28,7 +29,7 @@ static const NSTimeInterval kDefaultRetryInterval = 10;
 @interface TJPConcreteSession () <GCDAsyncSocketDelegate>
 
 @property (nonatomic, strong) GCDAsyncSocket *socket;
-@property (nonatomic, strong) dispatch_queue_t internalQueu;
+@property (nonatomic, strong) dispatch_queue_t internalQueue;
 
 /// 连接状态机
 @property (nonatomic, strong) TJPConnectStateMachine *stateMachine;
@@ -57,7 +58,7 @@ static const NSTimeInterval kDefaultRetryInterval = 10;
 - (instancetype)initWithConfiguration:(TJPNetworkConfig *)config {
     if (self = [super init]) {
         _sessionId = [[NSUUID UUID] UUIDString];
-        _internalQueu = dispatch_queue_create("com.concreteSession.tjp.interalQueue", DISPATCH_QUEUE_CONCURRENT);
+        _internalQueue = dispatch_queue_create("com.concreteSession.tjp.interalQueue", DISPATCH_QUEUE_CONCURRENT);
         [self setupComponentWithConfig:config];
         
         _stateMachine = [[TJPConnectStateMachine alloc] initWithInitialState:TJPConnectStateDisconnected];
@@ -120,7 +121,7 @@ static const NSTimeInterval kDefaultRetryInterval = 10;
 #pragma mark - TJPSessionProtocol
 /// 连接方法
 - (void)connectToHost:(NSString *)host port:(uint16_t)port {
-    dispatch_barrier_async(self->_internalQueu, ^{
+    dispatch_barrier_async(self->_internalQueue, ^{
         //通过状态机检查当前状态
         if (![self.stateMachine.currentState isEqualToString:TJPConnectStateDisconnected]) {
             TJPLOG_INFO(@"当前状态无法连接主机,当前状态为: %@", self.stateMachine.currentState);
@@ -145,9 +146,10 @@ static const NSTimeInterval kDefaultRetryInterval = 10;
 
 /// 发送消息
 - (void)sendData:(NSData *)data {
-    dispatch_barrier_async(self->_internalQueu, ^{
+    dispatch_barrier_async(self->_internalQueue, ^{
         if (![self.stateMachine.currentState isEqualToString:TJPConnectStateConnected]) {
             TJPLOG_INFO(@"当前状态发送消息失败,当前状态为: %@", self.stateMachine.currentState);
+            return;
         }
         //创建序列号
         uint32_t seq = [self.seqManager nextSequence];
@@ -170,7 +172,7 @@ static const NSTimeInterval kDefaultRetryInterval = 10;
 
 /// 断开连接原因
 - (void)disconnectWithReason:(TJPDisconnectReason)reason {
-    dispatch_barrier_async(self->_internalQueu, ^{
+    dispatch_barrier_async(self->_internalQueue, ^{
         [self.socket disconnect];
 
         //触发断开连接完成事件
@@ -196,7 +198,7 @@ static const NSTimeInterval kDefaultRetryInterval = 10;
 
 #pragma mark - GCDAsyncSocketDelegate
 - (void)socket:(GCDAsyncSocket *)sock didConnectToHost:(NSString *)host port:(uint16_t)port {
-    dispatch_barrier_async(self->_internalQueu, ^{
+    dispatch_barrier_async(self->_internalQueue, ^{
         //触发连接成功事件
         [self.stateMachine sendEvent:TJPConnectEventConnect];
         
@@ -228,7 +230,7 @@ static const NSTimeInterval kDefaultRetryInterval = 10;
 }
 
 - (void)socketDidDisconnect:(GCDAsyncSocket *)sock withError:(NSError *)err {
-    dispatch_barrier_async(self->_internalQueu, ^{
+    dispatch_barrier_async(self->_internalQueue, ^{
         //触发断开连接完成事件
         [self.stateMachine sendEvent:TJPConnectEventDisconnectComplete];
         //准备重连
@@ -263,7 +265,7 @@ static const NSTimeInterval kDefaultRetryInterval = 10;
 
 //超时重传
 - (void)scheduleRetransmissionForSequence:(uint32_t)sequence {
-    dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(dispatch_time(DISPATCH_TIME_NOW, kDefaultRetryInterval) * NSEC_PER_SEC)), self->_internalQueu, ^{
+    dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(dispatch_time(DISPATCH_TIME_NOW, kDefaultRetryInterval) * NSEC_PER_SEC)), self->_internalQueue, ^{
         if (self.pendingMessages[@(sequence)]) {
             TJPLOG_INFO(@"消息 %u 超时未确认, 尝试重传", sequence);
             [self resendPacket:self.pendingMessages[@(sequence)]];
@@ -321,7 +323,7 @@ static const NSTimeInterval kDefaultRetryInterval = 10;
 }
 
 - (void)flushPendingMessages {
-    dispatch_async(self->_internalQueu, ^{
+    dispatch_async(self->_internalQueue, ^{
         for (NSNumber *seq in self.pendingMessages) {
             TJPMessageContext *context = self.pendingMessages[seq];
             [self resendPacket:context];
