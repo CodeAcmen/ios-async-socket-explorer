@@ -17,7 +17,7 @@ static const NSTimeInterval kMaxReconnectDelay = 30;
 
 @implementation TJPReconnectPolicy {
     //当前尝试次数
-    NSInteger _currentAttempt;
+//    NSInteger _currentAttempt;
     //网络任务的QoS级别
     dispatch_qos_class_t _qosClass;
 }
@@ -61,6 +61,9 @@ static const NSTimeInterval kMaxReconnectDelay = 30;
 }
 
 - (NSTimeInterval)calculateDelay {
+    //mock测试时 移除随机延迟
+//    return MIN(pow(_baseDelay, _currentAttempt), kMaxReconnectDelay);
+    //指数退避 + 随机延迟
     return MIN(pow(_baseDelay, _currentAttempt) + arc4random_uniform(3), kMaxReconnectDelay);
 }
 
@@ -72,6 +75,11 @@ static const NSTimeInterval kMaxReconnectDelay = 30;
     _currentAttempt = 0;
 }
 
+
+#pragma mark - 单元测试
+- (dispatch_qos_class_t)qosClass {
+    return _qosClass;
+}
 
 
 @end
