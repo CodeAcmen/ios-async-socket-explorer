@@ -6,37 +6,41 @@
 //
 
 #import "TJPSequenceManager.h"
+#import <os/lock.h>
 
 @implementation TJPSequenceManager {
     uint32_t _sequence;
-    dispatch_queue_t _serialQueue;
+    os_unfair_lock _lock;
 }
 
 - (instancetype)init {
     if (self = [super init]) {
-        _serialQueue = dispatch_queue_create("com.tjp.sequenceManager.seqSerialQueue", DISPATCH_QUEUE_SERIAL);
+        _lock = OS_UNFAIR_LOCK_INIT;
+        _sequence = 0;
     }
     return self;
 }
 
 
 - (uint32_t)nextSequence {
-    __block uint32_t nextSeq = 0;
-    dispatch_async(self->_serialQueue, ^{
-        self->_sequence = (self->_sequence + 1) % UINT32_MAX;
-        nextSeq = self->_sequence;
-    });
-    return nextSeq;    
+    os_unfair_lock_lock(&_lock);
+    _sequence = (_sequence % UINT32_MAX ) + 1;
+    uint32_t nextSeq = _sequence;
+    os_unfair_lock_unlock(&_lock);
+    return nextSeq;
 }
 
 - (void)resetSequence {
-    dispatch_async(self->_serialQueue, ^{
-        self->_sequence = 0;
-    });
+    os_unfair_lock_lock(&_lock);
+    _sequence = 0;
+    os_unfair_lock_unlock(&_lock);
 }
 
 - (uint32_t)currentSequence {
-    return _sequence;
+    os_unfair_lock_lock(&_lock);
+    uint32_t seq = _sequence;
+    os_unfair_lock_unlock(&_lock);
+    return seq;
 }
 
 @end
