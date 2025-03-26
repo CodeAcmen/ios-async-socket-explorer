@@ -13,7 +13,7 @@ NS_ASSUME_NONNULL_BEGIN
 
 @property (nonatomic, readonly) TJPConnectState connectState;
 
-/// 每个会话会有独立的id
+/// 每个会话会有独立的id  使用UUID保证唯一
 @property (nonatomic, copy, readonly) NSString *sessionId;
 
 /// 连接方法

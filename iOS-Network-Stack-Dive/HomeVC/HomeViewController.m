@@ -8,6 +8,7 @@
 #import "HomeViewController.h"
 #import "StickPacketDemoController.h"
 #import "StickPacketSolutionController.h"
+#import "TJPLoggerViewController.h"
 
 
 @interface HomeViewController () <UITableViewDelegate, UITableViewDataSource>
@@ -41,9 +42,9 @@
             ]
         },
         @{
-            @"title": @"粘包问题解决方案",
+            @"title": @"AOP实现",
             @"viewControllers": @[
-                @{ @"title": @"方案1", @"viewController": [StickPacketDemoController class] },
+                @{ @"title": @"轻量级切面日志", @"viewController": [TJPLoggerViewController class] },
                 @{ @"title": @"方案2", @"viewController": [StickPacketSolutionController class] },
                 @{ @"title": @"方案3", @"viewController": [StickPacketDemoController class] }
             ]

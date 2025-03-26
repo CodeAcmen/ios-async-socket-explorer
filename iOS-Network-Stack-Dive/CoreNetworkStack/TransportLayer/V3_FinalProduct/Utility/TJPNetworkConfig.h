@@ -14,7 +14,7 @@ NS_ASSUME_NONNULL_BEGIN
 /// 主机
 @property (nonatomic, copy) NSString *host;
 
-///端口号
+/// 端口号
 @property (nonatomic, assign) uint16_t port;
 
 /// 最大重试次数 默认5
@@ -23,7 +23,7 @@ NS_ASSUME_NONNULL_BEGIN
 /// 心跳时间 默认15秒
 @property (nonatomic, assign) CGFloat heartbeat;
 
-// 基础延迟默认 2秒
+/// 基础延迟默认 2秒
 @property (nonatomic, assign) NSTimeInterval baseDelay;
 
 

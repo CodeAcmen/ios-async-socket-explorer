@@ -25,7 +25,7 @@ NS_ASSUME_NONNULL_BEGIN
 /// 状态变更回调
 - (void)onStateChange:(void(^)(TJPConnectState oldState, TJPConnectState newState))handler;
 
-/// log方法
+/// Log方法
 - (void)logAllTransitions;
 @end
 

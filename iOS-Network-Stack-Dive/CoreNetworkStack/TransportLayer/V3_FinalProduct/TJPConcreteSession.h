@@ -24,7 +24,7 @@ NS_ASSUME_NONNULL_BEGIN
 @property (nonatomic, weak) id<TJPSessionDelegate> delegate;
 
 
-
+/// 初始化方法
 - (instancetype)initWithConfiguration:(TJPNetworkConfig *)config;
 
 @end
