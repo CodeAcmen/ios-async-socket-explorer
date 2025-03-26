@@ -20,6 +20,8 @@ NS_ASSUME_NONNULL_BEGIN
 - (void)connectToHost:(NSString *)host port:(uint16_t)port;
 /// 发送消息
 - (void)sendData:(NSData *)data;
+/// 发送心跳包
+- (void)sendHeartbeat:(NSData *)heartbeatData;
 /// 更新连接状态
 - (void)updateConnectionState:(TJPConnectState)state;
 /// 断开连接原因

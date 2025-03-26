@@ -22,6 +22,8 @@ NS_ASSUME_NONNULL_BEGIN
 @property (nonatomic, strong) NSData *payload;
 
 
++ (instancetype)packetWithHeader:(TJPFinalAdavancedHeader)header;
+
 + (instancetype)packetWithHeader:(TJPFinalAdavancedHeader)header payload:(NSData *)payload;
 
 @end

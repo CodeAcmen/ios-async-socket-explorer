@@ -80,23 +80,6 @@
     XCTAssertEqualObjects(packet.payload, bodyData, @"消息体内容不匹配");
 }
 
-- (void)testParseHeader {
-    TJPMessageParser *parser = [[TJPMessageParser alloc] init];
-    
-    // 构造一个有效的数据包头
-    TJPFinalAdavancedHeader header = {0};
-    header.magic = htonl(kProtocolMagic);  // 设定魔数
-    header.msgType = htons(TJPMessageTypeNormalData);  // 设置消息类型
-    header.bodyLength = htonl(5);  // 设置消息体的长度为5字节
-    NSData *headerData = [NSData dataWithBytes:&header length:sizeof(header)];
-    
-    // 添加数据到缓冲区
-    [parser feedData:headerData];
-    
-    // 测试头部解析
-    XCTAssertNoThrow([parser parseHeader], @"头部解析时不应抛出异常");
-    XCTAssertEqual(parser.currentHeader.magic, htonl(kProtocolMagic), @"魔数校验失败");
-}
 
 - (void)testParseBody {
     TJPMessageParser *parser = [[TJPMessageParser alloc] init];
@@ -118,8 +101,6 @@
     XCTAssertNotNil(packet, @"应该解析出一个数据包");
     XCTAssertEqualObjects(packet.payload, bodyData, @"消息体内容解析错误");
 }
-
-
 
 
 

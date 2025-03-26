@@ -19,16 +19,18 @@ NS_ASSUME_NONNULL_BEGIN
 @property (nonatomic, readonly) TJPFinalAdavancedHeader currentHeader;
 
 
-
+///  缓冲区添加数据
 - (void)feedData:(NSData *)data;
 
+/// 是否是完整数据
 - (BOOL)hasCompletePacket;
 
+/// 获取下一个数据
 - (TJPParsedPacket *)nextPacket;
 
+/// 重置数据
 - (void)reset;
 
-- (void)parseHeader;
 
 @end
 

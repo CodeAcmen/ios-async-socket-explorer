@@ -31,8 +31,6 @@ static const NSTimeInterval kDefaultRetryInterval = 10;
 @property (nonatomic, strong) GCDAsyncSocket *socket;
 @property (nonatomic, strong) dispatch_queue_t internalQueue;
 
-/// 连接状态机
-@property (nonatomic, strong) TJPConnectStateMachine *stateMachine;
 
 /// 重试策略
 @property (nonatomic, strong) TJPReconnectPolicy *reconnectPolicy;
@@ -46,8 +44,6 @@ static const NSTimeInterval kDefaultRetryInterval = 10;
 /// 缓冲区
 @property (nonatomic, strong) NSMutableData *buffer;
 
-/// 待确认消息
-@property (nonatomic, strong) NSMutableDictionary<NSNumber *, TJPMessageContext *> *pendingMessages;
 
 
 @end
@@ -90,6 +86,7 @@ static const NSTimeInterval kDefaultRetryInterval = 10;
     [_stateMachine addTransitionFromState:TJPConnectStateConnecting toState:TJPConnectStateDisconnected forEvent:TJPConnectEventForceDisconnect];
     [_stateMachine addTransitionFromState:TJPConnectStateDisconnecting toState:TJPConnectStateDisconnected forEvent:TJPConnectEventForceDisconnect];
 
+    [_stateMachine addTransitionFromState:TJPConnectStateConnecting toState:TJPConnectStateConnecting forEvent:TJPConnectEventConnect];
     
     //未连接->连接中 连接事件
     [_stateMachine addTransitionFromState:TJPConnectStateDisconnected toState:TJPConnectStateConnecting forEvent:TJPConnectEventConnect];
@@ -101,7 +98,7 @@ static const NSTimeInterval kDefaultRetryInterval = 10;
     [_stateMachine addTransitionFromState:TJPConnectStateConnected toState:TJPConnectStateDisconnecting forEvent:TJPConnectEventDisconnect];
     //断开中->未连接 断开完成事件
     [_stateMachine addTransitionFromState:TJPConnectStateDisconnecting toState:TJPConnectStateDisconnected forEvent:TJPConnectEventDisconnectComplete];
-    
+        
     //注册状态变更回调
     __weak typeof(self) weakSelf = self;
     [_stateMachine onStateChange:^(TJPConnectState  _Nonnull oldState, TJPConnectState  _Nonnull newState) {
@@ -127,6 +124,7 @@ static const NSTimeInterval kDefaultRetryInterval = 10;
             TJPLOG_INFO(@"当前状态无法连接主机,当前状态为: %@", self.stateMachine.currentState);
             return;
         }
+        TJPLOG_INFO(@"session 准备给状态机发送连接事件");
         
         //触发连接事件
         [self.stateMachine sendEvent:TJPConnectEventConnect];
@@ -151,6 +149,7 @@ static const NSTimeInterval kDefaultRetryInterval = 10;
             TJPLOG_INFO(@"当前状态发送消息失败,当前状态为: %@", self.stateMachine.currentState);
             return;
         }
+        TJPLOG_INFO(@"session 准备构造数据包");
         //创建序列号
         uint32_t seq = [self.seqManager nextSequence];
         
@@ -165,8 +164,21 @@ static const NSTimeInterval kDefaultRetryInterval = 10;
         //设置超时重传
         [self scheduleRetransmissionForSequence:context.sequence];
         
+        TJPLOG_INFO(@"session 消息即将发出");
         //发送消息
         [self.socket writeData:packet withTimeout:-1 tag:context.sequence];
+    });
+}
+
+/// 发送心跳包
+- (void)sendHeartbeat:(NSData *)heartbeatData {
+    dispatch_barrier_async(self->_internalQueue, ^{
+        if (![self.stateMachine.currentState isEqualToString:TJPConnectStateConnected]) {
+            TJPLOG_INFO(@"当前状态发送心跳包失败, 当前状态为: %@", self.stateMachine.currentState);
+            return;
+        }
+        TJPLOG_INFO(@"session 正在发送心跳包");
+        [self.socket writeData:heartbeatData withTimeout:-1 tag:0];        
     });
 }
 
@@ -176,7 +188,7 @@ static const NSTimeInterval kDefaultRetryInterval = 10;
         [self.socket disconnect];
 
         //触发断开连接完成事件
-        [self.stateMachine sendEvent:TJPConnectEventDisconnectComplete];
+        [self.stateMachine sendEvent:TJPConnectEventDisconnect];
         
         //清理资源
         [self.heartbeatManager stopMonitoring];
@@ -199,12 +211,14 @@ static const NSTimeInterval kDefaultRetryInterval = 10;
 #pragma mark - GCDAsyncSocketDelegate
 - (void)socket:(GCDAsyncSocket *)sock didConnectToHost:(NSString *)host port:(uint16_t)port {
     dispatch_barrier_async(self->_internalQueue, ^{
+        TJPLOG_INFO(@"连接成功 准备给状态机发送连接成功事件");
         //触发连接成功事件
-        [self.stateMachine sendEvent:TJPConnectEventConnect];
+        [self.stateMachine sendEvent:TJPConnectEventConnectSuccess];
         
-        //启动TLS
-        NSDictionary *tlsSettings = @{(id)kCFStreamSSLPeerName: host};
-        [sock startTLS:tlsSettings];
+        
+        //启动TLS  Mock时将TLS关闭
+//        NSDictionary *tlsSettings = @{(id)kCFStreamSSLPeerName: host};
+//        [sock startTLS:tlsSettings];
         
         //启动心跳
         [self.heartbeatManager startMonitoringForSession:self];
@@ -216,12 +230,18 @@ static const NSTimeInterval kDefaultRetryInterval = 10;
 
 - (void)socket:(GCDAsyncSocket *)sock didReadData:(NSData *)data withTag:(long)tag {
     dispatch_async([TJPNetworkCoordinator shared].parseQueue, ^{
+        TJPLOG_INFO(@"读取到数据 缓冲区准备添加数据");
         //缓冲区添加数据
         [self.parser feedData:data];
         
         //解析数据
         while ([self.parser hasCompletePacket]) {
+            TJPLOG_INFO(@"开始解析数据");
             TJPParsedPacket *packet = [self.parser nextPacket];
+            if (!packet) {
+                TJPLOG_INFO(@"数据解析出错 TJPParsedPacket为空,请检查 后续流程停止");
+                return;
+            }
             //处理数据
             [self processReceivedPacket:packet];
         }
@@ -231,7 +251,10 @@ static const NSTimeInterval kDefaultRetryInterval = 10;
 
 - (void)socketDidDisconnect:(GCDAsyncSocket *)sock withError:(NSError *)err {
     dispatch_barrier_async(self->_internalQueue, ^{
-        //触发断开连接完成事件
+        // 触发断开连接事件，进入 Disconnecting 状态
+        [self.stateMachine sendEvent:TJPConnectEventDisconnect];
+        
+        // 在 Disconnecting 状态下触发断开完成事件
         [self.stateMachine sendEvent:TJPConnectEventDisconnectComplete];
         //准备重连
         [self.reconnectPolicy attemptConnectionWithBlock:^{

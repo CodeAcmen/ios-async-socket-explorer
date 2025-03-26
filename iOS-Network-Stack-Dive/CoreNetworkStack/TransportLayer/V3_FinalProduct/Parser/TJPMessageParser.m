@@ -6,6 +6,7 @@
 //
 
 #import "TJPMessageParser.h"
+#import "JZNetworkDefine.h"
 #import "TJPParsedPacket.h"
 #import "TJPCoreTypes.h"
 
@@ -42,36 +43,58 @@
 
 - (TJPParsedPacket *)nextPacket {
     if (_state == TJPParseStateHeader) {
-        [self parseHeader];
-        _state = TJPParseStateBody;
+        return [self parseHeaderData];
     }
     if (_state == TJPParseStateBody) {
-        return [self parseBody];
+        return [self parseBodyData];
     }
     return nil;
 }
 
-- (void)parseHeader {
-    [_buffer getBytes:&_currentHeader length:sizeof(TJPFinalAdavancedHeader)];
-    [_buffer replaceBytesInRange:NSMakeRange(0, sizeof(TJPFinalAdavancedHeader)) withBytes:NULL length:0];
+- (TJPParsedPacket *)parseHeaderData {
+    if (_buffer.length < sizeof(TJPFinalAdavancedHeader)) {
+        TJPLOG_INFO(@"数据长度不够数据头解析");
+        return nil;
+    }
+    TJPFinalAdavancedHeader currentHeader = {0};
+
+    //解析头部
+    [_buffer getBytes:&currentHeader length:sizeof(TJPFinalAdavancedHeader)];
+
     
     //魔数校验失败
-    if (ntohl(_currentHeader.magic != kProtocolMagic)) {
+    if (ntohl(currentHeader.magic) != kProtocolMagic) {
+        TJPLOG_INFO(@"解析头部后魔数校验失败... 请检查");
         _state = TJPParseStateError;
+        return nil;
     }
+    TJPLOG_INFO(@"解析数据头部成功...魔数校验成功!");
+    _currentHeader = currentHeader;
+    //移除已处理的Header数据
+    [_buffer replaceBytesInRange:NSMakeRange(0, sizeof(TJPFinalAdavancedHeader)) withBytes:NULL length:0];
+    
+    TJPParsedPacket *header = [TJPParsedPacket packetWithHeader:_currentHeader];
+    TJPLOG_INFO(@"解析序列号:%u 的头部成功", ntohl(_currentHeader.sequence));
+    _state = TJPParseStateBody;
+    
+    return header;
 }
 
-- (TJPParsedPacket *)parseBody {
+- (TJPParsedPacket *)parseBodyData {
     uint32_t bodyLength = ntohl(_currentHeader.bodyLength);
-    if (_buffer.length < bodyLength) return nil;
+    if (_buffer.length < bodyLength) {
+        TJPLOG_INFO(@"数据长度不够内容解析,等待更多数据...");
+        return nil;
+    }
     
     NSData *payload = [_buffer subdataWithRange:NSMakeRange(0, bodyLength)];
     [_buffer replaceBytesInRange:NSMakeRange(0, bodyLength) withBytes:NULL length:0];
     
-    TJPParsedPacket *packet = [TJPParsedPacket packetWithHeader:_currentHeader payload:payload];
+    TJPParsedPacket *body = [TJPParsedPacket packetWithHeader:_currentHeader payload:payload];
+    TJPLOG_INFO(@"解析序列号:%u 的内容成功", ntohl(_currentHeader.sequence));
+
     _state = TJPParseStateHeader;
-    return packet;
-    
+    return body;
 }
 
 - (void)reset {

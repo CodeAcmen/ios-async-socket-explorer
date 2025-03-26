@@ -38,6 +38,7 @@
 
 - (void)startMonitoringForSession:(id<TJPSessionProtocol>)session {
     dispatch_async(self.heartbeatQueue, ^{
+        TJPLOG_INFO(@"heartbeat 准备开始发送心跳");
         [self _startMonitoringForSession:session];
     });
 }
@@ -47,6 +48,8 @@
     _currentInterval = _baseInterval;
     [_pendingHeartbeats removeAllObjects];
     
+    TJPLOG_INFO(@"即将发送首个心跳包");
+
     //发送首个心跳包
     [self sendHeartbeat];
     
@@ -120,12 +123,14 @@
         if (!strongSession) {
             return;
         }
-        
         //获取序列号
         uint32_t sequence = [self.sequenceManager nextSequence];
         
+        TJPLOG_INFO(@"心跳包正在组装,准备发出  序列号为: %u", sequence);
+        
         //组装心跳包
         NSData *packet = [self buildHeartbeatPacket:sequence];
+        TJPLOG_INFO(@"心跳包组装完成  序列号为: %u", sequence);
         
         //记录发送时间(毫秒级)
         NSDate *sendTime = [NSDate date];
@@ -134,14 +139,16 @@
         [self.pendingHeartbeats setObject:sendTime forKey:@(sequence)];
             
         //发送心跳包
-        [self->_session sendData:packet];
+        TJPLOG_INFO(@"heartbeatManager 准备将心跳包移交给 session 发送数据");
+        [self->_session sendHeartbeat:packet];
         
         //动态设置超时阈值 2倍 平均RTT
-        self->_currentInterval = MAX(2 * self.networkCondition.roundTripTime / 1000.0, 2.0);
+        self->_currentInterval = MAX(2 * self.networkCondition.roundTripTime / 1000.0, 3.0);
         
         //超时检测
         dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(self->_currentInterval * NSEC_PER_SEC)), self.heartbeatQueue, ^{
             if (self.pendingHeartbeats[@(sequence)]) {
+                TJPLOG_INFO(@"触发序列号 %u 的心跳超时检测", sequence);
                 [self _removeHeartbeatsForSequence:sequence];
                 [self handleHeaderbeatTimeoutForSequence:sequence];
             }

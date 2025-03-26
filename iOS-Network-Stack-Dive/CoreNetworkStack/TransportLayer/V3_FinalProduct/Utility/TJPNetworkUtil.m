@@ -37,7 +37,7 @@
     uLong crc = crc32(0L, Z_NULL, 0);
     crc = crc32(crc, [data bytes], (uInt)[data length]);
     
-    NSLog(@"Calculated CRC32: %u", crc);  // 输出计算的 CRC32 值
+    NSLog(@"Calculated CRC32: %u", (uint32_t)crc);  // 输出计算的 CRC32 值
     return (uint32_t)crc;
 }
 
