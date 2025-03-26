@@ -38,7 +38,6 @@
         _sessionMap = [NSMapTable strongToWeakObjectsMapTable];
         [self setupQueues];
         [self setupNetworkMonitoring];
-
     }
     return self;
 }
@@ -49,7 +48,6 @@
     self.ioQueue = dispatch_queue_create("com.networkCoordinator.tjp.ioQueue", DISPATCH_QUEUE_CONCURRENT);
     //串行解析数据队列 专用数据解析
     self.parseQueue = dispatch_queue_create("com.networkCoordinator.tjp.parseQueue", DISPATCH_QUEUE_SERIAL);
-
 }
 
 - (void)setupNetworkMonitoring {

@@ -29,7 +29,7 @@ NS_ASSUME_NONNULL_BEGIN
 /// 解析庄勇队列
 @property (nonatomic, strong) dispatch_queue_t parseQueue;
 
-
+/// 单例
 + (instancetype)shared;
 
 /// 创建会话方法
