@@ -12,7 +12,7 @@
 #import "TJPSessionDelegate.h"
 #import "TJPSessionProtocol.h"
 #import "TJPConcreteSession.h"
-#import "JZNetworkDefine.h"
+#import "TJPNetworkDefine.h"
 
 
 

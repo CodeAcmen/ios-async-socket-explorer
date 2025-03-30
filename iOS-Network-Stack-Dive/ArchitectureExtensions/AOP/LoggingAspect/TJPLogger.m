@@ -7,7 +7,7 @@
 
 #import "TJPLogger.h"
 #import "TJPLogModel.h"
-#import "JZNetworkDefine.h"
+#import "TJPNetworkDefine.h"
 
 @interface TJPLogger ()
 

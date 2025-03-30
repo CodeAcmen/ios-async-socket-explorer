@@ -10,7 +10,7 @@
 #import "TJPSessionProtocol.h"
 #import "TJPNetworkCondition.h"
 #import "TJPSequenceManager.h"
-#import "JZNetworkDefine.h"
+#import "TJPNetworkDefine.h"
 
 
 @interface TJPDynamicHeartbeat ()

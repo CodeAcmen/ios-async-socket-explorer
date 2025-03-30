@@ -8,7 +8,7 @@
 #import "TJPNETErrorHandler.h"
 #import "TJPNETError.h"
 #import "TJPNetworkManagerV1.h"
-#import "JZNetworkDefine.h"
+#import "TJPNetworkDefine.h"
 
 @implementation TJPNETErrorHandler
 

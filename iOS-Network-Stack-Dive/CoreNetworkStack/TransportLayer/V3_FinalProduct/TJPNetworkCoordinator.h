@@ -26,7 +26,7 @@ NS_ASSUME_NONNULL_BEGIN
 
 /// I/O专用队列
 @property (nonatomic, strong) dispatch_queue_t ioQueue;
-/// 解析庄勇队列
+/// 解析专用队列
 @property (nonatomic, strong) dispatch_queue_t parseQueue;
 
 /// 单例

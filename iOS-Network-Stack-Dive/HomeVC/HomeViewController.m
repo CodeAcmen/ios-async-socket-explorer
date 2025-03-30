@@ -9,6 +9,8 @@
 #import "StickPacketDemoController.h"
 #import "StickPacketSolutionController.h"
 #import "TJPLoggerViewController.h"
+#import "TJPVIPERDemoViewController.h"
+
 
 
 @interface HomeViewController () <UITableViewDelegate, UITableViewDataSource>
@@ -45,7 +47,12 @@
             @"title": @"AOP实现",
             @"viewControllers": @[
                 @{ @"title": @"轻量级切面日志", @"viewController": [TJPLoggerViewController class] },
-                @{ @"title": @"方案2", @"viewController": [StickPacketSolutionController class] },
+            ]
+        },
+        @{
+            @"title": @"UI实现",
+            @"viewControllers": @[
+                @{ @"title": @"封装VIPER-TableView演示", @"viewController": [TJPVIPERDemoViewController class] },
                 @{ @"title": @"方案3", @"viewController": [StickPacketDemoController class] }
             ]
         }

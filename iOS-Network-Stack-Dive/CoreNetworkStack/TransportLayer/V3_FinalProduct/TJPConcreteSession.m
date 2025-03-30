@@ -9,7 +9,7 @@
 #import <GCDAsyncSocket.h>
 
 #import "TJPNetworkConfig.h"
-#import "JZNetworkDefine.h"
+#import "TJPNetworkDefine.h"
 
 #import "TJPNetworkCoordinator.h"
 #import "TJPReconnectPolicy.h"

@@ -18,13 +18,13 @@
 | -------------|----------------------- | --------------------|
 | 网通通信核心 | TCP连接管理、心跳保活、断线重连、TLS安全传输 | 即时通讯IM、IoT设备管理 |
 | 协议设计 | 自定义二进制协议（魔数+CRC32+TLV结构）、Protobuf兼容、数据压缩 | 高吞吐、低延迟场景 |
-|高并发优化 | 多路复用连接池（支持10k+并发）、GCD多度单写模型、零拷贝传输优化 | 实时数据同步、高并发消息推送 |
+|高并发优化 | 多路复用连接池（支持10k+并发）、GCD多读单写模型、零拷贝传输优化 | 实时数据同步、高并发消息推送 |
 | 现代企业级架构 | VIPER分层架构+注入式解耦框架（Typhoon）、IM防腐层设计 | 大型项目长期维护 |
 | 可靠传输 | ACK/NACK 确认机制、超时重传、自适应动态心跳 | 弱网环境、可靠级传输 |
 
 
 
-## 架构演进
+## 网络架构演进
 | 阶段                    | 方案                 | 适用场景               | 关键特性                   |
 | ---------------------- | ------------------- | ---------------------- | ------------------------ |
 | TJPConcurrentNetworkManager | 单 TCP 通道           | 小型项目/中型项目早期  | 心跳保活、断线重连、协议解析、线程安全 |
@@ -59,8 +59,6 @@
 - **二进制协议设计**：Header + CRC32 + Payload。
 - **TLS 安全传输**：支持加密安全传输。
 
- **持续迭代ing，敬请关注！**
-
 ##### 快速接入 Objective-C
 ```Objective-C
 // 1. 初始化配置
@@ -93,8 +91,20 @@ let messageData = "Hello World".data(using: .utf8)
 session.send(data: messageData)
 ```
 
+#### **VIPER UI 层**
+适用于中大型项目的封装`TableView`-**TJPViperBaseTableView**，完美契合分层架构，能够应对各种复杂的数据展示需求，特别适用于**数据驱动界面**构建，通过接口的方式解耦、无缝集成了**响应式编程模型**，灵活的设计能够有效提升项目的可维护性和扩展性，且能够适应项目不断变化的需求。
+
+UI层在**分层架构**下，与**响应式框架、注入式框架**的结合
+
+#### 已知问题
+目前 AOP 切面日志存在问题，在监听多参数方法时会发生崩溃，已定位问题，接下来会修复
+
+
+ **持续迭代ing，敬请关注！**
+
 ### 🚧**进行中**
-- **VIPER业务架构整理、防腐层整理、可靠UDP协议、AOP切面日志...**
+- **IM防腐层整理、聊天界面整理、可靠UDP协议、消息可靠传输、多级ACK相应机制...**
+- VIPER UI 层将在后续版本中继续进行迭代
 
 
 ## 使用方法
@@ -189,6 +199,11 @@ Socket通信模块架构
 - [Charles Proxy](https://www.charlesproxy.com/) - 网络请求调试工具，适用于捕获、分析和调试HTTP/HTTPS请求。
 - [Typhoon](https://github.com/appsquickly/Typhoon) - 一个依赖注入框架，用于iOS项目中管理对象依赖，帮助解耦组件，提升代码可维护性、可测试性。通过Typhoon可以实现清晰的依赖关系管理，支持生产级应用中的架构设计。
 - [Reachability](https://github.com/tonymillion/Reachability) - 非常常用的网络状态监听库，用来检测设备当前的网络连接状态。
+- [libffi](https://github.com/libffi/libffi) - 一个用于实现外部函数接口（FFI，Foreign Function Interface）的开源库，它提供了一种在运行时调用外部函数的方式，特别是对于动态语言和静态编译语言之间的交互。
+- [ReactiveObjC](https://github.com/ReactiveCocoa/ReactiveObjC) - 一个响应式编程库，用于简化异步事件流的处理和管理，广泛用于 iOS 和 macOS 开发中。
+- [MJRefresh](https://github.com/CoderMJLee/MJRefresh) - 一个常用的下拉刷新与上拉加载更多的库，提供丰富的自定义选项，用于处理 UITableView 和 UICollectionView 的刷新功能。
+- [DZNEmptyDataSet](https://github.com/dzenbot/DZNEmptyDataSet) - 一个简洁的空数据视图展示库，适用于 UITableView 和 UICollectionView，当数据为空时提供漂亮的占位视图。
+
 
 ### 在线资源
 - [TCP/IP详解在线教程](http://www.tcpipguide.com/) - 一份详尽的TCP/IP协议教程，涵盖了从基础到高级的各个方面。
@@ -212,7 +227,7 @@ iOS-Network-Stack-Dive/
 │       └── RFC768-UDP.pdf
 ├── Labs/                          
 │   ├── NetworkFundamentals/       
-│   │   ├── Lab1-Socket-API/       # BSD Socket实践
+│   │   ├── Lab1-Socket-API/       # Socket实践
 │   │   └── Lab2-NSStream-Analysis/ # 流解析实验
 │   └── AdvancedLabs/              
 │       ├── CustomProtocol-Lab/    # 协议设计沙盒

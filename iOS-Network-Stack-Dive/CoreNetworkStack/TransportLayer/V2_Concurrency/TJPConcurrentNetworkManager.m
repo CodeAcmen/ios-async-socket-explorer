@@ -10,7 +10,7 @@
 #import <GCDAsyncSocket.h>
 #import <zlib.h>
 
-#import "JZNetworkDefine.h"
+#import "TJPNetworkDefine.h"
 #import "TJPNETError.h"
 #import "TJPNETErrorHandler.h"
 

@@ -11,7 +11,7 @@
 #import <zlib.h>
 
 #import "TJPNetworkProtocol.h"
-#import "JZNetworkDefine.h"
+#import "TJPNetworkDefine.h"
 #import "TJPNETError.h"
 #import "TJPNETErrorHandler.h"
 

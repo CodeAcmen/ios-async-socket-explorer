@@ -6,7 +6,7 @@
 //
 
 #import "TJPMessageParser.h"
-#import "JZNetworkDefine.h"
+#import "TJPNetworkDefine.h"
 #import "TJPParsedPacket.h"
 #import "TJPCoreTypes.h"
 

@@ -6,7 +6,7 @@
 //
 
 #import "TJPConnectStateMachine.h"
-#import "JZNetworkDefine.h"
+#import "TJPNetworkDefine.h"
 
 TJPConnectState const TJPConnectStateDisconnected = @"Disconnected";
 TJPConnectState const TJPConnectStateConnecting = @"Connecting";
