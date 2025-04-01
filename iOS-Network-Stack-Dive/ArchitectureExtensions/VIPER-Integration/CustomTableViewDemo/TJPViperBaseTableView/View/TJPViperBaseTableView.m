@@ -190,18 +190,23 @@
 
         // 根据更新的行数判断是否使用全量更新还是局部更新
         dispatch_async(dispatch_get_main_queue(), ^{
-            if (indexPathsToReload.count > 5) {
-                TJPLOG_INFO(@"Performing full reload with %lu cell models", (unsigned long)cellModels.count);
-                self.cellModels = [cellModels mutableCopy];
-                [self reloadData]; // 全量刷新
-            } else {
-                TJPLOG_INFO(@"Performing partial update with %lu updated rows", (unsigned long)indexPathsToReload.count);
-                self.cellModels = [cellModels mutableCopy];
-//                [self beginUpdates];
-//                [self reloadRowsAtIndexPaths:indexPathsToReload withRowAnimation:UITableViewRowAnimationAutomatic]; // 局部刷新
-//                [self endUpdates];
-                [self reloadData]; // 全量刷新
-            }
+            // 如果是第一次加载数据或没有有效的 indexPathsToReload，进行全量刷新
+                if (indexPathsToReload.count == 0 || !self.cellModels) {
+                    TJPLOG_INFO(@"Performing full reload with %lu cell models", (unsigned long)cellModels.count);
+                    self.cellModels = [cellModels mutableCopy];
+                    [self reloadData]; // 全量刷新
+                } else if (indexPathsToReload.count > 5) {
+                    TJPLOG_INFO(@"Performing full reload with %lu cell models", (unsigned long)cellModels.count);
+                    self.cellModels = [cellModels mutableCopy];
+                    [self reloadData]; // 全量刷新
+                } else {
+                    TJPLOG_INFO(@"Performing partial update with %lu updated rows", (unsigned long)indexPathsToReload.count);
+                    self.cellModels = [cellModels mutableCopy];
+                    // 如果是局部刷新，确保 indexPathsToReload 是有效的
+                    [self beginUpdates];
+                    [self reloadRowsAtIndexPaths:indexPathsToReload withRowAnimation:UITableViewRowAnimationAutomatic]; // 局部刷新
+                    [self endUpdates];
+                }
         });
     });
 }
