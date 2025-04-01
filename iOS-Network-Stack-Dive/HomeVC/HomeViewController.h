@@ -9,7 +9,12 @@
 
 NS_ASSUME_NONNULL_BEGIN
 
+@protocol TJPViperModuleProvider;
+
 @interface HomeViewController : UIViewController
+
+@property (nonatomic, strong) id<TJPViperModuleProvider> tjpViperModuleProvider;
+
 
 @end
 

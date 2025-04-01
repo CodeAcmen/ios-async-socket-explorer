@@ -9,7 +9,9 @@
 #import "StickPacketDemoController.h"
 #import "StickPacketSolutionController.h"
 #import "TJPLoggerViewController.h"
+#import "TJPCustomTableViewDemoViewController.h"
 #import "TJPVIPERDemoViewController.h"
+#import "TJPViperModuleProvider.h"
 
 
 
@@ -52,8 +54,8 @@
         @{
             @"title": @"UI实现",
             @"viewControllers": @[
-                @{ @"title": @"封装VIPER-TableView演示", @"viewController": [TJPVIPERDemoViewController class] },
-                @{ @"title": @"方案3", @"viewController": [StickPacketDemoController class] }
+                @{ @"title": @"封装VIPER-TableView演示", @"viewController": [TJPCustomTableViewDemoViewController class] },
+                @{ @"title": @"VIPER架构演示", @"viewController": [self.tjpViperModuleProvider viperDemoViewController] }
             ]
         }
     ];
@@ -103,10 +105,20 @@
 - (void)tableView:(UITableView *)tableView didSelectRowAtIndexPath:(NSIndexPath *)indexPath {
     NSArray *viewControllers = self.sectionsData[indexPath.section][@"viewControllers"];
     NSDictionary *vcInfo = viewControllers[indexPath.row];
-    Class selectedVCClass = vcInfo[@"viewController"];
-    
-    UIViewController *vc = [[selectedVCClass alloc] init];
-    [self.navigationController pushViewController:vc animated:YES];
+    id vcEntry = vcInfo[@"viewController"];
+
+    UIViewController *vc = nil;
+    if ([vcEntry isKindOfClass:[UIViewController class]]) {
+        // 已经是实例（如 Typhoon 注入的）
+        vc = (UIViewController *)vcEntry;
+    } else {
+        // 是 class，需要 alloc/init
+        vc = [[(Class)vcEntry alloc] init];
+    }
+
+    if (vc) {
+        [self.navigationController pushViewController:vc animated:YES];
+    }
     
     [tableView deselectRowAtIndexPath:indexPath animated:YES];
 }

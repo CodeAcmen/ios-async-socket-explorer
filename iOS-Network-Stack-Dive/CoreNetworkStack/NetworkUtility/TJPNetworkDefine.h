@@ -36,4 +36,10 @@
 #define kSessionDataReceiveNotification @"kSessionDataReceiveNotification"
 
 
+
+#define TJPSCREEN_WIDTH ([UIScreen mainScreen].bounds.size.width)
+#define TJPSCREEN_HEIGHT ([UIScreen mainScreen].bounds.size.height)
+
+
+
 #endif /* TJPNetworkDefine_h */

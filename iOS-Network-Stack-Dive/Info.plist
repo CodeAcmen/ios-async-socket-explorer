@@ -10,6 +10,12 @@
 
     <key>UIApplicationMainClassName</key>
     <string>AppDelegate</string>
+    
+    
+    <key>TyphoonInitialAssemblies</key>
+    <array>
+        <string>TJPViperModuleAssembly</string>
+    </array>
 
 </dict>
 </plist>

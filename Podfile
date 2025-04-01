@@ -20,9 +20,11 @@ target 'iOS-Network-Stack-Dive' do
   pod 'Masonry'
   
 
-
   target 'iOS-Network-Stack-DiveTests' do
     inherit! :search_paths
+    
+    #Mock pod
+    pod 'OCMock'
   end
 
 end
