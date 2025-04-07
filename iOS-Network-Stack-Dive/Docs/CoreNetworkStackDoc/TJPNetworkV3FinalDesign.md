@@ -8,6 +8,26 @@
 - **会话自治**：每个会话（`TJPConcreteSession`）独立管理自身的连接、消息收发和状态逻辑。
 - **事件驱动**：通过状态机（`TJPStateMachine`）实现状态转换与业务逻辑的解耦，提升代码可维护性。
 
+### 1.1分层架构模型
+```objc
+// 三级架构设计
+NetworkCoordinator(管理层)
+  └─ ConcreteSession(会话层)
+       └─ GCDAsyncSocket(传输层)
+```
+### 1.2状态机驱动设计
+```objc
+// 状态转换矩阵示例
+StateMachineTransitionMatrix:
+  Disconnected → Connecting : ConnectEvent
+  Connecting → Connected    : ConnectSuccessEvent
+  Connected → Disconnecting : DisconnectEvent
+```
+### 1.3模块化设计
+- 独立的心跳管理器(TJPDynamicHeartbeat)
+- 可插拔的协议解析器(TJPMessageParser)
+- 可配置的重连策略(TJPReconnectPolicy)
+
 ## 2. 核心组件
 
 ### 2.1 TJPNetworkCoordinator（全局协调器）
@@ -144,6 +164,7 @@
 - **解耦业务逻辑**：事件驱动设计有效避免了传统的 `if-else` 嵌套，增强了代码的可读性和维护性。
 - **可维护性**：系统状态变更时会产生日志或调试信息，方便开发人员跟踪和排查问题。
 
+
 ---
 
 ## 6. 为什么使用 zlib 进行压缩？
@@ -215,5 +236,4 @@
 - 所有关键操作通过 `Delegate` 或 `Notification` 暴露，增强系统的可观测性。
 - **Session ID** 在整个生命周期内贯穿，便于跟踪和管理。
 - 上下文信息的保留提供完整的调试信息，便于日志分析与问题定位。
-
 
