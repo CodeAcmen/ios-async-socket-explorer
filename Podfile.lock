@@ -1,7 +1,6 @@
 PODS:
   - CocoaAsyncSocket (7.6.5)
   - DZNEmptyDataSet (1.8.1)
-  - libffi-ios-latest (3.4.0-fix)
   - Masonry (1.1.0)
   - OCMock (3.9.4)
   - Reachability (3.7.5)
@@ -18,7 +17,6 @@ PODS:
 DEPENDENCIES:
   - CocoaAsyncSocket
   - DZNEmptyDataSet
-  - libffi-ios-latest (from `https://github.com/codeacmen/libffi-ios-latest.git`, tag `3.4.0-fix`)
   - Masonry
   - OCMock
   - Reachability (= 3.7.5)
@@ -35,26 +33,15 @@ SPEC REPOS:
     - ReactiveObjC
     - Typhoon
 
-EXTERNAL SOURCES:
-  libffi-ios-latest:
-    :git: https://github.com/codeacmen/libffi-ios-latest.git
-    :tag: 3.4.0-fix
-
-CHECKOUT OPTIONS:
-  libffi-ios-latest:
-    :git: https://github.com/codeacmen/libffi-ios-latest.git
-    :tag: 3.4.0-fix
-
 SPEC CHECKSUMS:
   CocoaAsyncSocket: 065fd1e645c7abab64f7a6a2007a48038fdc6a99
   DZNEmptyDataSet: 9525833b9e68ac21c30253e1d3d7076cc828eaa7
-  libffi-ios-latest: 79806f1aaf11500a911e2481c81430518fe5a418
   Masonry: 678fab65091a9290e40e2832a55e7ab731aad201
   OCMock: 589f2c84dacb1f5aaf6e4cec1f292551fe748e74
   Reachability: 44d15955cdaee6cef699877e1f6647dd6f6698cc
   ReactiveObjC: 011caa393aa0383245f2dcf9bf02e86b80b36040
   Typhoon: 1973c93ecfb3edb963d78b10e715bc2911475bd2
 
-PODFILE CHECKSUM: 0188466b23fc4a6c32bd2b5b719e3b3a3147d472
+PODFILE CHECKSUM: 5174ba062381b1d1018e35549d3138efd6e177c7
 
 COCOAPODS: 1.16.2

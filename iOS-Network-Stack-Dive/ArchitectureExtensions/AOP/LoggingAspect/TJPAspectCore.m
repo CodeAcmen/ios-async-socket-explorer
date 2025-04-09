@@ -10,7 +10,7 @@
 #import <objc/runtime.h>
 #import <QuartzCore/QuartzCore.h>
 #import <os/lock.h>
-#import <ffi.h>
+//#import <ffi.h>
 
 
 
@@ -60,157 +60,157 @@ static os_unfair_lock aspect_lock = OS_UNFAIR_LOCK_INIT;
 }
 
 + (void)registerLogWithConfig:(TJPLogConfig)config trigger:(TJPLogTriggerPoint)trigger handler:(void (^)(TJPLogModel * _Nonnull))handler {
-    NSLog(@"[DEBUG] 注册日志方法开始执行");
-    //获取目标类
-    Class cls = config.targetClass;
-    SEL originSEL = config.targetSelector;
-    if (!cls || !originSEL) return;
-    
-    //避免出现并发问题
-    os_unfair_lock_lock(&aspect_lock);
-    NSString *clsKey = NSStringFromClass(cls);
-    NSString *selKey = NSStringFromSelector(originSEL);
-    NSLog(@"[DEBUG] 原始类 %@ - 原始方法实现 %@", clsKey, selKey);
-    
-    //避免重复交换
-    if ([_originIMPMap[clsKey] objectForKey:selKey]) {
-        NSLog(@"[DEBUG] 已经存在钩子: %@ %@", clsKey, selKey);
-        os_unfair_lock_unlock(&aspect_lock);
-        return;
-    };
-    
-    //获取原始方法
-    Method originMethod = class_getInstanceMethod(cls, originSEL);
-    if (!originMethod) return;
-    
-    //获取原始方法实现
-    IMP originIMP = method_getImplementation(originMethod);
-    const char *typeEncoding = method_getTypeEncoding(originMethod);
-    
-    
-    //动态生成新的方法实现   核心点!
-    IMP newIMP = imp_implementationWithBlock(^(id self, SEL _cmd, ...) {
-        NSLog(@"[DEBUG] ========== Swizzled IMP 被调用: %@ %@ ==========", clsKey, selKey);
-        @autoreleasepool {
-            //构造日志模型
-            TJPLogModel *logModel = [TJPLogModel new];
-            logModel.clsName = clsKey;
-            logModel.methodName = selKey;
-            
-            //方法执行前的切点
-            if (trigger & TJPLogTriggerBeforeMethod) {
-                NSLog(@"[DEBUG]  触发 BEFORE 钩子");
-                handler(logModel);
-            }
-            
-            //动态调用原始IMP
-            void *returnValue = NULL;
-            //获取原始方法签名
-            NSMethodSignature *originSig = [self methodSignatureForSelector:originSEL];
-            NSLog(@"[DEBUG] 方法签名: %@", originSig);
-            NSUInteger numArgs = [originSig numberOfArguments];
-            
-            //使用libffi
-            ffi_cif cif;
-            ffi_type *returnType = [TJPAspectCore _ffiTypeForTypeEncoding:originSig.methodReturnType];
-            ffi_type **argTypes = malloc(numArgs * sizeof(ffi_type *));
-            void **argValues = malloc(numArgs * sizeof(void *));
-            
-            va_list args;
-            va_start(args, _cmd);
-            
-            // 提取参数类型和值
-            NSLog(@"[DEBUG] 调用 ffi_call: 准备参数");
-            for (NSUInteger i = 0; i < numArgs; i++) {
-                const char *type = [originSig getArgumentTypeAtIndex:i];
-                NSLog(@"[DEBUG] 参数 %lu 类型: %s", (unsigned long)i, type);
-
-                argTypes[i] = [TJPAspectCore _ffiTypeForTypeEncoding:type];
-                
-                if (i == 0) { // self
-                    argValues[i] = &self;
-                    NSLog(@"[DEBUG] 参数 self: %@", self);
-                } else if (i == 1) { // _cmd
-                    argValues[i] = (void *)&originSEL;
-                    NSLog(@"[DEBUG] 参数 _cmd: %@", NSStringFromSelector(originSEL));
-                } else { // 其他参数
-                    [TJPAspectCore _extractValue:&argValues[i] fromArgs:args type:type];
-                    NSLog(@"[DEBUG] 参数 %lu 值: %@", (unsigned long)i, argValues[i]);
-                }
-            }
-            va_end(args);
-            
-            // 准备ffi调用
-            ffi_status status = ffi_prep_cif(&cif, FFI_DEFAULT_ABI, (unsigned int) numArgs, returnType, argTypes);
-            NSLog(@"[DEBUG] ffi_prep_cif 状态: %d", status);
-
-            if (status != FFI_OK) {
-                NSLog(@"[ERROR] ffi_prep_cif 失败: %d", status);
-                os_unfair_lock_unlock(&aspect_lock);
-                return;
-            }
-            
-            // 分配返回值内存
-            if (originSig.methodReturnLength > 0) {
-                returnValue = malloc(originSig.methodReturnLength);
-            }
-            
-            //使用CACurrentMediaTime为了不受系统时间影响
-            NSTimeInterval start = CACurrentMediaTime();
-            
-            // 执行原始IMP
-            @try {
-                NSLog(@"[DEBUG]  准备调用原始 IMP: %p", originIMP);
-                
-                /*此处不可以使用 [invocation invoke];
-                 因为先替换了原方法实现 newIMP -> originIMP
-                 此时动态生成新的方法实现newIMP方法中, [invocation invoke]会再次调用newIMP,
-                 newIMP <-> newIMP  会无限死循环
-                 */
-                
-                // 调用原始方法实现（使用 originIMP），确保不会递归调用新方法实现
-                
-                NSLog(@"[DEBUG] 准备调用原始 IMP: %p", originIMP);
-                ffi_call(&cif, originIMP, returnValue, argValues);
-                NSLog(@"[DEBUG] 原始 IMP 调用完成, 返回值: %@", returnValue ? [NSValue valueWithPointer:returnValue] : @"无返回值");
-            } @catch (NSException *ex) {
-                NSLog(@"[ERROR]  调用原始方法时发生异常: %@", ex);
-                if (trigger & TJPLogTriggerOnException) {
-                    logModel.exception = ex;
-                    handler(logModel);
-                }
-                @throw;
-            } @finally {
-                // 触发切点：调用后
-                NSLog(@"[DEBUG]  触发 AFTER 钩子 - 耗时: %f", logModel.executeTime);
-                if (trigger & TJPLogTriggerAfterMethod) {
-                    logModel.executeTime = CACurrentMediaTime() - start;
-                    handler(logModel);
-                }
-                
-                // 处理返回值
-                if (returnValue) {
-                    [TJPAspectCore _processReturnValue:returnValue forSignature:originSig];
-                }
-                
-                // 释放内存
-                free(argTypes);
-                free(argValues);
-                if (returnValue) free(returnValue);
-            }
-        }
-    });
-
-    //替换方法实现
-    class_replaceMethod(cls, originSEL, newIMP, typeEncoding);
-
-    // 存储原始IMP
-    NSMutableDictionary *selDict = _originIMPMap[clsKey] ?: [NSMutableDictionary new];
-    [selDict setObject:[NSValue valueWithPointer:originIMP] forKey:selKey];
-    [_originIMPMap setObject:selDict forKey:clsKey];
-    
-    os_unfair_lock_unlock(&aspect_lock);
-    NSLog(@"[DEBUG] 注册日志方法执行结束 ---- ");
+//    NSLog(@"[DEBUG] 注册日志方法开始执行");
+//    //获取目标类
+//    Class cls = config.targetClass;
+//    SEL originSEL = config.targetSelector;
+//    if (!cls || !originSEL) return;
+//    
+//    //避免出现并发问题
+//    os_unfair_lock_lock(&aspect_lock);
+//    NSString *clsKey = NSStringFromClass(cls);
+//    NSString *selKey = NSStringFromSelector(originSEL);
+//    NSLog(@"[DEBUG] 原始类 %@ - 原始方法实现 %@", clsKey, selKey);
+//    
+//    //避免重复交换
+//    if ([_originIMPMap[clsKey] objectForKey:selKey]) {
+//        NSLog(@"[DEBUG] 已经存在钩子: %@ %@", clsKey, selKey);
+//        os_unfair_lock_unlock(&aspect_lock);
+//        return;
+//    };
+//    
+//    //获取原始方法
+//    Method originMethod = class_getInstanceMethod(cls, originSEL);
+//    if (!originMethod) return;
+//    
+//    //获取原始方法实现
+//    IMP originIMP = method_getImplementation(originMethod);
+//    const char *typeEncoding = method_getTypeEncoding(originMethod);
+//    
+//    
+//    //动态生成新的方法实现   核心点!
+//    IMP newIMP = imp_implementationWithBlock(^(id self, SEL _cmd, ...) {
+//        NSLog(@"[DEBUG] ========== Swizzled IMP 被调用: %@ %@ ==========", clsKey, selKey);
+//        @autoreleasepool {
+//            //构造日志模型
+//            TJPLogModel *logModel = [TJPLogModel new];
+//            logModel.clsName = clsKey;
+//            logModel.methodName = selKey;
+//            
+//            //方法执行前的切点
+//            if (trigger & TJPLogTriggerBeforeMethod) {
+//                NSLog(@"[DEBUG]  触发 BEFORE 钩子");
+//                handler(logModel);
+//            }
+//            
+//            //动态调用原始IMP
+//            void *returnValue = NULL;
+//            //获取原始方法签名
+//            NSMethodSignature *originSig = [self methodSignatureForSelector:originSEL];
+//            NSLog(@"[DEBUG] 方法签名: %@", originSig);
+//            NSUInteger numArgs = [originSig numberOfArguments];
+//            
+//            //使用libffi
+//            ffi_cif cif;
+//            ffi_type *returnType = [TJPAspectCore _ffiTypeForTypeEncoding:originSig.methodReturnType];
+//            ffi_type **argTypes = malloc(numArgs * sizeof(ffi_type *));
+//            void **argValues = malloc(numArgs * sizeof(void *));
+//            
+//            va_list args;
+//            va_start(args, _cmd);
+//            
+//            // 提取参数类型和值
+//            NSLog(@"[DEBUG] 调用 ffi_call: 准备参数");
+//            for (NSUInteger i = 0; i < numArgs; i++) {
+//                const char *type = [originSig getArgumentTypeAtIndex:i];
+//                NSLog(@"[DEBUG] 参数 %lu 类型: %s", (unsigned long)i, type);
+//
+//                argTypes[i] = [TJPAspectCore _ffiTypeForTypeEncoding:type];
+//                
+//                if (i == 0) { // self
+//                    argValues[i] = &self;
+//                    NSLog(@"[DEBUG] 参数 self: %@", self);
+//                } else if (i == 1) { // _cmd
+//                    argValues[i] = (void *)&originSEL;
+//                    NSLog(@"[DEBUG] 参数 _cmd: %@", NSStringFromSelector(originSEL));
+//                } else { // 其他参数
+//                    [TJPAspectCore _extractValue:&argValues[i] fromArgs:args type:type];
+//                    NSLog(@"[DEBUG] 参数 %lu 值: %@", (unsigned long)i, argValues[i]);
+//                }
+//            }
+//            va_end(args);
+//            
+//            // 准备ffi调用
+//            ffi_status status = ffi_prep_cif(&cif, FFI_DEFAULT_ABI, (unsigned int) numArgs, returnType, argTypes);
+//            NSLog(@"[DEBUG] ffi_prep_cif 状态: %d", status);
+//
+//            if (status != FFI_OK) {
+//                NSLog(@"[ERROR] ffi_prep_cif 失败: %d", status);
+//                os_unfair_lock_unlock(&aspect_lock);
+//                return;
+//            }
+//            
+//            // 分配返回值内存
+//            if (originSig.methodReturnLength > 0) {
+//                returnValue = malloc(originSig.methodReturnLength);
+//            }
+//            
+//            //使用CACurrentMediaTime为了不受系统时间影响
+//            NSTimeInterval start = CACurrentMediaTime();
+//            
+//            // 执行原始IMP
+//            @try {
+//                NSLog(@"[DEBUG]  准备调用原始 IMP: %p", originIMP);
+//                
+//                /*此处不可以使用 [invocation invoke];
+//                 因为先替换了原方法实现 newIMP -> originIMP
+//                 此时动态生成新的方法实现newIMP方法中, [invocation invoke]会再次调用newIMP,
+//                 newIMP <-> newIMP  会无限死循环
+//                 */
+//                
+//                // 调用原始方法实现（使用 originIMP），确保不会递归调用新方法实现
+//                
+//                NSLog(@"[DEBUG] 准备调用原始 IMP: %p", originIMP);
+//                ffi_call(&cif, originIMP, returnValue, argValues);
+//                NSLog(@"[DEBUG] 原始 IMP 调用完成, 返回值: %@", returnValue ? [NSValue valueWithPointer:returnValue] : @"无返回值");
+//            } @catch (NSException *ex) {
+//                NSLog(@"[ERROR]  调用原始方法时发生异常: %@", ex);
+//                if (trigger & TJPLogTriggerOnException) {
+//                    logModel.exception = ex;
+//                    handler(logModel);
+//                }
+//                @throw;
+//            } @finally {
+//                // 触发切点：调用后
+//                NSLog(@"[DEBUG]  触发 AFTER 钩子 - 耗时: %f", logModel.executeTime);
+//                if (trigger & TJPLogTriggerAfterMethod) {
+//                    logModel.executeTime = CACurrentMediaTime() - start;
+//                    handler(logModel);
+//                }
+//                
+//                // 处理返回值
+//                if (returnValue) {
+//                    [TJPAspectCore _processReturnValue:returnValue forSignature:originSig];
+//                }
+//                
+//                // 释放内存
+//                free(argTypes);
+//                free(argValues);
+//                if (returnValue) free(returnValue);
+//            }
+//        }
+//    });
+//
+//    //替换方法实现
+//    class_replaceMethod(cls, originSEL, newIMP, typeEncoding);
+//
+//    // 存储原始IMP
+//    NSMutableDictionary *selDict = _originIMPMap[clsKey] ?: [NSMutableDictionary new];
+//    [selDict setObject:[NSValue valueWithPointer:originIMP] forKey:selKey];
+//    [_originIMPMap setObject:selDict forKey:clsKey];
+//    
+//    os_unfair_lock_unlock(&aspect_lock);
+//    NSLog(@"[DEBUG] 注册日志方法执行结束 ---- ");
 }
 
 + (void)removeLogForClass:(Class)cls {
@@ -239,50 +239,50 @@ static os_unfair_lock aspect_lock = OS_UNFAIR_LOCK_INIT;
     os_unfair_lock_unlock(&aspect_lock);
 }
 
-#pragma mark - Private Helpers
-// 类型编码 -> ffi_type 映射
-+ (ffi_type *)_ffiTypeForTypeEncoding:(const char *)encoding {
-    switch (encoding[0]) {
-        case 'v': return &ffi_type_void;
-        case 'c': return &ffi_type_schar;
-        case 'i': return &ffi_type_sint;
-        case 's': return &ffi_type_sshort;
-        case 'l': return &ffi_type_slong;
-        case 'q': return &ffi_type_sint64;
-        case 'C': return &ffi_type_uchar;
-        case 'I': return &ffi_type_uint;
-        case 'S': return &ffi_type_ushort;
-        case 'L': return &ffi_type_ulong;
-        case 'Q': return &ffi_type_uint64;
-        case 'f': return &ffi_type_float;
-        case 'd': return &ffi_type_double;
-        case 'B': return &ffi_type_uint8;
-        case '@': return &ffi_type_pointer;
-        case '#': return &ffi_type_pointer;
-        case ':': return &ffi_type_pointer;
-        case '{': return [TJPAspectCore _ffiStructTypeForEncoding:encoding];
-        default:  return &ffi_type_void;
-    }
-}
-
-// 处理结构体（以CGRect为例）
-+ (ffi_type *)_ffiStructTypeForEncoding:(const char *)encoding {
-    if (strcmp(encoding, @encode(CGRect)) == 0) {
-        static ffi_type *rectType = NULL;
-        if (!rectType) {
-            rectType = malloc(sizeof(ffi_type));
-            rectType->type = FFI_TYPE_STRUCT;
-            rectType->elements = malloc(5 * sizeof(ffi_type *));
-            rectType->elements[0] = &ffi_type_float; // x
-            rectType->elements[1] = &ffi_type_float; // y
-            rectType->elements[2] = &ffi_type_float; // width
-            rectType->elements[3] = &ffi_type_float; // height
-            rectType->elements[4] = NULL;
-        }
-        return rectType;
-    }
-    return &ffi_type_void;
-}
+//#pragma mark - Private Helpers
+//// 类型编码 -> ffi_type 映射
+//+ (ffi_type *)_ffiTypeForTypeEncoding:(const char *)encoding {
+//    switch (encoding[0]) {
+//        case 'v': return &ffi_type_void;
+//        case 'c': return &ffi_type_schar;
+//        case 'i': return &ffi_type_sint;
+//        case 's': return &ffi_type_sshort;
+//        case 'l': return &ffi_type_slong;
+//        case 'q': return &ffi_type_sint64;
+//        case 'C': return &ffi_type_uchar;
+//        case 'I': return &ffi_type_uint;
+//        case 'S': return &ffi_type_ushort;
+//        case 'L': return &ffi_type_ulong;
+//        case 'Q': return &ffi_type_uint64;
+//        case 'f': return &ffi_type_float;
+//        case 'd': return &ffi_type_double;
+//        case 'B': return &ffi_type_uint8;
+//        case '@': return &ffi_type_pointer;
+//        case '#': return &ffi_type_pointer;
+//        case ':': return &ffi_type_pointer;
+//        case '{': return [TJPAspectCore _ffiStructTypeForEncoding:encoding];
+//        default:  return &ffi_type_void;
+//    }
+//}
+//
+//// 处理结构体（以CGRect为例）
+//+ (ffi_type *)_ffiStructTypeForEncoding:(const char *)encoding {
+//    if (strcmp(encoding, @encode(CGRect)) == 0) {
+//        static ffi_type *rectType = NULL;
+//        if (!rectType) {
+//            rectType = malloc(sizeof(ffi_type));
+//            rectType->type = FFI_TYPE_STRUCT;
+//            rectType->elements = malloc(5 * sizeof(ffi_type *));
+//            rectType->elements[0] = &ffi_type_float; // x
+//            rectType->elements[1] = &ffi_type_float; // y
+//            rectType->elements[2] = &ffi_type_float; // width
+//            rectType->elements[3] = &ffi_type_float; // height
+//            rectType->elements[4] = NULL;
+//        }
+//        return rectType;
+//    }
+//    return &ffi_type_void;
+//}
 
 
 

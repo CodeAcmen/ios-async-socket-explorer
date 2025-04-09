@@ -8,7 +8,7 @@ target 'iOS-Network-Stack-Dive' do
   # Pods for iOS-Network-Stack-Dive
   pod 'CocoaAsyncSocket'
   pod 'Reachability', '3.7.5'
-  pod 'libffi-ios-latest', :git => 'https://github.com/codeacmen/libffi-ios-latest.git', :tag => '3.4.0-fix'
+#  pod 'libffi-ios-latest', :git => 'https://github.com/codeacmen/libffi-ios-latest.git', :tag => '3.4.0-fix'
   
   pod 'ReactiveObjC'
   pod 'Typhoon'

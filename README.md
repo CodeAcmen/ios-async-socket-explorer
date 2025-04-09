@@ -71,7 +71,8 @@
   - **会话自治模型**：独立状态机 + 自适应心跳
   - **安全协议栈**：二进制协议设计 + TLS加密
   
-- **Objective-C 接入示例**
+**Objective-C 接入示例**
+
 ```Objc
 // 1. 初始化配置
 TJPNetworkConfig *config = [TJPNetworkConfig configWithMaxRetry:5 heartbeat:15];
@@ -87,7 +88,8 @@ NSData *messageData = [@"Hello World" dataUsingEncoding:NSUTF8StringEncoding];
 [session sendData:messageData];
 ```
 
-- **Swift 接入示例**
+**Swift 接入示例**
+
 ```Swift
 // 1. 初始化配置
 let config = NetworkConfig(maxRetry: 5, heartbeat: 15)
@@ -115,7 +117,9 @@ session.send(data: messageData)
 
 
 #### 已知问题
-- AOP切面日志：多参数方法监听崩溃（已定位，待修复）
+- AOP切面日志：多参数方法监听崩溃，问题已定位，后期修复。
+
+v1.1.1修复了因libffi编译导致无法在模拟器运行的问题
 
 ### 版本规划
 #### 🔜 v1.1.0（开发中） - 可观测性增强
@@ -267,7 +271,7 @@ iOS-Network-Stack-Dive/
 │   │   └── TJPNetworkV3FinalDesign.md   
 │   ├── VIPER-Integration/   
 │   │   ├── VIPER-Design.md    
-│   │   └── VIPER-RouterGuide.pdf
+│   │   └── VIPER-RouterGuide.md
 │   └── RFC/                       # 协议标准文档
 │       ├── RFC793-TCP.pdf         
 │       └── RFC768-UDP.pdf
@@ -286,7 +290,7 @@ iOS-Network-Stack-Dive/
 │   │   └── DI Container/          # 依赖注入实现
 │   └── AOP/                       
 │   │   └── LoggingAspect/         # 日志追踪切面
-│		├── NetworkMonitor/        		 # 网络监控
+│		└── NetworkMonitor/        		 # 网络监控
 ├── CoreNetworkStack/              
 │   ├── TransportLayer/            # 传输层实现
 │   │   ├── TCP-State-Machine/     # TCP状态机实现

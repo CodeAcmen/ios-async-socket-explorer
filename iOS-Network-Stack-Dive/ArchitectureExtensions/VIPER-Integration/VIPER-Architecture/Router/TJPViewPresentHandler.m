@@ -29,8 +29,8 @@
     if (!targetVC) return NO;
     
     // 执行跳转
-    if (context.navigationController) {
-        [context.navigationController pushViewController:targetVC animated:YES];
+    if (context) {
+        [context presentViewController:targetVC animated:YES completion:nil];
         return YES;
     }
     
