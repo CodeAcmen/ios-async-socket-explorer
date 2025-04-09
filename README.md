@@ -257,10 +257,17 @@ iOS-Network-Stack-Dive
 
 iOS-Network-Stack-Dive/
 ├── Docs/                           # 文档
-│   ├── Journey/                
-│   │   ├── Phase1-TCP-UDP-Core.md 
-│   │   ├── Phase2-Protocol-Design.md
-│   │   └── Phase3-Arch-Integration.md
+│   ├── ArchitectureExtensions/                
+│   │   └── AspectLoggerDesign.md 
+│   ├── CoreNetworkStackDoc/    
+│   │   ├── 协议流程解析图.jpg       
+│   │   ├── 单元测试用例文档
+│   │   ├── ProtocolParseDesign.md       
+│   │   ├── TJPNetworkManagerV2Design.md     
+│   │   └── TJPNetworkV3FinalDesign.md   
+│   ├── VIPER-Integration/   
+│   │   ├── VIPER-Design.md    
+│   │   └── VIPER-RouterGuide.pdf
 │   └── RFC/                       # 协议标准文档
 │       ├── RFC793-TCP.pdf         
 │       └── RFC768-UDP.pdf
@@ -278,8 +285,8 @@ iOS-Network-Stack-Dive/
 │   │   │   └── ProtocolAdapter/   # 协议适配器
 │   │   └── DI Container/          # 依赖注入实现
 │   └── AOP/                       
-│       ├── NetworkMonitor/        # 网络监控切面
-│       └── LoggingAspect/         # 日志追踪切面
+│   │   └── LoggingAspect/         # 日志追踪切面
+│		├── NetworkMonitor/        		 # 网络监控
 ├── CoreNetworkStack/              
 │   ├── TransportLayer/            # 传输层实现
 │   │   ├── TCP-State-Machine/     # TCP状态机实现
