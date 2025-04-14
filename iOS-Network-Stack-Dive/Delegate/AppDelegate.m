@@ -25,7 +25,7 @@
 - (BOOL)application:(UIApplication *)application didFinishLaunchingWithOptions:(NSDictionary *)launchOptions {
     
     [self setupNavigationCoordinator];
-    
+        
     [self setupWindow];
     
     return YES;

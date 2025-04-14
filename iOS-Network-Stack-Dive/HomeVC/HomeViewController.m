@@ -6,12 +6,15 @@
 //
 
 #import "HomeViewController.h"
+#import "TJPViperModuleProvider.h"
+
 #import "StickPacketDemoController.h"
 #import "StickPacketSolutionController.h"
 #import "TJPLoggerViewController.h"
 #import "TJPCustomTableViewDemoViewController.h"
 #import "TJPVIPERDemoViewController.h"
-#import "TJPViperModuleProvider.h"
+#import "TJPNetworkMonitorViewController.h"
+
 
 
 
@@ -42,7 +45,8 @@
             @"title": @"Socket实践",
             @"viewControllers": @[
                 @{ @"title": @"粘包问题演示", @"viewController": [StickPacketDemoController class] },
-                @{ @"title": @"粘包问题解决方案", @"viewController": [StickPacketSolutionController class] }
+                @{ @"title": @"粘包问题解决方案", @"viewController": [StickPacketSolutionController class] },
+                @{ @"title": @"TCP框架+数据监控演示", @"viewController": [TJPNetworkMonitorViewController class] }
             ]
         },
         @{
@@ -55,7 +59,7 @@
             @"title": @"UI实现",
             @"viewControllers": @[
                 @{ @"title": @"封装VIPER-TableView演示", @"viewController": [TJPCustomTableViewDemoViewController class] },
-                @{ @"title": @"VIPER架构演示", @"viewController": [self.tjpViperModuleProvider viperDemoViewController] }
+                @{ @"title": @"VIPER架构演示", @"viewController": @"VIPERDemo" }
             ]
         }
     ];
@@ -108,11 +112,12 @@
     id vcEntry = vcInfo[@"viewController"];
 
     UIViewController *vc = nil;
-    if ([vcEntry isKindOfClass:[UIViewController class]]) {
-        // 已经是实例（如 Typhoon 注入的）
-        vc = (UIViewController *)vcEntry;
+    if ([vcEntry isKindOfClass:[NSString class]]) {
+        if ([vcEntry isEqualToString:@"VIPERDemo"]) {
+            vc = [self.tjpViperModuleProvider viperDemoViewController];
+        }
     } else {
-        // 是 class，需要 alloc/init
+        // 是 class，需要 alloc init
         vc = [[(Class)vcEntry alloc] init];
     }
 

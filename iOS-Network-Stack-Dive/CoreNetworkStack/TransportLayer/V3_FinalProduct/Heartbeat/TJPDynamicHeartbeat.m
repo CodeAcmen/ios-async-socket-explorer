@@ -31,6 +31,8 @@
         _sequenceManager = seqManager;
         _baseInterval = baseInterval;
         _heartbeatQueue = dispatch_queue_create("com.tjp.dynamicHeartbeat.serialQueue", DISPATCH_QUEUE_SERIAL);
+        dispatch_set_target_queue(_heartbeatQueue,
+                                dispatch_get_global_queue(QOS_CLASS_UTILITY, 0));
     }
     return self;
 }
@@ -49,7 +51,6 @@
     [_pendingHeartbeats removeAllObjects];
     
     TJPLOG_INFO(@"即将发送首个心跳包");
-
     //发送首个心跳包
     [self sendHeartbeat];
     
@@ -61,13 +62,24 @@
     //发送心跳包的定时器
     _heartbeatTimer = dispatch_source_create(DISPATCH_SOURCE_TYPE_TIMER, 0, 0, self.heartbeatQueue);
     //设置定时器的触发时间
-    dispatch_source_set_timer(_heartbeatTimer, DISPATCH_TIME_NOW, _baseInterval * NSEC_PER_SEC, 1 * NSEC_PER_SEC);
+    [self _updateTimerInterval];
+
     //设置定时器的事件处理顺序
     dispatch_source_set_event_handler(_heartbeatTimer, ^{
         [self sendHeartbeat];
     });
     //启动定时器
     dispatch_resume(_heartbeatTimer);
+}
+
+- (void)_updateTimerInterval {
+    if (_heartbeatTimer) {
+        uint64_t interval = (uint64_t)(_currentInterval * NSEC_PER_SEC);
+        dispatch_source_set_timer(_heartbeatTimer,
+                                dispatch_time(DISPATCH_TIME_NOW, interval),
+                                interval,
+                                1 * NSEC_PER_SEC);
+    }
 }
 
 - (void)stopMonitoring {
@@ -92,7 +104,7 @@
             return;
         }
         // 根据网络状态设置新间隔
-        dispatch_source_set_timer(self->_heartbeatTimer, DISPATCH_TIME_NOW, self->_currentInterval * NSEC_PER_SEC, 1 * NSEC_PER_SEC);
+        [self _updateTimerInterval];
     });
 }
 
@@ -130,7 +142,7 @@
         
         //组装心跳包
         NSData *packet = [self buildHeartbeatPacket:sequence];
-        TJPLOG_INFO(@"心跳包组装完成  序列号为: %u", sequence);
+//        TJPLOG_INFO(@"心跳包组装完成  序列号为: %u", sequence);
         
         //记录发送时间(毫秒级)
         NSDate *sendTime = [NSDate date];
@@ -139,14 +151,17 @@
         [self.pendingHeartbeats setObject:sendTime forKey:@(sequence)];
             
         //发送心跳包
-        TJPLOG_INFO(@"heartbeatManager 准备将心跳包移交给 session 发送数据");
+        TJPLOG_INFO(@"heartbeatManager 准备将心跳包移交给 session 发送  当前时间:%@", sendTime);
         [self->_session sendHeartbeat:packet];
         
-        //动态设置超时阈值 2倍 平均RTT
-        self->_currentInterval = MAX(2 * self.networkCondition.roundTripTime / 1000.0, 3.0);
+        // 通过统一方法调整间隔
+        [self adjustIntervalWithNetworkCondition:self.networkCondition];
         
+        // 设置动态超时（3倍RTT或最低15秒）
+        NSTimeInterval timeout = MAX(self.networkCondition.roundTripTime * 3 / 1000.0, 15);
+
         //超时检测
-        dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(self->_currentInterval * NSEC_PER_SEC)), self.heartbeatQueue, ^{
+        dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(timeout * NSEC_PER_SEC)), self.heartbeatQueue, ^{
             if (self.pendingHeartbeats[@(sequence)]) {
                 TJPLOG_INFO(@"触发序列号 %u 的心跳超时检测", sequence);
                 [self _removeHeartbeatsForSequence:sequence];
@@ -164,6 +179,8 @@
             NSTimeInterval rtt = [[NSDate date] timeIntervalSinceDate:sendTime] * 1000; //转毫秒
             [self.networkCondition updateRTTWithSample:rtt];
             [self.networkCondition updateLostWithSample:NO];
+            // 收到ACK后主动调整间隔
+            [self adjustIntervalWithNetworkCondition:self.networkCondition];
         }
         [self _removeHeartbeatsForSequence:sequence];
     });
@@ -174,7 +191,7 @@
     if (!strongSession) return;
     
     if (self.pendingHeartbeats[@(sequence)]) {
-        TJPLOG_INFO(@"心跳包 %u 超时未确认", sequence);
+        TJPLOG_INFO(@"序列号为: %u的心跳包 超时未确认", sequence);
         //更新丢包率
         [self.networkCondition updateLostWithSample:YES];
         //触发动态调整

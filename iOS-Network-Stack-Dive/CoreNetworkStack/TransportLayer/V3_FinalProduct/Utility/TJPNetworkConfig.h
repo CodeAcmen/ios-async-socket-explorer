@@ -27,6 +27,10 @@ NS_ASSUME_NONNULL_BEGIN
 @property (nonatomic, assign) NSTimeInterval baseDelay;
 
 
+/// 初始化方法
++ (instancetype)configWithMaxRetry:(NSUInteger)maxRetry heartbeat:(CGFloat)heartbeat;
+
+
 @end
 
 NS_ASSUME_NONNULL_END

@@ -38,6 +38,9 @@ NS_ASSUME_NONNULL_BEGIN
 - (void)sendHeartbeat;
 /// 心跳回应
 - (void)heartbeatACKNowledgedForSequence:(uint32_t)sequence;
+
+- (void)handleHeaderbeatTimeoutForSequence:(uint32_t)sequence;
+
 @end
 
 NS_ASSUME_NONNULL_END

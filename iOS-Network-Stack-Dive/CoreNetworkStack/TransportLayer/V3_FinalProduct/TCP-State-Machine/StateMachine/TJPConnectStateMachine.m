@@ -25,7 +25,7 @@ TJPConnectEvent const TJPConnectEventForceDisconnect = @"ForceDisconnect";      
 @end
 
 @implementation TJPConnectStateMachine {
-    TJPConnectState _currentState;
+//    TJPConnectState _currentState;
     NSMutableDictionary<NSString *, TJPConnectState> *_transitions;
     NSMutableArray<void (^)(TJPConnectState, TJPConnectState)> *_stateChangeHandlers;
 }
@@ -33,7 +33,8 @@ TJPConnectEvent const TJPConnectEventForceDisconnect = @"ForceDisconnect";      
 
 - (instancetype)initWithInitialState:(TJPConnectState)initialState {
     if (self = [super init]) {
-        _currentState = initialState;
+        // 通过 setter 设置初始状态，触发 swizzled setCurrentState:
+        self.currentState = initialState;
         _transitions = [NSMutableDictionary dictionary];
         _stateChangeHandlers = [NSMutableArray array];
     }
@@ -65,7 +66,7 @@ TJPConnectEvent const TJPConnectEventForceDisconnect = @"ForceDisconnect";      
     TJPLOG_INFO(@"新状态为 :%@", newState);
     if (newState) {
         TJPConnectState oldState = _currentState;
-        _currentState = newState;
+        self.currentState = newState;
         
         //状态变更回调
         for (void(^handler)(TJPConnectState, TJPConnectState) in _stateChangeHandlers) {

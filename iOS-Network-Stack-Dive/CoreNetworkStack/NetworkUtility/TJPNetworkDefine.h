@@ -8,6 +8,14 @@
 #ifndef TJPNetworkDefine_h
 #define TJPNetworkDefine_h
 
+//网络监控开关
+#if ENABLE_NETWORK_MONITORING
+#define MONITOR_ENABLED 1
+#else
+#define MONITOR_ENABLED 0
+#endif
+
+
 //安全断言
 #define AssertMainThread() NSAssert([NSThread isMainThread], @"必须在主线程执行")
 

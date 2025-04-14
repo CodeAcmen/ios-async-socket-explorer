@@ -62,6 +62,7 @@ static const uint8_t kProtocolVersionMinor = 0;
 //    TJPConnecationStateConnecting   = 1 << 1,  // 正在建立连接
 //    TJPConnecationStateConnected    = 1 << 2   // 已成功连接
 //};
+
 //定义状态和事件
 typedef NSString * TJPConnectState NS_STRING_ENUM;
 typedef NSString * TJPConnectEvent NS_STRING_ENUM;

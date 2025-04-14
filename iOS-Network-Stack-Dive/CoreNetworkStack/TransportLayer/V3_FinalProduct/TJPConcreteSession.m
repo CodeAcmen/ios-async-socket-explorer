@@ -21,6 +21,7 @@
 #import "TJPNetworkUtil.h"
 #import "TJPConnectStateMachine.h"
 #import "TJPNetworkCondition.h"
+#import "TJPMetricsConsoleReporter.h"
 
 
 
@@ -139,6 +140,11 @@ static const NSTimeInterval kDefaultRetryInterval = 10;
                 [weakSelf handleError:error];
             }
         }];
+        
+#if DEBUG
+    //开始监听网络指标
+    [TJPMetricsConsoleReporter start];
+#endif
     });
 }
 
@@ -193,6 +199,9 @@ static const NSTimeInterval kDefaultRetryInterval = 10;
         //清理资源
         [self.heartbeatManager stopMonitoring];
         [self.pendingMessages removeAllObjects];
+        
+        // 停止监控
+        [TJPMetricsConsoleReporter stop];
     });
 }
 

@@ -12,8 +12,12 @@ NS_ASSUME_NONNULL_BEGIN
 
 @interface TJPConnectStateMachine : NSObject
 
-@property (nonatomic, readonly) TJPConnectState currentState;
+/// 当前状态
+@property (nonatomic, readwrite) TJPConnectState currentState;
 
+
+
+/// 初始化方法
 - (instancetype)initWithInitialState:(TJPConnectState)initialState;
 
 /// 转换规则
@@ -27,6 +31,7 @@ NS_ASSUME_NONNULL_BEGIN
 
 /// Log方法
 - (void)logAllTransitions;
+
 @end
 
 NS_ASSUME_NONNULL_END

@@ -13,6 +13,10 @@
 
 @implementation TJPVIPERDemoDetailViewController
 
+- (void)dealloc {
+    NSLog(@"%@ dealloc", NSStringFromClass([self class]));
+}
+
 - (void)viewDidLoad {
     [super viewDidLoad];
     
