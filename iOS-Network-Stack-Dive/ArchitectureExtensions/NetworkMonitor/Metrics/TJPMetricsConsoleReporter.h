@@ -11,8 +11,14 @@ NS_ASSUME_NONNULL_BEGIN
 
 @interface TJPMetricsConsoleReporter : NSObject
 
+@property (nonatomic, copy) void (^reportCallback)(NSString *report);
+
+
 // 是否正在运行
 @property (nonatomic, class, readonly) BOOL isRunning;
+
+
++ (instancetype)sharedInstance;
 
 
 /// 启动控制台输出 默认15s

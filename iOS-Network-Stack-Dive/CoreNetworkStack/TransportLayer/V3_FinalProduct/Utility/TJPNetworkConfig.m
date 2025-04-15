@@ -9,12 +9,14 @@
 
 @implementation TJPNetworkConfig
 
-+ (instancetype)configWithMaxRetry:(NSUInteger)maxRetry heartbeat:(CGFloat)heartbeat {
-    return [[TJPNetworkConfig alloc] initWithMaxRetry:maxRetry heartbeat:heartbeat];
++ (instancetype)configWithHost:(NSString *)host port:(uint16_t)port maxRetry:(NSUInteger)maxRetry heartbeat:(CGFloat)heartbeat {
+    return [[TJPNetworkConfig alloc] initWithHost:host port:port maxRetry:maxRetry heartbeat:heartbeat];
 }
 
-- (instancetype)initWithMaxRetry:(NSUInteger)maxRetry heartbeat:(CGFloat)heartbeat {
+- (instancetype)initWithHost:(NSString *)host port:(uint16_t)port maxRetry:(NSUInteger)maxRetry heartbeat:(CGFloat)heartbeat {
     if (self = [super init]) {
+        _host = host;
+        _port = port;
         _maxRetry = maxRetry;
         _heartbeat = heartbeat;
         _baseDelay = 2.0;
@@ -24,6 +26,8 @@
 
 - (instancetype)init {
     if (self = [super init]) {
+        _host = @"127.0.0.1";
+        _port = 8080;
         _maxRetry = 5;
         _heartbeat = 15.0;
         _baseDelay = 2.0;

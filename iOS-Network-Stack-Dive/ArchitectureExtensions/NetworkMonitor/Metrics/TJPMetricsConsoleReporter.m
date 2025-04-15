@@ -16,6 +16,15 @@ static BOOL _isRunning = NO;
 
 @implementation TJPMetricsConsoleReporter
 
++ (instancetype)sharedInstance {
+    static TJPMetricsConsoleReporter *instance = nil;
+    static dispatch_once_t onceToken;
+    dispatch_once(&onceToken, ^{
+        instance = [[TJPMetricsConsoleReporter alloc] init];
+    });
+    return instance;
+}
+
 + (BOOL)isRunning {
     return _isRunning;
 }
@@ -103,6 +112,9 @@ static BOOL _isRunning = NO;
     
     printf("%s\n", report.UTF8String);
     
+    if ([TJPMetricsConsoleReporter sharedInstance].reportCallback) {
+        [TJPMetricsConsoleReporter sharedInstance].reportCallback([report copy]);
+    }
     os_unfair_lock_unlock(&_reportLock);
 }
 

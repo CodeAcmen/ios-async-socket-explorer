@@ -74,12 +74,15 @@
     switch (status) {
         case NotReachable:
             // 网络不可达时强制断开所有连接
+            TJPLOG_INFO(@"网络不可达，断开所有会话连接");
+            [self updateAllSessionsState:TJPConnectStateDisconnecting];
             [self updateAllSessionsState:TJPConnectStateDisconnected];
             break;
             
         case ReachableViaWiFi:
         case ReachableViaWWAN:
             // 网络恢复时自动重连处于断开状态的会话
+            TJPLOG_INFO(@"网络恢复，尝试自动重连");
             [self triggerAutoReconnect];
             break;
     }
@@ -94,6 +97,7 @@
         while ((session = [enumerator nextObject])) {
             if ([session.connectState isEqualToString:TJPConnectStateDisconnected]) {
                 // 只重连因网络问题断开的会话
+                TJPLOG_INFO(@"正在重新连接会话: %@", session.sessionId);
                 [session connectToHost:self.currConfig.host port:self.currConfig.port];
             }
         }

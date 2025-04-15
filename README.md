@@ -76,13 +76,15 @@
 
 ```Objc
 // 1. 初始化配置
-TJPNetworkConfig *config = [TJPNetworkConfig configWithMaxRetry:5 heartbeat:15];
+NSString *host = @"127.0.0.1";
+uint16_t port = 12345;
+TJPNetworkConfig *config = [TJPNetworkConfig configWithHost:host port:port maxRetry:5 heartbeat:15.0];
 
 // 2. 创建会话（中心协调器自动管理）
 TJPConcreteSession *session = [[TJPNetworkCoordinator shared] createSessionWithConfiguration:config];
 
 // 3. 连接服务器
-[session connectToHost:@"example_host" port:8080];
+[self.session connectToHost:host port:port];
 
 // 4. 发送消息
 NSData *messageData = [@"Hello World" dataUsingEncoding:NSUTF8StringEncoding];
@@ -93,17 +95,21 @@ NSData *messageData = [@"Hello World" dataUsingEncoding:NSUTF8StringEncoding];
 
 ```Swift
 // 1. 初始化配置
-let config = NetworkConfig(maxRetry: 5, heartbeat: 15)
+let host = "127.0.0.1"
+let port: UInt16 = 12345
+let config = TJPNetworkConfig(host: host, port: port, maxRetry: 5, heartbeat: 15.0)
 
-// 2. 创建会话
-guard let session = NetworkCoordinator.shared.createSession(config: config) else { return }
+// 2. 创建会话（中心协调器自动管理）
+let session = TJPNetworkCoordinator.shared.createSession(with: config)
 
 // 3. 连接服务器
-session.connect(toHost: "example_host", port: 8080)
+session.connectToHost(host, port: port)
 
 // 4. 发送消息
-let messageData = "Hello World".data(using: .utf8)
-session.send(data: messageData)
+let message = "Hello World"
+if let messageData = message.data(using: .utf8) {
+    session.sendData(messageData)
+}
 ```
 ##### 企业级 VIPER 架构体系
 **中大型应用分层解耦设计解决方案**

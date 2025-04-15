@@ -77,6 +77,7 @@ extern TJPConnectState const TJPConnectStateDisconnecting;  //正在断开
 extern TJPConnectEvent const TJPConnectEventConnect;
 extern TJPConnectEvent const TJPConnectEventConnectSuccess;
 extern TJPConnectEvent const TJPConnectEventConnectFailed;
+extern TJPConnectEvent const TJPConnectEventNetworkError;
 extern TJPConnectEvent const TJPConnectEventDisconnect;
 extern TJPConnectEvent const TJPConnectEventDisconnectComplete;
 extern TJPConnectEvent const TJPConnectEventForceDisconnect;       
