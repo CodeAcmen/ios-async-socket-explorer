@@ -20,7 +20,8 @@ typedef NS_ENUM(uint16_t, TJPMessageType) {
 typedef NS_ENUM(NSInteger, TJPDisconnectReason){
     TJPDisconnectReasonManual           = 1 << 0,  // 手动断开连接
     TJPDisconnectReasonNetworkError     = 1 << 1,  // 网络错误导致断开
-    TJPDisconnectReasonHeartbeatTimeout = 1 << 2   // 心跳超时导致断开
+    TJPDisconnectReasonHeartbeatTimeout = 1 << 2,  // 心跳超时导致断开
+    TJPDisconnectReasonForceReconnect   = 1 << 3   // 强制重连导致断开
 };
 
 typedef NS_ENUM(NSUInteger, TJPParseState) {

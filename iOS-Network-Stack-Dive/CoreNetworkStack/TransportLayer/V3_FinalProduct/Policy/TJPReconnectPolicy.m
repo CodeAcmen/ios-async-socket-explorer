@@ -40,8 +40,10 @@ static const NSTimeInterval kMaxReconnectDelay = 30;
 }
 
 - (void)attemptConnectionWithBlock:(dispatch_block_t)connectionBlock {
+    NSLog(@"开始连接尝试，当前尝试次数%ld/%ld", (long)_currentAttempt, (long)_maxAttempts);
     //如果超过最大重试次数 停止重试
     if (_currentAttempt >= _maxAttempts) {
+        NSLog(@"已达到最大重试次数%ld/%ld，停止重试", (long)_currentAttempt, (long)_maxAttempts);
         [self notifyReachMaxAttempts];
         return;
     }
@@ -53,8 +55,10 @@ static const NSTimeInterval kMaxReconnectDelay = 30;
     dispatch_queue_t queue = dispatch_get_global_queue(_qosClass, 0);
     dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(delay * NSEC_PER_SEC)), queue, ^{
         if ([TJPNetworkCoordinator shared].reachability) {
+            NSLog(@"网络状态可达，执行连接块");
             if (connectionBlock) connectionBlock();
             self->_currentAttempt++;
+            NSLog(@"当前尝试次数更新为%ld", (long)self->_currentAttempt);
         }
     });
     

@@ -26,7 +26,7 @@ TJPConnectEvent const TJPConnectEventForceDisconnect = @"ForceDisconnect";      
 @end
 
 @implementation TJPConnectStateMachine {
-//    TJPConnectState _currentState;
+    dispatch_queue_t _eventQueue;
     NSMutableDictionary<NSString *, TJPConnectState> *_transitions;
     NSMutableArray<void (^)(TJPConnectState, TJPConnectState)> *_stateChangeHandlers;
 }
@@ -38,6 +38,7 @@ TJPConnectEvent const TJPConnectEventForceDisconnect = @"ForceDisconnect";      
         self.currentState = initialState;
         _transitions = [NSMutableDictionary dictionary];
         _stateChangeHandlers = [NSMutableArray array];
+        _eventQueue = dispatch_queue_create("com.statemachine.queue", DISPATCH_QUEUE_SERIAL);
     }
     return self;
 }
@@ -53,29 +54,37 @@ TJPConnectEvent const TJPConnectEventForceDisconnect = @"ForceDisconnect";      
 }
 
 - (void)sendEvent:(TJPConnectEvent)event {
-    if (self.currentState == TJPConnectStateConnecting &&
-        [event isEqualToString:TJPConnectEventConnect]) {
-        TJPLOG_INFO(@"连接已在进行中，保持状态");
-        return;
-    }
-    
-    TJPLOG_INFO(@"发送事件 :%@", event);
-    NSString *key = [NSString stringWithFormat:@"%@:%@", _currentState, event];
-    TJPLOG_INFO(@"查找转换规则的 key: %@", key);
+    dispatch_async(_eventQueue, ^{
+        if (self.currentState == TJPConnectStateConnecting &&
+            [event isEqualToString:TJPConnectEventConnect]) {
+            TJPLOG_INFO(@"连接已在进行中，保持状态");
+            return;
+        }
+        if (self.currentState == TJPConnectStateDisconnected && [event isEqualToString:TJPConnectEventDisconnect]) {
+            TJPLOG_INFO(@"连接已断开，重复操作");
+            return;
+        }
+        
+        TJPLOG_INFO(@"发送事件 :%@", event);
+        NSString *key = [NSString stringWithFormat:@"%@:%@", self.currentState, event];
+        TJPLOG_INFO(@"查找转换规则的 key: %@", key);
 
-    TJPConnectState newState = _transitions[key];
-    TJPLOG_INFO(@"新状态为 :%@", newState);
-    if (newState) {
-        TJPConnectState oldState = _currentState;
+        TJPConnectState newState = self->_transitions[key];
+        TJPLOG_INFO(@"新状态为 :%@", newState);
+        
+        if (!newState) {
+            TJPLOG_INFO(@"无效事件 当前状态:%@ ->状态事件:%@", self.currentState, event);
+            return;
+        }
+        
+        TJPConnectState oldState = self.currentState;
         self.currentState = newState;
         
         //状态变更回调
-        for (void(^handler)(TJPConnectState, TJPConnectState) in _stateChangeHandlers) {
+        for (void(^handler)(TJPConnectState, TJPConnectState) in self->_stateChangeHandlers) {
             handler(oldState, newState);
         }
-    }else {
-        TJPLOG_INFO(@"无效的状态转换 旧状态:%@ ->旧状态事件:%@", _currentState, event);
-    }
+    });
 }
 
 

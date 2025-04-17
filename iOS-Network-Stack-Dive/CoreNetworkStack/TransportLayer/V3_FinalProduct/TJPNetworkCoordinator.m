@@ -35,7 +35,7 @@
 
 - (instancetype)init {
     if (self = [super init]) {
-        _sessionMap = [NSMapTable strongToWeakObjectsMapTable];
+        _sessionMap = [NSMapTable strongToStrongObjectsMapTable];
         [self setupQueues];
         [self setupNetworkMonitoring];
     }
@@ -45,7 +45,7 @@
 #pragma mark - Private Method
 - (void)setupQueues {
     //并发IO队列:处理所有socket读写
-    self.ioQueue = dispatch_queue_create("com.networkCoordinator.tjp.ioQueue", DISPATCH_QUEUE_CONCURRENT);
+    self.ioQueue = dispatch_queue_create("com.networkCoordinator.tjp.ioQueue", DISPATCH_QUEUE_SERIAL);
     //串行解析数据队列 专用数据解析
     self.parseQueue = dispatch_queue_create("com.networkCoordinator.tjp.parseQueue", DISPATCH_QUEUE_SERIAL);
 }
@@ -145,7 +145,8 @@
 - (void)session:(id<TJPSessionProtocol>)session stateChanged:(TJPConnectState)state {
     if ([state isEqualToString:TJPConnectStateDisconnected] ) {
         dispatch_barrier_async(self->_ioQueue, ^{
-            [self.sessionMap removeObjectForKey:session.sessionId];
+            //标记会话需要重连（如记录重试次数）
+//            [self.sessionMap removeObjectForKey:session.sessionId];
         });
     }
 }

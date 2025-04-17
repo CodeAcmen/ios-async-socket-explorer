@@ -148,6 +148,7 @@ static const NSUInteger kHeaderLength = sizeof(TJPFinalAdavancedHeader);
     [socket writeData:ackData withTimeout:-1 tag:0];
 }
 
+
 - (void)sendHeartbeatACKForSequence:(uint32_t)seq toSocket:(GCDAsyncSocket *)socket {
     NSLog(@"[MOCK SERVER] 收到心跳包，序列号: %u", seq);
 
@@ -158,9 +159,12 @@ static const NSUInteger kHeaderLength = sizeof(TJPFinalAdavancedHeader);
     reply.msgType = htons(TJPMessageTypeHeartbeat); // 心跳ACK
     reply.sequence = htonl(seq);
     reply.bodyLength = 0;
-    reply.checksum = 0;
     
+    // 计算正确的 checksum
     NSData *ackData = [NSData dataWithBytes:&reply length:sizeof(reply)];
+    uint32_t checksum = [TJPNetworkUtil crc32ForData:ackData];  // 计算 checksum
+    reply.checksum = htonl(checksum);  // 将 checksum 填入响应包
+    
     NSLog(@"[MOCK SERVER] 心跳响应包字段：magic=0x%X, msgType=%hu, sequence=%u, checksum=%u",
           ntohl(reply.magic), ntohs(reply.msgType), ntohl(reply.sequence), ntohl(reply.checksum));
     [socket writeData:ackData withTimeout:-1 tag:0];

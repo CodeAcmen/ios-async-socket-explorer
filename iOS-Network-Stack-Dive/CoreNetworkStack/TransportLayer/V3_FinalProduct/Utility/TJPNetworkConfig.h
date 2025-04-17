@@ -9,7 +9,7 @@
 
 NS_ASSUME_NONNULL_BEGIN
 
-@interface TJPNetworkConfig : NSObject
+@interface TJPNetworkConfig : NSObject 
 
 /// 主机
 @property (nonatomic, copy) NSString *host;

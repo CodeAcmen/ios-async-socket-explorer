@@ -27,6 +27,10 @@
     [self swizzleSelector:@selector(sendHeartbeat)
               withSelector:@selector(metrics_sendHeartbeat)];
     
+    [self swizzleSelector:@selector(sendHeartbeatFailed)
+             withSelector:@selector(metrics_sendHeartbeatFailed)];
+
+    
     // ACK处理埋点
     [self swizzleSelector:@selector(heartbeatACKNowledgedForSequence:)
               withSelector:@selector(metrics_heartbeatACKNowledgedForSequence:)];
@@ -50,6 +54,15 @@
     [[TJPMetricsCollector sharedInstance] addValue:self.currentInterval forKey:TJPMetricsKeyHeartbeatInterval];
     // 调用原始方法
     [self metrics_sendHeartbeat];
+}
+
+- (void)metrics_sendHeartbeatFailed {
+    // 埋点记录
+    [[TJPMetricsCollector sharedInstance] incrementCounter:TJPMetricsKeyHeartbeatLoss];
+    [[TJPMetricsCollector sharedInstance] addValue:self.currentInterval forKey:TJPMetricsKeyHeartbeatTimeoutInterval];
+
+    // 调用原始方法
+    [self metrics_sendHeartbeatFailed];
 }
 
 - (void)metrics_heartbeatACKNowledgedForSequence:(uint32_t)sequence {

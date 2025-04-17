@@ -36,9 +36,11 @@ NS_ASSUME_NONNULL_BEGIN
 - (void)adjustIntervalWithNetworkCondition:(TJPNetworkCondition *)condition;
 /// 发送心跳
 - (void)sendHeartbeat;
+/// 发送心跳失败
+- (void)sendHeartbeatFailed;
 /// 心跳回应
 - (void)heartbeatACKNowledgedForSequence:(uint32_t)sequence;
-
+/// 心跳超时
 - (void)handleHeaderbeatTimeoutForSequence:(uint32_t)sequence;
 
 @end

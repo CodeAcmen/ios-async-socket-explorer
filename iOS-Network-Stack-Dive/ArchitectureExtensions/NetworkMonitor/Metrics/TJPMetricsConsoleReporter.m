@@ -93,9 +93,9 @@ static BOOL _isRunning = NO;
     
     // 4. 流量统计
     [report appendFormat:@"\n[流量统计]\n  发送数据: %.2f KB\n  接收数据: %.2f KB\n",
-         [collector counterValue:TJPMetricsKeyBytesSend] / 1024.0,
-         [collector counterValue:TJPMetricsKeyBytesReceived] / 1024.0];
-
+     [collector counterValue:TJPMetricsKeyBytesSend] / 1024.0,
+     [collector counterValue:TJPMetricsKeyBytesReceived] / 1024.0];
+    
     
     // 5. 心跳数据
     [report appendFormat:@"\n[心跳检测]\n  发送心跳: %lu 次\n  丢失心跳: %lu 次 (丢包率: %.1f%%)\n 平均RTT: %.1fms\n",

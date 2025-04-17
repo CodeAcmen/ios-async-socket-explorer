@@ -26,6 +26,10 @@ NS_ASSUME_NONNULL_BEGIN
 - (void)updateConnectionState:(TJPConnectState)state;
 /// 断开连接原因
 - (void)disconnectWithReason:(TJPDisconnectReason)reason;
+/// 准备重连
+- (void)forceReconnect;
+/// 清理资源方法
+- (void)prepareForRelease;
 
 
 @end

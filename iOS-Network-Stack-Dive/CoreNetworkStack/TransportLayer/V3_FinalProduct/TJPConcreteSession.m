@@ -51,6 +51,10 @@ static const NSTimeInterval kDefaultRetryInterval = 10;
 
 @implementation TJPConcreteSession
 
+- (void)dealloc {
+    TJPLogDealloc();
+}
+
 #pragma mark - Lifecycle
 - (instancetype)initWithConfiguration:(TJPNetworkConfig *)config {
     if (self = [super init]) {
@@ -86,10 +90,14 @@ static const NSTimeInterval kDefaultRetryInterval = 10;
     [_stateMachine addTransitionFromState:TJPConnectStateConnected toState:TJPConnectStateDisconnected forEvent:TJPConnectEventForceDisconnect];
     [_stateMachine addTransitionFromState:TJPConnectStateConnecting toState:TJPConnectStateDisconnected forEvent:TJPConnectEventForceDisconnect];
     [_stateMachine addTransitionFromState:TJPConnectStateDisconnecting toState:TJPConnectStateDisconnected forEvent:TJPConnectEventForceDisconnect];
-
-    [_stateMachine addTransitionFromState:TJPConnectStateConnecting toState:TJPConnectStateConnecting forEvent:TJPConnectEventConnect];
     
-    [_stateMachine addTransitionFromState:TJPConnectStateConnecting toState:TJPConnectStateDisconnecting forEvent:TJPConnectEventNetworkError];
+
+    //状态保留规则
+    [_stateMachine addTransitionFromState:TJPConnectStateConnecting toState:TJPConnectStateConnecting forEvent:TJPConnectEventConnect];
+    [_stateMachine addTransitionFromState:TJPConnectStateDisconnected toState:TJPConnectStateDisconnected forEvent:TJPConnectEventDisconnect];
+
+    
+    //网络错误
     [_stateMachine addTransitionFromState:TJPConnectStateConnecting toState:TJPConnectStateDisconnected forEvent:TJPConnectEventNetworkError];
 
     
@@ -98,8 +106,10 @@ static const NSTimeInterval kDefaultRetryInterval = 10;
     [_stateMachine addTransitionFromState:TJPConnectStateDisconnected toState:TJPConnectStateConnecting forEvent:TJPConnectEventConnect];
     //连接中->已连接 连接成功事件
     [_stateMachine addTransitionFromState:TJPConnectStateConnecting toState:TJPConnectStateConnected forEvent:TJPConnectEventConnectSuccess];
+    [_stateMachine addTransitionFromState:TJPConnectStateDisconnected toState:TJPConnectStateConnected forEvent:TJPConnectEventConnectSuccess];
     //连接中->未连接 连接失败事件
     [_stateMachine addTransitionFromState:TJPConnectStateConnecting toState:TJPConnectStateDisconnected forEvent:TJPConnectEventConnectFailed];
+    [_stateMachine addTransitionFromState:TJPConnectStateConnecting toState:TJPConnectStateDisconnecting forEvent:TJPConnectEventDisconnect];
     //已连接->断开中 断开连接事件
     [_stateMachine addTransitionFromState:TJPConnectStateConnected toState:TJPConnectStateDisconnecting forEvent:TJPConnectEventDisconnect];
     //断开中->未连接 断开完成事件
@@ -126,11 +136,11 @@ static const NSTimeInterval kDefaultRetryInterval = 10;
 #pragma mark - TJPSessionProtocol
 /// 连接方法
 - (void)connectToHost:(NSString *)host port:(uint16_t)port {
-    if (host.length == 0) {
-        TJPLOG_ERROR(@"主机地址不能为空,请检查!!");
-        return;
-    }
     dispatch_barrier_async(self->_internalQueue, ^{
+        if (host.length == 0) {
+            TJPLOG_ERROR(@"主机地址不能为空,请检查!!");
+            return;
+        }
         //通过状态机检查当前状态
         if (![self.stateMachine.currentState isEqualToString:TJPConnectStateDisconnected]) {
             TJPLOG_INFO(@"当前状态无法连接主机,当前状态为: %@", self.stateMachine.currentState);
@@ -202,6 +212,7 @@ static const NSTimeInterval kDefaultRetryInterval = 10;
 /// 断开连接原因
 - (void)disconnectWithReason:(TJPDisconnectReason)reason {
     dispatch_barrier_async(self->_internalQueue, ^{
+        //断开连接
         [self.socket disconnect];
 
         //触发断开连接完成事件
@@ -228,6 +239,35 @@ static const NSTimeInterval kDefaultRetryInterval = 10;
 
 - (TJPConnectState)connectState {
     return self.stateMachine.currentState;
+}
+
+
+- (void)forceReconnect {
+    dispatch_barrier_async(self->_internalQueue, ^{
+        // 检查当前连接状态
+        if ([self.stateMachine.currentState isEqualToString:TJPConnectStateDisconnected]) {
+            // 当前是断开状态，直接重新连接
+            TJPLOG_INFO(@"当前状态为断开，重新连接...");
+            [self.reconnectPolicy attemptConnectionWithBlock:^{
+                [self connectToHost:self.socket.connectedHost port:self.socket.connectedPort];
+            }];
+        } else if ([self.stateMachine.currentState isEqualToString:TJPConnectStateConnecting]) {
+            // 当前是连接中，等待连接完成
+            TJPLOG_INFO(@"当前状态为连接中，等待连接完成...");
+        } else if ([self.stateMachine.currentState isEqualToString:TJPConnectStateConnected]) {
+            // 当前已连接，需要先断开连接然后再重新连接
+            TJPLOG_INFO(@"当前状态为已连接，断开连接重新连接...");
+            [self disconnectWithReason:TJPDisconnectReasonForceReconnect];
+            [self.reconnectPolicy attemptConnectionWithBlock:^{
+                [self connectToHost:self.socket.connectedHost port:self.socket.connectedPort];
+            }];
+        } else {
+            TJPLOG_WARN(@"未知连接状态: %@", self.stateMachine.currentState);
+        }
+        
+        // 重置连接相关的状态
+        [self resetConnection];
+    });
 }
 
 #pragma mark - GCDAsyncSocketDelegate
@@ -273,8 +313,13 @@ static const NSTimeInterval kDefaultRetryInterval = 10;
 
 - (void)socketDidDisconnect:(GCDAsyncSocket *)sock withError:(NSError *)err {
     dispatch_barrier_async(self->_internalQueue, ^{
+        // 保存连接信息
+        NSString *host = self.socket.connectedHost;
+        uint16_t port = self.socket.connectedPort;
+        
         // 判断错误类型
         if (err) {
+            TJPLOG_INFO(@"连接已断开，原因: %@", err.localizedDescription);
             if (err.code == NSURLErrorNotConnectedToInternet) {
                 // 网络错误
                 TJPLOG_INFO(@"网络错误：无法连接到互联网");
@@ -299,7 +344,7 @@ static const NSTimeInterval kDefaultRetryInterval = 10;
                 
         //准备重连
         [self.reconnectPolicy attemptConnectionWithBlock:^{
-            [self connectToHost:self.socket.connectedHost port:self.socket.connectedPort];
+            [self connectToHost:host port:port];
         }];
     });
 }

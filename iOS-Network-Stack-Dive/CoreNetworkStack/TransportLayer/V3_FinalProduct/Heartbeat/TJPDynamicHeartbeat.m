@@ -14,9 +14,13 @@
 
 
 @interface TJPDynamicHeartbeat ()
+//@property (nonatomic, strong) NSMutableDictionary<NSNumber *, NSDate *> *pendingHeartbeats;
 
 @property (nonatomic, strong) dispatch_queue_t heartbeatQueue;
-//@property (nonatomic, strong) NSMutableDictionary<NSNumber *, NSDate *> *pendingHeartbeats;
+
+@property (nonatomic, assign) NSInteger retryCount;
+@property (nonatomic, assign) NSInteger maxRetryCount;
+
 @end
 
 @implementation TJPDynamicHeartbeat {
@@ -33,6 +37,7 @@
         _heartbeatQueue = dispatch_queue_create("com.tjp.dynamicHeartbeat.serialQueue", DISPATCH_QUEUE_SERIAL);
         dispatch_set_target_queue(_heartbeatQueue,
                                 dispatch_get_global_queue(QOS_CLASS_UTILITY, 0));
+        _maxRetryCount = 3;
     }
     return self;
 }
@@ -50,8 +55,8 @@
     _currentInterval = _baseInterval;
     [_pendingHeartbeats removeAllObjects];
     
-    TJPLOG_INFO(@"即将发送首个心跳包");
-    //发送首个心跳包
+    TJPLOG_INFO(@"即将发送心跳包");
+    //发送心跳包
     [self sendHeartbeat];
     
     if (_heartbeatTimer) {
@@ -135,6 +140,14 @@
         if (!strongSession) {
             return;
         }
+        if (![strongSession.connectState isEqualToString:TJPConnectStateConnected]) {
+            TJPLOG_WARN(@"连接未就绪，当前连接状态为: %@", strongSession.connectState);
+            [self sendHeartbeatFailed];
+            return;
+        }
+        //重置重试计数
+        self.retryCount = 0;
+        
         //获取序列号
         uint32_t sequence = [self.sequenceManager nextSequence];
         
@@ -147,11 +160,18 @@
         //记录发送时间(毫秒级)
         NSDate *sendTime = [NSDate date];
         
+        //log输出时间为转换后的北京时间
+        NSDateFormatter *formatter = [[NSDateFormatter alloc] init];
+        [formatter setDateFormat:@"yyyy-MM-dd HH:mm:ss Z"];
+        [formatter setTimeZone:[NSTimeZone timeZoneForSecondsFromGMT:8*3600]]; // 东八区
+        NSString *beijingTime = [formatter stringFromDate:sendTime];
+
+        
         //将心跳包的序列号和发送时间存入 pendingHeartbeats
         [self.pendingHeartbeats setObject:sendTime forKey:@(sequence)];
             
         //发送心跳包
-        TJPLOG_INFO(@"heartbeatManager 准备将心跳包移交给 session 发送  当前时间:%@", sendTime);
+        TJPLOG_INFO(@"heartbeatManager 准备将心跳包移交给 session 发送  当前北京时间:%@", beijingTime);
         [self->_session sendHeartbeat:packet];
         
         // 通过统一方法调整间隔
@@ -164,9 +184,33 @@
         dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(timeout * NSEC_PER_SEC)), self.heartbeatQueue, ^{
             if (self.pendingHeartbeats[@(sequence)]) {
                 TJPLOG_INFO(@"触发序列号 %u 的心跳超时检测", sequence);
-                [self _removeHeartbeatsForSequence:sequence];
                 [self handleHeaderbeatTimeoutForSequence:sequence];
+                [self _removeHeartbeatsForSequence:sequence];
             }
+        });
+    });
+}
+
+- (void)sendHeartbeatFailed {
+    dispatch_async(self.heartbeatQueue, ^{
+        TJPLOG_ERROR(@"心跳发送失败,准备重试");
+        id<TJPSessionProtocol> strongSession = self->_session;
+        if (!strongSession) {
+            return;
+        }
+
+        if (self.retryCount >= self.maxRetryCount) {
+            TJPLOG_ERROR(@"心跳连续失败 %ld 次，触发会话重建", (long)self.maxRetryCount);
+            [strongSession forceReconnect];
+            self.retryCount = 0;
+            return;
+        }
+        
+        // 指数退避重试（3^retryCount 秒）
+        NSTimeInterval delay = pow(3, self.retryCount);
+        dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(delay * NSEC_PER_SEC)), self.heartbeatQueue, ^{
+            [self sendHeartbeat];
+            self.retryCount++;
         });
     });
 }
@@ -175,6 +219,9 @@
     dispatch_async(self.heartbeatQueue, ^{
         NSDate *sendTime = self.pendingHeartbeats[@(sequence)];
         if (sendTime) {
+            // 立即移除待处理心跳，避免超时逻辑误触发
+            [self _removeHeartbeatsForSequence:sequence];
+            
             //计算RTT并更新网络状态
             NSTimeInterval rtt = [[NSDate date] timeIntervalSinceDate:sendTime] * 1000; //转毫秒
             [self.networkCondition updateRTTWithSample:rtt];
@@ -182,7 +229,6 @@
             // 收到ACK后主动调整间隔
             [self adjustIntervalWithNetworkCondition:self.networkCondition];
         }
-        [self _removeHeartbeatsForSequence:sequence];
     });
 }
 
@@ -191,7 +237,7 @@
     if (!strongSession) return;
     
     if (self.pendingHeartbeats[@(sequence)]) {
-        TJPLOG_INFO(@"序列号为: %u的心跳包 超时未确认", sequence);
+        TJPLOG_INFO(@"序列号为: %u的心跳包超时未确认  心跳丢失", sequence);
         //更新丢包率
         [self.networkCondition updateLostWithSample:YES];
         //触发动态调整

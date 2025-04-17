@@ -6,8 +6,13 @@
 //
 
 #import "TJPNetworkConfig.h"
+#import "TJPNetworkDefine.h"
 
 @implementation TJPNetworkConfig
+
+- (void)dealloc {
+    TJPLogDealloc();
+}
 
 + (instancetype)configWithHost:(NSString *)host port:(uint16_t)port maxRetry:(NSUInteger)maxRetry heartbeat:(CGFloat)heartbeat {
     return [[TJPNetworkConfig alloc] initWithHost:host port:port maxRetry:maxRetry heartbeat:heartbeat];

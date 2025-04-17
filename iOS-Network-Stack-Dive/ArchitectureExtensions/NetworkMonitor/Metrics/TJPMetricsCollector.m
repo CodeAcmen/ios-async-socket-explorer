@@ -127,7 +127,6 @@ NSString * const TJPMetricsKeyParserResets = @"parser_forced_resets";
             value = [self.counts[key] unsignedIntegerValue];
         }
     }];
-    
     return value;
 }
 
@@ -181,7 +180,8 @@ NSString * const TJPMetricsKeyParserResets = @"parser_forced_resets";
 - (float)connectSuccessRate {
     NSUInteger attempts = [self counterValue:TJPMetricsKeyConnectionAttempts];
     NSUInteger success = [self counterValue:TJPMetricsKeyConnectionSuccess];
-    return attempts > 0 ? (float)(success / attempts) : 0;
+    float ratio = (attempts > 0) ? (float)success / (float)attempts : 0;  // 防止除以0
+    return success > 0 ? ratio : 0;
 }
 
 
@@ -192,7 +192,8 @@ NSString * const TJPMetricsKeyParserResets = @"parser_forced_resets";
 - (float)packetLossRate {
     NSUInteger send = [self counterValue:TJPMetricsKeyHeartbeatSend];
     NSUInteger loss = [self counterValue:TJPMetricsKeyHeartbeatLoss];
-    return send > 0 ? (float)(loss / send) : 0;
+    float ratio = (send > 0) ? (float)loss / (float)send : 0;  // 防止除以0
+    return loss > 0 ? ratio : 0;
 }
 
 
