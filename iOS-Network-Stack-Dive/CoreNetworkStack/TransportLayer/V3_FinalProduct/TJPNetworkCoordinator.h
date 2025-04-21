@@ -24,10 +24,12 @@ NS_ASSUME_NONNULL_BEGIN
 @property (nonatomic, strong) Reachability *reachability;
 
 
-/// I/O专用队列
-@property (nonatomic, strong) dispatch_queue_t ioQueue;
-/// 解析专用队列
+/// session专用队列 串行:增删改查操作
+@property (nonatomic, strong) dispatch_queue_t sessionQueue;
+/// 解析专用队列  串行：数据解析专用
 @property (nonatomic, strong) dispatch_queue_t parseQueue;
+/// 监控专用队列  串行：网络监控相关
+@property (nonatomic, strong) dispatch_queue_t monitorQueue;
 
 /// 单例
 + (instancetype)shared;
@@ -36,6 +38,8 @@ NS_ASSUME_NONNULL_BEGIN
 - (id<TJPSessionProtocol>)createSessionWithConfiguration:(TJPNetworkConfig *)config;
 /// 统一更新所有会话状态
 - (void)updateAllSessionsState:(TJPConnectState)state;
+/// 移除会话
+- (void)removeSession:(id<TJPSessionProtocol>)session;
 
 @end
 

@@ -55,6 +55,31 @@ TJPConnectEvent const TJPConnectEventForceDisconnect = @"ForceDisconnect";      
 
 - (void)sendEvent:(TJPConnectEvent)event {
     dispatch_async(_eventQueue, ^{
+        // 新增前置校验（基于状态转换表）
+        static NSDictionary<NSString *, NSArray<NSString *> *> *validTransitions;
+        static dispatch_once_t onceToken;
+        dispatch_once(&onceToken, ^{
+            validTransitions = @{
+                TJPConnectStateDisconnected: @[TJPConnectEventConnect],
+                TJPConnectStateConnecting: @[
+                    TJPConnectEventConnectSuccess,
+                    TJPConnectEventConnectFailed,
+                    TJPConnectEventDisconnect
+                ],
+                TJPConnectStateConnected: @[
+                    TJPConnectEventDisconnect,
+                    TJPConnectEventNetworkError
+                ],
+                TJPConnectStateDisconnecting: @[TJPConnectEventDisconnectComplete]
+            };
+        });
+        
+        if (![validTransitions[self.currentState] containsObject:event]) {
+            TJPLOG_ERROR(@"非法状态转换: %@ -> %@", self.currentState, event);
+            return;
+        }
+        
+        
         if (self.currentState == TJPConnectStateConnecting &&
             [event isEqualToString:TJPConnectEventConnect]) {
             TJPLOG_INFO(@"连接已在进行中，保持状态");
@@ -86,6 +111,21 @@ TJPConnectEvent const TJPConnectEventForceDisconnect = @"ForceDisconnect";      
         }
     });
 }
+
+- (BOOL)validateEvent:(TJPConnectEvent)event inState:(TJPConnectState)state {
+    static NSDictionary *validTransitions;
+    static dispatch_once_t onceToken;
+    dispatch_once(&onceToken, ^{
+        validTransitions = @{
+            TJPConnectStateDisconnected: @[TJPConnectEventConnect],
+            TJPConnectStateConnecting: @[TJPConnectEventConnectSuccess,
+                                       TJPConnectEventConnectFailed,
+                                       TJPConnectEventDisconnect],
+        };
+    });
+    return [validTransitions[state] containsObject:event];
+}
+
 
 
 // 添加状态预检逻辑

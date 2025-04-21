@@ -45,7 +45,6 @@
 
 - (void)startMonitoringForSession:(id<TJPSessionProtocol>)session {
     dispatch_async(self.heartbeatQueue, ^{
-        TJPLOG_INFO(@"heartbeat 准备开始发送心跳");
         [self _startMonitoringForSession:session];
     });
 }
@@ -55,7 +54,7 @@
     _currentInterval = _baseInterval;
     [_pendingHeartbeats removeAllObjects];
     
-    TJPLOG_INFO(@"即将发送心跳包");
+    TJPLOG_INFO(@"heartbeat 准备开始发送心跳");
     //发送心跳包
     [self sendHeartbeat];
     
@@ -261,10 +260,7 @@
     
     NSData *packet = [NSData dataWithBytes:&header length:sizeof(header)];
     return packet;
-    
 }
-
-
 
 
 - (NSMutableDictionary<NSNumber *,NSDate *> *)pendingHeartbeats {

@@ -90,14 +90,14 @@ static const NSUInteger kHeaderLength = sizeof(TJPFinalAdavancedHeader);
     uint32_t calculatedChecksum = [TJPNetworkUtil crc32ForData:payload];
     
     if (receivedChecksum != calculatedChecksum) {
-        NSLog(@"Checksum mismatch");
+        NSLog(@"Checksum 不匹配, socket即将断开连接, 请检查代码!");
         [sock disconnect];
         return;
     }
     
     // 处理消息
     switch (msgType) {
-        case 1: // TJPMessageTypeNormalData
+        case TJPMessageTypeNormalData: // TJPMessageTypeNormalData
         {
             if (self.didReceiveDataHandler) {
                 self.didReceiveDataHandler(payload, seq);
@@ -107,7 +107,7 @@ static const NSUInteger kHeaderLength = sizeof(TJPFinalAdavancedHeader);
             break;
             
             
-        case 2: // TJPMessageTypeHeartbeat
+        case TJPMessageTypeHeartbeat: // TJPMessageTypeHeartbeat
         {
             if (self.didReceiveDataHandler) {
                 self.didReceiveDataHandler(payload, seq);
@@ -130,7 +130,6 @@ static const NSUInteger kHeaderLength = sizeof(TJPFinalAdavancedHeader);
 }
 
 #pragma mark - Response Methods
-
 - (void)sendACKForSequence:(uint32_t)seq toSocket:(GCDAsyncSocket *)socket {
     NSLog(@"[MOCK SERVER] 收到普通消息，序列号: %u", seq);
 
@@ -140,11 +139,17 @@ static const NSUInteger kHeaderLength = sizeof(TJPFinalAdavancedHeader);
     header.version_minor = 0;
     header.msgType = htons(TJPMessageTypeACK); // ACK类型
     header.sequence = htonl(seq);
-    header.bodyLength = 0;
-    header.checksum = 0;
+    header.bodyLength = 0;  // 如果没有有效载荷，bodyLength 就是 0
+
+    // 计算 header 的校验和，确保数据完整性
+    NSData *headerData = [NSData dataWithBytes:&header length:sizeof(header)];
+    uint32_t calculatedChecksum = [TJPNetworkUtil crc32ForData:headerData];
+    header.checksum = htonl(calculatedChecksum);  // 将校验和写入 header 中
+
     NSData *ackData = [NSData dataWithBytes:&header length:sizeof(header)];
     NSLog(@"[MOCK SERVER] 普通消息响应包字段：magic=0x%X, msgType=%hu, sequence=%u, checksum=%u",
           ntohl(header.magic), ntohs(header.msgType), ntohl(header.sequence), ntohl(header.checksum));
+    
     [socket writeData:ackData withTimeout:-1 tag:0];
 }
 

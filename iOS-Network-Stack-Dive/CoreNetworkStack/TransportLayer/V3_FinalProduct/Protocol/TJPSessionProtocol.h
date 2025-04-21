@@ -28,6 +28,8 @@ NS_ASSUME_NONNULL_BEGIN
 - (void)disconnectWithReason:(TJPDisconnectReason)reason;
 /// 准备重连
 - (void)forceReconnect;
+/// 重连方法
+- (void)triggerAutoReconnectIfNeeded;
 /// 清理资源方法
 - (void)prepareForRelease;
 

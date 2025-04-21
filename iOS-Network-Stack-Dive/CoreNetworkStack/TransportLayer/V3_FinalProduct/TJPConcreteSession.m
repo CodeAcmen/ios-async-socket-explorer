@@ -27,10 +27,13 @@
 
 static const NSTimeInterval kDefaultRetryInterval = 10;
 
-@interface TJPConcreteSession () <GCDAsyncSocketDelegate>
+@interface TJPConcreteSession () <GCDAsyncSocketDelegate, TJPReconnectPolicyDelegate>
+
+@property (nonatomic, copy) NSString *host;
+@property (nonatomic, assign) uint16_t port;
 
 @property (nonatomic, strong) GCDAsyncSocket *socket;
-@property (nonatomic, strong) dispatch_queue_t internalQueue;
+@property (nonatomic, strong) dispatch_queue_t socketQueue;
 
 
 /// 重试策略
@@ -59,7 +62,7 @@ static const NSTimeInterval kDefaultRetryInterval = 10;
 - (instancetype)initWithConfiguration:(TJPNetworkConfig *)config {
     if (self = [super init]) {
         _sessionId = [[NSUUID UUID] UUIDString];
-        _internalQueue = dispatch_queue_create("com.concreteSession.tjp.interalQueue", DISPATCH_QUEUE_CONCURRENT);
+        _socketQueue = dispatch_queue_create("com.concreteSession.tjp.socketQueue", DISPATCH_QUEUE_SERIAL);
         [self setupComponentWithConfig:config];
         
         _stateMachine = [[TJPConnectStateMachine alloc] initWithInitialState:TJPConnectStateDisconnected];
@@ -78,7 +81,7 @@ static const NSTimeInterval kDefaultRetryInterval = 10;
     _buffer = [NSMutableData data];
     
     //初始化重连策略
-    _reconnectPolicy = [[TJPReconnectPolicy alloc] initWithMaxAttempst:config.maxRetry baseDelay:config.baseDelay qos:TJPNetworkQoSDefault];
+    _reconnectPolicy = [[TJPReconnectPolicy alloc] initWithMaxAttempst:config.maxRetry baseDelay:config.baseDelay qos:TJPNetworkQoSDefault delegate:self];
     
     //初始化心跳管理
     _heartbeatManager = [[TJPDynamicHeartbeat alloc] initWithBaseInterval:config.heartbeat seqManager:_seqManager];
@@ -94,7 +97,7 @@ static const NSTimeInterval kDefaultRetryInterval = 10;
 
     //状态保留规则
     [_stateMachine addTransitionFromState:TJPConnectStateConnecting toState:TJPConnectStateConnecting forEvent:TJPConnectEventConnect];
-    [_stateMachine addTransitionFromState:TJPConnectStateDisconnected toState:TJPConnectStateDisconnected forEvent:TJPConnectEventDisconnect];
+    [_stateMachine addTransitionFromState:TJPConnectStateDisconnected toState:TJPConnectStateDisconnected forEvent:TJPConnectEventDisconnectComplete];
 
     
     //网络错误
@@ -109,9 +112,12 @@ static const NSTimeInterval kDefaultRetryInterval = 10;
     [_stateMachine addTransitionFromState:TJPConnectStateDisconnected toState:TJPConnectStateConnected forEvent:TJPConnectEventConnectSuccess];
     //连接中->未连接 连接失败事件
     [_stateMachine addTransitionFromState:TJPConnectStateConnecting toState:TJPConnectStateDisconnected forEvent:TJPConnectEventConnectFailed];
-    [_stateMachine addTransitionFromState:TJPConnectStateConnecting toState:TJPConnectStateDisconnecting forEvent:TJPConnectEventDisconnect];
+    [_stateMachine addTransitionFromState:TJPConnectStateDisconnected toState:TJPConnectStateDisconnected forEvent:TJPConnectEventConnectFailed];
+    
     //已连接->断开中 断开连接事件
+    [_stateMachine addTransitionFromState:TJPConnectStateConnecting toState:TJPConnectStateDisconnecting forEvent:TJPConnectEventDisconnect];
     [_stateMachine addTransitionFromState:TJPConnectStateConnected toState:TJPConnectStateDisconnecting forEvent:TJPConnectEventDisconnect];
+    
     //断开中->未连接 断开完成事件
     [_stateMachine addTransitionFromState:TJPConnectStateDisconnecting toState:TJPConnectStateDisconnected forEvent:TJPConnectEventDisconnectComplete];
     /*    ----------     */
@@ -136,7 +142,7 @@ static const NSTimeInterval kDefaultRetryInterval = 10;
 #pragma mark - TJPSessionProtocol
 /// 连接方法
 - (void)connectToHost:(NSString *)host port:(uint16_t)port {
-    dispatch_barrier_async(self->_internalQueue, ^{
+    dispatch_async(self->_socketQueue, ^{
         if (host.length == 0) {
             TJPLOG_ERROR(@"主机地址不能为空,请检查!!");
             return;
@@ -147,12 +153,14 @@ static const NSTimeInterval kDefaultRetryInterval = 10;
             return;
         }
         TJPLOG_INFO(@"session 准备给状态机发送连接事件");
+        self.host = host;
+        self.port = port;
         
         //触发连接事件
         [self.stateMachine sendEvent:TJPConnectEventConnect];
 
         //创建新的Socket实例
-        self.socket = [[GCDAsyncSocket alloc] initWithDelegate:self delegateQueue:[TJPNetworkCoordinator shared].ioQueue];
+        self.socket = [[GCDAsyncSocket alloc] initWithDelegate:self delegateQueue:self.socketQueue];
         
         __weak typeof(self) weakSelf = self;
         [self.reconnectPolicy attemptConnectionWithBlock:^{
@@ -171,7 +179,7 @@ static const NSTimeInterval kDefaultRetryInterval = 10;
 
 /// 发送消息
 - (void)sendData:(NSData *)data {
-    dispatch_barrier_async(self->_internalQueue, ^{
+    dispatch_async(self->_socketQueue, ^{
         if (![self.stateMachine.currentState isEqualToString:TJPConnectStateConnected]) {
             TJPLOG_INFO(@"当前状态发送消息失败,当前状态为: %@", self.stateMachine.currentState);
             return;
@@ -199,7 +207,7 @@ static const NSTimeInterval kDefaultRetryInterval = 10;
 
 /// 发送心跳包
 - (void)sendHeartbeat:(NSData *)heartbeatData {
-    dispatch_barrier_async(self->_internalQueue, ^{
+    dispatch_async(self->_socketQueue, ^{
         if (![self.stateMachine.currentState isEqualToString:TJPConnectStateConnected]) {
             TJPLOG_INFO(@"当前状态发送心跳包失败, 当前状态为: %@", self.stateMachine.currentState);
             return;
@@ -211,7 +219,7 @@ static const NSTimeInterval kDefaultRetryInterval = 10;
 
 /// 断开连接原因
 - (void)disconnectWithReason:(TJPDisconnectReason)reason {
-    dispatch_barrier_async(self->_internalQueue, ^{
+    dispatch_async(self->_socketQueue, ^{
         //断开连接
         [self.socket disconnect];
 
@@ -243,13 +251,16 @@ static const NSTimeInterval kDefaultRetryInterval = 10;
 
 
 - (void)forceReconnect {
-    dispatch_barrier_async(self->_internalQueue, ^{
+    dispatch_async(self->_socketQueue, ^{
+        //重连之前确保连接断开
+        [self.socket disconnect];
+                
         // 检查当前连接状态
         if ([self.stateMachine.currentState isEqualToString:TJPConnectStateDisconnected]) {
             // 当前是断开状态，直接重新连接
             TJPLOG_INFO(@"当前状态为断开，重新连接...");
             [self.reconnectPolicy attemptConnectionWithBlock:^{
-                [self connectToHost:self.socket.connectedHost port:self.socket.connectedPort];
+                [self connectToHost:self.host port:self.port];
             }];
         } else if ([self.stateMachine.currentState isEqualToString:TJPConnectStateConnecting]) {
             // 当前是连接中，等待连接完成
@@ -270,9 +281,46 @@ static const NSTimeInterval kDefaultRetryInterval = 10;
     });
 }
 
+- (void)prepareForRelease { 
+    [self.heartbeatManager stopMonitoring];
+    [self.pendingMessages removeAllObjects];
+    [TJPMetricsConsoleReporter stop];
+}
+
+
+- (void)triggerAutoReconnectIfNeeded {
+    
+}
+
+
+#pragma mark - TJPReconnectPolicyDelegate
+- (void)reconnectPolicyDidReachMaxAttempts:(TJPReconnectPolicy *)reconnectPolicy {
+    TJPLOG_ERROR(@"最大重连次数已达到，连接失败");
+    // 停止重连尝试
+    [self.reconnectPolicy stopRetrying];
+    
+    // 将状态机转为断开状态
+    [self.stateMachine sendEvent:TJPConnectEventConnectFailed];
+    
+    // 关闭 socket 连接
+    [self.socket disconnect];
+    
+    // 清理心跳监控和其他资源
+    [self.heartbeatManager stopMonitoring];
+    [self.pendingMessages removeAllObjects];
+    
+    // 停止网络指标监控
+    [TJPMetricsConsoleReporter stop];
+    
+    
+    TJPLOG_INFO(@"当前连接退出");
+}
+
+
+
 #pragma mark - GCDAsyncSocketDelegate
 - (void)socket:(GCDAsyncSocket *)sock didConnectToHost:(NSString *)host port:(uint16_t)port {
-    dispatch_barrier_async(self->_internalQueue, ^{
+    dispatch_async(self->_socketQueue, ^{
         TJPLOG_INFO(@"连接成功 准备给状态机发送连接成功事件");
         //触发连接成功事件
         [self.stateMachine sendEvent:TJPConnectEventConnectSuccess];
@@ -312,11 +360,7 @@ static const NSTimeInterval kDefaultRetryInterval = 10;
 }
 
 - (void)socketDidDisconnect:(GCDAsyncSocket *)sock withError:(NSError *)err {
-    dispatch_barrier_async(self->_internalQueue, ^{
-        // 保存连接信息
-        NSString *host = self.socket.connectedHost;
-        uint16_t port = self.socket.connectedPort;
-        
+    dispatch_async(self->_socketQueue, ^{
         // 判断错误类型
         if (err) {
             TJPLOG_INFO(@"连接已断开，原因: %@", err.localizedDescription);
@@ -344,7 +388,7 @@ static const NSTimeInterval kDefaultRetryInterval = 10;
                 
         //准备重连
         [self.reconnectPolicy attemptConnectionWithBlock:^{
-            [self connectToHost:host port:port];
+            [self connectToHost:self.host port:self.port];
         }];
     });
 }
@@ -374,7 +418,7 @@ static const NSTimeInterval kDefaultRetryInterval = 10;
 
 //超时重传
 - (void)scheduleRetransmissionForSequence:(uint32_t)sequence {
-    dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(dispatch_time(DISPATCH_TIME_NOW, kDefaultRetryInterval) * NSEC_PER_SEC)), self->_internalQueue, ^{
+    dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(dispatch_time(DISPATCH_TIME_NOW, kDefaultRetryInterval) * NSEC_PER_SEC)), self->_socketQueue, ^{
         if (self.pendingMessages[@(sequence)]) {
             TJPLOG_INFO(@"消息 %u 超时未确认, 尝试重传", sequence);
             [self resendPacket:self.pendingMessages[@(sequence)]];
@@ -390,6 +434,7 @@ static const NSTimeInterval kDefaultRetryInterval = 10;
 
 //处理消息
 - (void)processReceivedPacket:(TJPParsedPacket *)packet {
+    TJPLOG_INFO(@"接收到数据包 消息类型为 %hu", packet.messageType);
     switch (packet.messageType) {
         case TJPMessageTypeNormalData:
             [self handleDataPacket:packet];
@@ -432,7 +477,7 @@ static const NSTimeInterval kDefaultRetryInterval = 10;
 }
 
 - (void)flushPendingMessages {
-    dispatch_async(self->_internalQueue, ^{
+    dispatch_async(self->_socketQueue, ^{
         for (NSNumber *seq in self.pendingMessages) {
             TJPMessageContext *context = self.pendingMessages[seq];
             [self resendPacket:context];

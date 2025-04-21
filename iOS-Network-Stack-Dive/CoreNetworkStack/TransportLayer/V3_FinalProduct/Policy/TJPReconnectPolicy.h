@@ -9,8 +9,17 @@
 #import "TJPCoreTypes.h"
 
 NS_ASSUME_NONNULL_BEGIN
+@class TJPReconnectPolicy;
+@protocol TJPReconnectPolicyDelegate <NSObject>
+@optional
+- (void)reconnectPolicyDidReachMaxAttempts:(TJPReconnectPolicy *)reconnectPolicy;
+@end
 
 @interface TJPReconnectPolicy : NSObject
+
+@property (nonatomic, weak) id<TJPReconnectPolicyDelegate> delegate;
+
+
 /// 最大尝试数
 @property (nonatomic, assign) NSInteger maxAttempts;
 /// 基础延迟
@@ -23,13 +32,15 @@ NS_ASSUME_NONNULL_BEGIN
 
 
 /// 初始化方法
-- (instancetype)initWithMaxAttempst:(NSInteger)attempts baseDelay:(NSTimeInterval)delay qos:(TJPNetworkQoS)qos;
+- (instancetype)initWithMaxAttempst:(NSInteger)attempts baseDelay:(NSTimeInterval)delay qos:(TJPNetworkQoS)qos delegate:(id<TJPReconnectPolicyDelegate>)delegate;
 /// 尝试连接
 - (void)attemptConnectionWithBlock:(dispatch_block_t)connectionBlock;
 /// 计算延迟
 - (NSTimeInterval)calculateDelay;
 /// 最大重试次数
 - (void)notifyReachMaxAttempts;
+/// 停止重试
+- (void)stopRetrying;
 /// 重置
 - (void)reset;
 

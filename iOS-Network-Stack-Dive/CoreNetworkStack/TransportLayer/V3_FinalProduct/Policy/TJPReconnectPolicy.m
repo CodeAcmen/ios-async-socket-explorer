@@ -7,11 +7,14 @@
 
 #import "TJPReconnectPolicy.h"
 #import "TJPNetworkCoordinator.h"
+#import "TJPNetworkDefine.h"
 
 static const NSTimeInterval kMaxReconnectDelay = 30;
 
 
 @interface TJPReconnectPolicy ()
+
+@property (nonatomic, strong) dispatch_block_t currentRetryTask;
 
 @end
 
@@ -22,11 +25,13 @@ static const NSTimeInterval kMaxReconnectDelay = 30;
     dispatch_qos_class_t _qosClass;
 }
 
-- (instancetype)initWithMaxAttempst:(NSInteger)attempts baseDelay:(NSTimeInterval)delay qos:(TJPNetworkQoS)qos {
+- (instancetype)initWithMaxAttempst:(NSInteger)attempts baseDelay:(NSTimeInterval)delay qos:(TJPNetworkQoS)qos delegate:(id<TJPReconnectPolicyDelegate>)delegate {
     if (self = [super init]) {
         _maxAttempts = attempts;
         _baseDelay = delay;
         _qosClass = [self qosClassFromEnum:qos];
+        _delegate = delegate;
+        _currentAttempt = 0;
     }
     return self;
 }
@@ -40,10 +45,10 @@ static const NSTimeInterval kMaxReconnectDelay = 30;
 }
 
 - (void)attemptConnectionWithBlock:(dispatch_block_t)connectionBlock {
-    NSLog(@"开始连接尝试，当前尝试次数%ld/%ld", (long)_currentAttempt, (long)_maxAttempts);
+    TJPLOG_INFO(@"开始连接尝试，当前尝试次数%ld/%ld", (long)_currentAttempt, (long)_maxAttempts);
     //如果超过最大重试次数 停止重试
     if (_currentAttempt >= _maxAttempts) {
-        NSLog(@"已达到最大重试次数%ld/%ld，停止重试", (long)_currentAttempt, (long)_maxAttempts);
+        TJPLOG_ERROR(@"已达到最大重试次数%ld/%ld，停止重试", (long)_currentAttempt, (long)_maxAttempts);
         [self notifyReachMaxAttempts];
         return;
     }
@@ -53,14 +58,18 @@ static const NSTimeInterval kMaxReconnectDelay = 30;
 
     //在指定的QoS级别的全局队列中调度重试任务
     dispatch_queue_t queue = dispatch_get_global_queue(_qosClass, 0);
-    dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(delay * NSEC_PER_SEC)), queue, ^{
+
+   
+    self.currentRetryTask = dispatch_block_create(DISPATCH_BLOCK_INHERIT_QOS_CLASS, ^{
         if ([TJPNetworkCoordinator shared].reachability) {
-            NSLog(@"网络状态可达，执行连接块");
+            TJPLOG_INFO(@"网络状态可达，执行连接块");
             if (connectionBlock) connectionBlock();
             self->_currentAttempt++;
-            NSLog(@"当前尝试次数更新为%ld", (long)self->_currentAttempt);
+            TJPLOG_INFO(@"当前尝试次数更新为%ld", (long)self->_currentAttempt);
         }
     });
+    
+    dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(delay * NSEC_PER_SEC)), queue, self.currentRetryTask);
     
 }
 
@@ -72,7 +81,21 @@ static const NSTimeInterval kMaxReconnectDelay = 30;
 }
 
 - (void)notifyReachMaxAttempts {
-    NSLog(@"Reached maximum retry attempts: %ld", (long)_maxAttempts);
+    TJPLOG_INFO(@"已达到最大重连次数: %ld", (long)_maxAttempts);
+    if (self.delegate && [self.delegate respondsToSelector:@selector(reconnectPolicyDidReachMaxAttempts:)]) {
+        [self.delegate reconnectPolicyDidReachMaxAttempts:self];
+    }
+}
+
+- (void)stopRetrying {
+    // 停止当前的重试任务
+    if (self.currentRetryTask) {
+        dispatch_block_cancel(self.currentRetryTask);
+        self.currentRetryTask = nil;
+        TJPLOG_INFO(@"停止当前重试任务");
+    }
+    
+    TJPLOG_INFO(@"重试操作已停止");
 }
 
 - (void)reset {
