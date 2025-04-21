@@ -27,32 +27,16 @@
       <BreakpointProxy
          BreakpointExtensionID = "Xcode.Breakpoint.FileBreakpoint">
          <BreakpointContent
-            uuid = "2B1B43D9-ACE4-4D64-8B5F-93B1575782FF"
+            uuid = "9E293FF5-1C45-4073-94DD-D2DCC606AC90"
             shouldBeEnabled = "Yes"
             ignoreCount = "0"
             continueAfterRunningActions = "No"
             filePath = "iOS-Network-Stack-Dive/CoreNetworkStack/TransportLayer/V3_FinalProduct/TJPConcreteSession.m"
             startingColumnNumber = "9223372036854775807"
             endingColumnNumber = "9223372036854775807"
-            startingLineNumber = "55"
-            endingLineNumber = "55"
-            landmarkName = "-dealloc"
-            landmarkType = "7">
-         </BreakpointContent>
-      </BreakpointProxy>
-      <BreakpointProxy
-         BreakpointExtensionID = "Xcode.Breakpoint.FileBreakpoint">
-         <BreakpointContent
-            uuid = "14534AAA-5DED-4222-A9B3-E78A1FA9907C"
-            shouldBeEnabled = "Yes"
-            ignoreCount = "0"
-            continueAfterRunningActions = "No"
-            filePath = "iOS-Network-Stack-Dive/CoreNetworkStack/TransportLayer/V3_FinalProduct/Utility/TJPNetworkConfig.m"
-            startingColumnNumber = "9223372036854775807"
-            endingColumnNumber = "9223372036854775807"
-            startingLineNumber = "14"
-            endingLineNumber = "14"
-            landmarkName = "-dealloc"
+            startingLineNumber = "142"
+            endingLineNumber = "142"
+            landmarkName = "-connectToHost:port:"
             landmarkType = "7">
          </BreakpointContent>
       </BreakpointProxy>
