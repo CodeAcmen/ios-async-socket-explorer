@@ -19,6 +19,10 @@ NS_ASSUME_NONNULL_BEGIN
 - (void)session:(id<TJPSessionProtocol>)session stateChanged:(TJPConnectState)state;
 
 
+@optional
+// 通知协调器处理重连
+- (void)sessionNeedsReconnect:(id<TJPSessionProtocol>)session;
+
 @end
 
 NS_ASSUME_NONNULL_END

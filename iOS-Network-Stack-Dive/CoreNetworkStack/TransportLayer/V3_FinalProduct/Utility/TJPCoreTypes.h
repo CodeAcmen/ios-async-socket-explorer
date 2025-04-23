@@ -10,18 +10,21 @@
 
 
 typedef NS_ENUM(uint16_t, TJPMessageType) {
-    TJPMessageTypeNormalData    = 1 << 0,       //普通数据消息
-    TJPMessageTypeHeartbeat     = 1 << 1,       //心跳消息
-    TJPMessageTypeACK           = 1 << 2,       //确认消息
-    TJPMessageTypeControl       = 1 << 3        //控制消息
+    TJPMessageTypeNormalData,      //普通数据消息
+    TJPMessageTypeHeartbeat,       //心跳消息
+    TJPMessageTypeACK,             //确认消息
+    TJPMessageTypeControl          //控制消息
 };
 
 
 typedef NS_ENUM(NSInteger, TJPDisconnectReason){
-    TJPDisconnectReasonManual           = 1 << 0,  // 手动断开连接
-    TJPDisconnectReasonNetworkError     = 1 << 1,  // 网络错误导致断开
-    TJPDisconnectReasonHeartbeatTimeout = 1 << 2,  // 心跳超时导致断开
-    TJPDisconnectReasonForceReconnect   = 1 << 3   // 强制重连导致断开
+    TJPDisconnectReasonNone,                   // 默认状态
+    TJPDisconnectReasonUserInitiated,          // 手动断开连接
+    TJPDisconnectReasonNetworkError,           // 网络错误导致断开
+    TJPDisconnectReasonHeartbeatTimeout,       // 心跳超时导致断开
+    TJPDisconnectReasonIdleTimeout,
+    TJPDisconnectReasonSocketError,
+    TJPDisconnectReasonForceReconnect          // 强制重连导致断开
 };
 
 typedef NS_ENUM(NSUInteger, TJPParseState) {

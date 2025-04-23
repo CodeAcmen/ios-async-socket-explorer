@@ -55,55 +55,42 @@ TJPConnectEvent const TJPConnectEventForceDisconnect = @"ForceDisconnect";      
 
 - (void)sendEvent:(TJPConnectEvent)event {
     dispatch_async(_eventQueue, ^{
-        // 新增前置校验（基于状态转换表）
-        static NSDictionary<NSString *, NSArray<NSString *> *> *validTransitions;
-        static dispatch_once_t onceToken;
-        dispatch_once(&onceToken, ^{
-            validTransitions = @{
-                TJPConnectStateDisconnected: @[TJPConnectEventConnect],
-                TJPConnectStateConnecting: @[
-                    TJPConnectEventConnectSuccess,
-                    TJPConnectEventConnectFailed,
-                    TJPConnectEventDisconnect
-                ],
-                TJPConnectStateConnected: @[
-                    TJPConnectEventDisconnect,
-                    TJPConnectEventNetworkError
-                ],
-                TJPConnectStateDisconnecting: @[TJPConnectEventDisconnectComplete]
-            };
-        });
         
-        if (![validTransitions[self.currentState] containsObject:event]) {
-            TJPLOG_ERROR(@"非法状态转换: %@ -> %@", self.currentState, event);
+        // 检查当前状态和事件是否有效
+        if (![self canSendEvent:event]) {
+            TJPLOG_ERROR(@"无效状态转换: %@ -> %@", self.currentState, event);
             return;
         }
         
+//        if (self.currentState == TJPConnectStateConnecting &&
+//            [event isEqualToString:TJPConnectEventConnect]) {
+//            TJPLOG_INFO(@"连接已在进行中，保持状态");
+//            return;
+//        }
+//        if (self.currentState == TJPConnectStateDisconnected && [event isEqualToString:TJPConnectEventDisconnect]) {
+//            TJPLOG_INFO(@"连接已断开，重复操作");
+//            return;
+//        }
         
-        if (self.currentState == TJPConnectStateConnecting &&
-            [event isEqualToString:TJPConnectEventConnect]) {
-            TJPLOG_INFO(@"连接已在进行中，保持状态");
-            return;
-        }
-        if (self.currentState == TJPConnectStateDisconnected && [event isEqualToString:TJPConnectEventDisconnect]) {
-            TJPLOG_INFO(@"连接已断开，重复操作");
-            return;
-        }
-        
-        TJPLOG_INFO(@"发送事件 :%@", event);
+        // 查找转换规则
         NSString *key = [NSString stringWithFormat:@"%@:%@", self.currentState, event];
-        TJPLOG_INFO(@"查找转换规则的 key: %@", key);
-
         TJPConnectState newState = self->_transitions[key];
-        TJPLOG_INFO(@"新状态为 :%@", newState);
         
         if (!newState) {
             TJPLOG_INFO(@"无效事件 当前状态:%@ ->状态事件:%@", self.currentState, event);
             return;
         }
         
+        // 如果新状态与当前状态相同，可以考虑跳过或仅记录日志
+         if ([newState isEqualToString:self.currentState]) {
+             TJPLOG_INFO(@"状态保持不变: %@ (事件: %@)", self.currentState, event);
+             return;
+         }
+        
         TJPConnectState oldState = self.currentState;
         self.currentState = newState;
+        
+        TJPLOG_INFO(@"状态转换: %@ -> %@ (事件: %@)", oldState, newState, event);
         
         //状态变更回调
         for (void(^handler)(TJPConnectState, TJPConnectState) in self->_stateChangeHandlers) {
@@ -112,20 +99,31 @@ TJPConnectEvent const TJPConnectEventForceDisconnect = @"ForceDisconnect";      
     });
 }
 
-- (BOOL)validateEvent:(TJPConnectEvent)event inState:(TJPConnectState)state {
-    static NSDictionary *validTransitions;
-    static dispatch_once_t onceToken;
-    dispatch_once(&onceToken, ^{
-        validTransitions = @{
-            TJPConnectStateDisconnected: @[TJPConnectEventConnect],
-            TJPConnectStateConnecting: @[TJPConnectEventConnectSuccess,
-                                       TJPConnectEventConnectFailed,
-                                       TJPConnectEventDisconnect],
-        };
+- (void)forceState:(TJPConnectState)state {
+    dispatch_async(_eventQueue, ^{
+        TJPConnectState oldState = self.currentState;
+        self.currentState = state;
+        
+        TJPLOG_INFO(@"状态强制切换: %@ -> %@", oldState, state);
+        
+        // 通知状态变更
+        for (void(^handler)(TJPConnectState, TJPConnectState) in self->_stateChangeHandlers) {
+            handler(oldState, state);
+        }
     });
-    return [validTransitions[state] containsObject:event];
 }
 
+// 同步验证事件合法性
+- (BOOL)validateEvent:(TJPConnectEvent)event inState:(TJPConnectState)state {
+    __block BOOL isValid = NO;
+    
+    dispatch_sync(_eventQueue, ^{
+        NSString *key = [NSString stringWithFormat:@"%@:%@", state, event];
+        isValid = (self->_transitions[key] != nil);
+    });
+    
+    return isValid;
+}
 
 
 // 添加状态预检逻辑

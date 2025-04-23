@@ -7,6 +7,8 @@
 
 #import "TJPConcreteSession.h"
 #import <GCDAsyncSocket.h>
+#import <Reachability/Reachability.h>
+
 
 #import "TJPNetworkConfig.h"
 #import "TJPNetworkDefine.h"
@@ -35,9 +37,6 @@ static const NSTimeInterval kDefaultRetryInterval = 10;
 @property (nonatomic, strong) GCDAsyncSocket *socket;
 @property (nonatomic, strong) dispatch_queue_t socketQueue;
 
-
-/// 重试策略
-@property (nonatomic, strong) TJPReconnectPolicy *reconnectPolicy;
 /// 动态心跳
 @property (nonatomic, strong) TJPDynamicHeartbeat *heartbeatManager;
 /// 序列号管理
@@ -61,13 +60,27 @@ static const NSTimeInterval kDefaultRetryInterval = 10;
 #pragma mark - Lifecycle
 - (instancetype)initWithConfiguration:(TJPNetworkConfig *)config {
     if (self = [super init]) {
+        _autoReconnectEnabled = YES;
         _sessionId = [[NSUUID UUID] UUIDString];
+        // 创建专用队列（串行，中等优先级）
         _socketQueue = dispatch_queue_create("com.concreteSession.tjp.socketQueue", DISPATCH_QUEUE_SERIAL);
-        [self setupComponentWithConfig:config];
+        dispatch_set_target_queue(_socketQueue, dispatch_get_global_queue(QOS_CLASS_DEFAULT, 0));
         
+        
+        // 初始化状态机（初始状态：断开连接）
         _stateMachine = [[TJPConnectStateMachine alloc] initWithInitialState:TJPConnectStateDisconnected];
         [self setupStateMachine];
         
+        // 初始化组件
+        [self setupComponentWithConfig:config];
+        
+                
+        // 注册心跳超时通知
+        [[NSNotificationCenter defaultCenter] addObserver:self
+                                                 selector:@selector(handleHeartbeatTimeout:)
+                                                     name:kHeartbeatTimeoutNotification
+                                                   object:nil];
+            
     }
     return self;
 }
@@ -84,7 +97,7 @@ static const NSTimeInterval kDefaultRetryInterval = 10;
     _reconnectPolicy = [[TJPReconnectPolicy alloc] initWithMaxAttempst:config.maxRetry baseDelay:config.baseDelay qos:TJPNetworkQoSDefault delegate:self];
     
     //初始化心跳管理
-    _heartbeatManager = [[TJPDynamicHeartbeat alloc] initWithBaseInterval:config.heartbeat seqManager:_seqManager];
+    _heartbeatManager = [[TJPDynamicHeartbeat alloc] initWithBaseInterval:config.heartbeat seqManager:_seqManager session:self];
 }
 
 //制定转换规则
@@ -147,28 +160,38 @@ static const NSTimeInterval kDefaultRetryInterval = 10;
             TJPLOG_ERROR(@"主机地址不能为空,请检查!!");
             return;
         }
+        self.host = host;
+        self.port = port;
+        
         //通过状态机检查当前状态
         if (![self.stateMachine.currentState isEqualToString:TJPConnectStateDisconnected]) {
             TJPLOG_INFO(@"当前状态无法连接主机,当前状态为: %@", self.stateMachine.currentState);
             return;
         }
-        TJPLOG_INFO(@"session 准备给状态机发送连接事件");
-        self.host = host;
-        self.port = port;
         
-        //触发连接事件
+        TJPLOG_INFO(@"session 准备给状态机发送连接事件");
+
+        //触发连接事件 状态转换为"连接中"
         [self.stateMachine sendEvent:TJPConnectEventConnect];
+        
+        self.disconnectReason = TJPDisconnectReasonNone;
 
         //创建新的Socket实例
         self.socket = [[GCDAsyncSocket alloc] initWithDelegate:self delegateQueue:self.socketQueue];
         
-        __weak typeof(self) weakSelf = self;
-        [self.reconnectPolicy attemptConnectionWithBlock:^{
-            NSError *error = nil;
-            if (![weakSelf.socket connectToHost:host onPort:port error:&error]) {
-                [weakSelf handleError:error];
-            }
-        }];
+//        __weak typeof(self) weakSelf = self;
+//        [self.reconnectPolicy attemptConnectionWithBlock:^{
+//            NSError *error = nil;
+//            if (![weakSelf.socket connectToHost:host onPort:port error:&error]) {
+//                [weakSelf handleError:error];
+//            }
+//        }];
+        
+        // 执行实际连接操作
+        NSError *error = nil;
+        if (![self.socket connectToHost:host onPort:port error:&error]) {
+            [self handleError:error];
+        }
         
 #if DEBUG
     //开始监听网络指标
@@ -217,23 +240,50 @@ static const NSTimeInterval kDefaultRetryInterval = 10;
     });
 }
 
-/// 断开连接原因
 - (void)disconnectWithReason:(TJPDisconnectReason)reason {
     dispatch_async(self->_socketQueue, ^{
-        //断开连接
-        [self.socket disconnect];
-
-        //触发断开连接完成事件
+        // 避免重复断开
+        if ([self.stateMachine.currentState isEqualToString:TJPConnectStateDisconnected]) {
+            TJPLOG_INFO(@"当前已是断开状态，无需再次断开");
+            return;
+        }
+        
+        //存储断开原因
+        self.disconnectReason = reason;
+        
+        // 根据当前状态选择正确的状态转换路径
+//        if ([self.stateMachine.currentState isEqualToString:TJPConnectStateConnected] ||
+//            [self.stateMachine.currentState isEqualToString:TJPConnectStateConnecting]) {
+//            // 如果当前是连接或连接中状态，先进入断开中状态
+//            [self.stateMachine sendEvent:TJPConnectEventDisconnect];
+//        }
         [self.stateMachine sendEvent:TJPConnectEventDisconnect];
         
-        [self.stateMachine sendEvent:TJPConnectEventDisconnectComplete];
+        //断开socket
+        [self.socket disconnect];
+        
+        //停止心跳
+        [self.heartbeatManager stopMonitoring];
         
         //清理资源
-        [self.heartbeatManager stopMonitoring];
         [self.pendingMessages removeAllObjects];
         
-        // 停止监控
+        //停止监控
         [TJPMetricsConsoleReporter stop];
+        
+        //状态转换为"已断开连接"
+        [self.stateMachine sendEvent:TJPConnectEventDisconnectComplete];
+        
+        // 通知协调器处理可能的重连
+        if (reason == TJPDisconnectReasonNetworkError ||
+            reason == TJPDisconnectReasonHeartbeatTimeout ||
+            reason == TJPDisconnectReasonIdleTimeout) {
+            
+            if ([self.delegate respondsToSelector:@selector(sessionNeedsReconnect:)]) {
+                [self.delegate sessionNeedsReconnect:self];
+            }
+        }
+
     });
 }
 
@@ -288,9 +338,6 @@ static const NSTimeInterval kDefaultRetryInterval = 10;
 }
 
 
-- (void)triggerAutoReconnectIfNeeded {
-    
-}
 
 
 #pragma mark - TJPReconnectPolicyDelegate
@@ -305,8 +352,10 @@ static const NSTimeInterval kDefaultRetryInterval = 10;
     // 关闭 socket 连接
     [self.socket disconnect];
     
-    // 清理心跳监控和其他资源
+    // 停止心跳
     [self.heartbeatManager stopMonitoring];
+    
+    //清理资源
     [self.pendingMessages removeAllObjects];
     
     // 停止网络指标监控
@@ -322,7 +371,7 @@ static const NSTimeInterval kDefaultRetryInterval = 10;
 - (void)socket:(GCDAsyncSocket *)sock didConnectToHost:(NSString *)host port:(uint16_t)port {
     dispatch_async(self->_socketQueue, ^{
         TJPLOG_INFO(@"连接成功 准备给状态机发送连接成功事件");
-        //触发连接成功事件
+        //触发连接成功事件 状态转换为"已连接"
         [self.stateMachine sendEvent:TJPConnectEventConnectSuccess];
         
         
@@ -331,10 +380,16 @@ static const NSTimeInterval kDefaultRetryInterval = 10;
 //        [sock startTLS:tlsSettings];
         
         //启动心跳
-        [self.heartbeatManager startMonitoringForSession:self];
+        [self.heartbeatManager startMonitoring];
         
         //开始读取数据
         [sock readDataWithTimeout:-1 tag:0];
+        
+        //通知代理
+        [self notifyDelegateOfStateChange];
+        
+        //发送积压消息
+        [self flushPendingMessages];
     });
 }
 
@@ -364,34 +419,89 @@ static const NSTimeInterval kDefaultRetryInterval = 10;
         // 判断错误类型
         if (err) {
             TJPLOG_INFO(@"连接已断开，原因: %@", err.localizedDescription);
+            // 设置断开原因
             if (err.code == NSURLErrorNotConnectedToInternet) {
-                // 网络错误
+                self.disconnectReason = TJPDisconnectReasonNetworkError;
                 TJPLOG_INFO(@"网络错误：无法连接到互联网");
-                // 触发网络错误事件，进入 Disconnecting 状态
-                [self.stateMachine sendEvent:TJPConnectEventNetworkError];
             } else {
-                // 其他类型的连接错误（如服务器不可达，连接超时等）
+                self.disconnectReason = TJPDisconnectReasonSocketError;
                 TJPLOG_INFO(@"连接错误：%@", err.localizedDescription);
-                // 触发连接失败事件，进入 Disconnecting 状态
-                [self.stateMachine sendEvent:TJPConnectEventConnectFailed];
             }
+            
+            // 触发断开连接事件，进入 Disconnecting 状态
+            [self.stateMachine sendEvent:TJPConnectEventDisconnect];
+            // 在 Disconnecting 状态下触发断开完成事件
+            [self.stateMachine sendEvent:TJPConnectEventDisconnectComplete];
+            
         } else {
             // 如果没有错误，则正常处理断开
-            TJPLOG_INFO(@"连接已断开");
-            
+            TJPLOG_INFO(@"连接已正常断开");
+
             // 触发断开连接事件，进入 Disconnecting 状态
             [self.stateMachine sendEvent:TJPConnectEventDisconnect];
             
             // 在 Disconnecting 状态下触发断开完成事件
             [self.stateMachine sendEvent:TJPConnectEventDisconnectComplete];
         }
+        
+        // 清理资源
+         [self.heartbeatManager stopMonitoring];
+         [self.pendingMessages removeAllObjects];
                 
-        //准备重连
-        [self.reconnectPolicy attemptConnectionWithBlock:^{
-            [self connectToHost:self.host port:self.port];
-        }];
+        // 检查网络状态，只有在网络可达时才尝试重连
+        if ([[TJPNetworkCoordinator shared].reachability currentReachabilityStatus] != NotReachable &&
+             (self.disconnectReason == TJPDisconnectReasonNetworkError ||
+              self.disconnectReason == TJPDisconnectReasonHeartbeatTimeout ||
+              self.disconnectReason == TJPDisconnectReasonIdleTimeout)) {
+             
+             // 准备重连
+             [self.reconnectPolicy attemptConnectionWithBlock:^{
+                 [self connectToHost:self.host port:self.port];
+             }];
+         }
     });
 }
+
+// 断开连接优化
+- (void)disconnect {
+    [self disconnectWithReason:TJPDisconnectReasonUserInitiated];
+}
+
+- (void)networkDidBecomeAvailable {
+    dispatch_async(self->_socketQueue, ^{
+        // 只有当前状态为断开状态且启用了自动重连才尝试重连
+        if ([self.stateMachine.currentState isEqualToString:TJPConnectStateDisconnected] &&
+            self.autoReconnectEnabled &&
+            self.disconnectReason != TJPDisconnectReasonUserInitiated) {
+            
+            TJPLOG_INFO(@"网络恢复，尝试自动重连");
+            [self connectToHost:self.host port:self.port];
+        }
+    });
+}
+
+- (void)networkDidBecomeUnavailable {
+    dispatch_async(self->_socketQueue, ^{
+        // 如果当前连接中或已连接，则标记为网络错误并断开
+        if ([self.stateMachine.currentState isEqualToString:TJPConnectStateConnecting] ||
+            [self.stateMachine.currentState isEqualToString:TJPConnectStateConnected]) {
+            
+            [self disconnectWithReason:TJPDisconnectReasonNetworkError];
+        }
+    });
+}
+
+// 心跳超时处理
+- (void)handleHeartbeatTimeout:(NSNotification *)notification {
+    id<TJPSessionProtocol> session = notification.userInfo[@"session"];
+    if (session == self) {
+        dispatch_async(self->_socketQueue, ^{
+            TJPLOG_INFO(@"心跳超时，断开连接");
+            [self disconnectWithReason:TJPDisconnectReasonHeartbeatTimeout];
+        });
+    }
+}
+
 
 #pragma mark - Public Method
 
@@ -503,6 +613,11 @@ static const NSTimeInterval kDefaultRetryInterval = 10;
         };
     });
     return stateEventMap[targetState];
+}
+
+
+- (void)notifyDelegateOfStateChange {
+    
 }
 
 

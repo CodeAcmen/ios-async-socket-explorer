@@ -29,45 +29,46 @@
 
 }
 
-- (instancetype)initWithBaseInterval:(NSTimeInterval)baseInterval seqManager:(nonnull TJPSequenceManager *)seqManager {
+- (instancetype)initWithBaseInterval:(NSTimeInterval)baseInterval seqManager:(nonnull TJPSequenceManager *)seqManager session:(id<TJPSessionProtocol>)session {
     if (self = [super init]) {
         _networkCondition = [[TJPNetworkCondition alloc] init];
         _sequenceManager = seqManager;
         _baseInterval = baseInterval;
+        
+        _session = session;
+        
+        // 专用串行队列，低优先级
         _heartbeatQueue = dispatch_queue_create("com.tjp.dynamicHeartbeat.serialQueue", DISPATCH_QUEUE_SERIAL);
-        dispatch_set_target_queue(_heartbeatQueue,
-                                dispatch_get_global_queue(QOS_CLASS_UTILITY, 0));
+        dispatch_set_target_queue(_heartbeatQueue, dispatch_get_global_queue(QOS_CLASS_UTILITY, 0));
+       
+        
         _maxRetryCount = 3;
     }
     return self;
 }
 
 
-- (void)startMonitoringForSession:(id<TJPSessionProtocol>)session {
-    dispatch_async(self.heartbeatQueue, ^{
-        [self _startMonitoringForSession:session];
-    });
-}
-
-- (void)_startMonitoringForSession:(id<TJPSessionProtocol>)session {
-    _session = session;
+- (void)startMonitoring {
+    //重置状态
     _currentInterval = _baseInterval;
     [_pendingHeartbeats removeAllObjects];
+
     
     TJPLOG_INFO(@"heartbeat 准备开始发送心跳");
     //发送心跳包
     [self sendHeartbeat];
     
+    //获取旧定时器
     if (_heartbeatTimer) {
         dispatch_source_cancel(_heartbeatTimer);
         _heartbeatTimer = nil;
     }
     
-    //发送心跳包的定时器
+    //创建心跳包定时器
     _heartbeatTimer = dispatch_source_create(DISPATCH_SOURCE_TYPE_TIMER, 0, 0, self.heartbeatQueue);
     //设置定时器的触发时间
     [self _updateTimerInterval];
-
+    
     //设置定时器的事件处理顺序
     dispatch_source_set_event_handler(_heartbeatTimer, ^{
         [self sendHeartbeat];
@@ -75,6 +76,8 @@
     //启动定时器
     dispatch_resume(_heartbeatTimer);
 }
+
+
 
 - (void)_updateTimerInterval {
     if (_heartbeatTimer) {
@@ -231,24 +234,34 @@
     });
 }
 
+// 心跳超时处理 - 使用通知解耦
 - (void)handleHeaderbeatTimeoutForSequence:(uint32_t)sequence {
-    id<TJPSessionProtocol> strongSession = _session;
-    if (!strongSession) return;
-    
-    if (self.pendingHeartbeats[@(sequence)]) {
-        TJPLOG_INFO(@"序列号为: %u的心跳包超时未确认  心跳丢失", sequence);
-        //更新丢包率
-        [self.networkCondition updateLostWithSample:YES];
-        //触发动态调整
-        [self adjustIntervalWithNetworkCondition:self.networkCondition];
-        
-        [_session disconnectWithReason:TJPDisconnectReasonHeartbeatTimeout];
-    }
+    dispatch_async(self.heartbeatQueue, ^{
+        if (self.pendingHeartbeats[@(sequence)]) {
+            TJPLOG_INFO(@"序列号为: %u的心跳包超时未确认  心跳丢失", sequence);
+            
+            // 更新丢包率
+            [self.networkCondition updateLostWithSample:YES];
+            
+            // 触发动态调整
+            [self adjustIntervalWithNetworkCondition:self.networkCondition];
+            
+            // 发送通知而不是直接操作session
+            [[NSNotificationCenter defaultCenter] postNotificationName:kHeartbeatTimeoutNotification
+                                                              object:self
+                                                            userInfo:@{@"session": self->_session}];
+            
+            // 移除超时的心跳
+            [self _removeHeartbeatsForSequence:sequence];
+        }
+    });
 }
 
 - (void)_removeHeartbeatsForSequence:(uint32_t)sequence {
-    if (!sequence) return;
-    [self.pendingHeartbeats removeObjectForKey:@(sequence)];
+    dispatch_barrier_async(self.heartbeatQueue, ^{
+        if (!sequence) return;
+        [self.pendingHeartbeats removeObjectForKey:@(sequence)];
+    });
 }
 
 - (NSData *)buildHeartbeatPacket:(uint32_t)sequence {
