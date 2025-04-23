@@ -41,6 +41,17 @@ StateMachineTransitionMatrix:
 - 可插拔的协议解析器(TJPMessageParser)
 - 可配置的重连策略(TJPReconnectPolicy)
 
+### 1.4明确组件责任界限
+- Coordinator: 全局单例，用于管理、会话创建，网络状态监控和全局事件分发，不直接处理TCP连接细节
+- Session: 负责单个TCP连接的生命周期管理、数据收发，维护连接状态
+- HeartbeatManager: 仅负责心跳管理，向Session报告心跳状态，不直接控制连接
+- StateMachine: 仅负责状态管理和转换验证，不执行业务逻辑
+- ReconnectPolicy：只负责重连逻辑、计算重连时间，不直接操作TCP连接
+
+### 1.5队列设计
+- 并发队列：并行处理任务，如多个会话的数据解析（但解析器本身要是线程安全），网络状态变更的通知分发
+- 串行队列：按顺序执行任务，如单TCP的生命周期管理、心跳管理、状态管理、共享资源操作
+
 ## 2. 核心组件
 
 ### 2.1 TJPNetworkCoordinator（全局协调器）
@@ -219,5 +230,4 @@ StateMachineTransitionMatrix:
 - **协议压缩**：在 `MessageParser` 中集成 zlib 压缩功能，减少数据传输量。
 
 ---
-
 

@@ -13,12 +13,16 @@
 #import "TJPSessionProtocol.h"
 #import "TJPConcreteSession.h"
 #import "TJPNetworkDefine.h"
+#import "TJPReconnectPolicy.h"
 
 
 
 @interface TJPNetworkCoordinator () <TJPSessionDelegate>
-
 @property (nonatomic, strong) TJPNetworkConfig *currConfig;
+
+//上次报告的状态
+@property (nonatomic, assign) NetworkStatus lastReportedStatus;
+
 
 @end
 
@@ -45,12 +49,14 @@
 
 #pragma mark - Private Method
 - (void)setupQueues {
-    //串行队列,只处理session
+    //串行队列,只处理会话
     _sessionQueue = dispatch_queue_create("com.networkCoordinator.tjp.sessionQueue", DISPATCH_QUEUE_SERIAL);
-    //串行解析数据队列 专用数据解析
-    _parseQueue = dispatch_queue_create("com.networkCoordinator.tjp.parseQueue", DISPATCH_QUEUE_SERIAL);
+    //专用数据解析队列 并发高优先级
+    _parseQueue = dispatch_queue_create("com.networkCoordinator.tjp.parseQueue", DISPATCH_QUEUE_CONCURRENT);
+    dispatch_set_target_queue(_parseQueue, dispatch_get_global_queue(QOS_CLASS_USER_INITIATED, 0));
     //串行监控队列
     _monitorQueue = dispatch_queue_create("com.networkCoordinator.tjp.monitorQueue", DISPATCH_QUEUE_SERIAL);
+    dispatch_set_target_queue(_monitorQueue, dispatch_get_global_queue(QOS_CLASS_UTILITY, 0));
 }
 
 - (void)setupNetworkMonitoring {
@@ -73,34 +79,91 @@
 - (void)handleNetworkStateChange:(Reachability *)reachability {
     NetworkStatus status = [reachability currentReachabilityStatus];
     
-    // 根据网络状态更新所有会话
-    switch (status) {
-        case NotReachable:
-            // 网络不可达时强制断开所有连接
-            TJPLOG_INFO(@"网络不可达，断开所有会话连接");
-            [self updateAllSessionsState:TJPConnectStateDisconnecting];
-            [self updateAllSessionsState:TJPConnectStateDisconnected];
-            break;
-            
-        case ReachableViaWiFi:
-        case ReachableViaWWAN:
-            // 网络恢复时自动重连处于断开状态的会话
-            TJPLOG_INFO(@"网络恢复，尝试自动重连");
-            [self triggerAutoReconnect];
-            break;
-    }
-}
-
-- (void)triggerAutoReconnect {
     dispatch_async(self.monitorQueue, ^{
-        NSArray *sessions = [self safeGetAllSessions];
+        // 检查状态是否有变化
+        if (status == self.lastReportedStatus && self.lastReportedStatus != NotReachable) {
+            // 如果状态相同且不是不可达状态，不重复处理
+            return;
+        }
         
-        [sessions enumerateObjectsWithOptions:NSEnumerationConcurrent
-                                   usingBlock:^(id<TJPSessionProtocol> session, NSUInteger idx, BOOL *stop) {
-            [session triggerAutoReconnectIfNeeded];
-        }];
+        // 更新状态
+        NetworkStatus oldStatus = self.lastReportedStatus;
+        self.lastReportedStatus = status;
+        
+        // 记录状态变化
+        TJPLOG_INFO(@"网络状态变更: %d -> %d", (int)oldStatus, (int)status);
+        
+        // 发送全局网络状态通知
+        [[NSNotificationCenter defaultCenter] postNotificationName:kNetworkStatusChangedNotification
+                                                          object:self
+                                                        userInfo:@{@"status": @(status)}];
+        
+        switch (status) {
+            case NotReachable:
+                TJPLOG_INFO(@"网络不可达，断开所有会话连接");
+                [self notifySessionsOfNetworkStatus:NO];
+                break;
+                
+            case ReachableViaWiFi:
+            case ReachableViaWWAN:
+                TJPLOG_INFO(@"网络恢复，尝试自动重连");
+                // 如果是从不可达状态变为可达状态，则进行连通性验证
+                if (oldStatus == NotReachable) {
+                    [self verifyNetworkConnectivity:^(BOOL isConnected) {
+                        if (isConnected) {
+                            TJPLOG_INFO(@"网络连通性验证成功，尝试自动重连");
+                            dispatch_async(self.monitorQueue, ^{
+                                [self notifySessionsOfNetworkStatus:YES];
+                            });
+                        } else {
+                            TJPLOG_INFO(@"网络报告可达但实际不通，暂不重连");
+                            // 可选：延迟再次尝试
+                            dispatch_after(dispatch_time(DISPATCH_TIME_NOW, 5 * NSEC_PER_SEC), self.monitorQueue, ^{
+                                [self handleNetworkStateChange:reachability];
+                            });
+                        }
+                    }];
+                } else {
+                    // 如果只是WiFi和移动网络之间的切换，直接通知
+                    [self notifySessionsOfNetworkStatus:YES];
+                }
+                break;
+        }
     });
 }
+
+- (void)verifyNetworkConnectivity:(void(^)(BOOL isConnected))completion {
+    // 避免在主线程上执行网络请求
+    dispatch_async(dispatch_get_global_queue(QOS_CLASS_UTILITY, 0), ^{
+        // 选择一个稳定、响应快的服务进行连通性检测
+        NSURL *url = [NSURL URLWithString:@"https://www.baidu.com"];
+        NSURLRequest *request = [NSURLRequest requestWithURL:url
+                                                cachePolicy:NSURLRequestReloadIgnoringLocalCacheData
+                                            timeoutInterval:5.0];
+        
+        NSURLSessionDataTask *task = [[NSURLSession sharedSession] dataTaskWithRequest:request
+            completionHandler:^(NSData * _Nullable data, NSURLResponse * _Nullable response, NSError * _Nullable error) {
+                BOOL isConnected = NO;
+                
+                if (error == nil) {
+                    NSHTTPURLResponse *httpResponse = (NSHTTPURLResponse *)response;
+                    isConnected = (httpResponse.statusCode >= 200 && httpResponse.statusCode < 300);
+                }
+                
+                TJPLOG_INFO(@"网络连通性检测结果: %@", isConnected ? @"可连接" : @"不可连接");
+                
+                // 在主队列回调
+                if (completion) {
+                    dispatch_async(dispatch_get_main_queue(), ^{
+                        completion(isConnected);
+                    });
+                }
+            }];
+        
+        [task resume];
+    });
+}
+
 
 
 
@@ -125,6 +188,22 @@
         sessions = [[_sessionMap objectEnumerator] allObjects];
     });
     return sessions;
+}
+
+
+#pragma mark - Notification
+- (void)notifySessionsOfNetworkStatus:(BOOL)available {
+    NSArray *sessions = [self safeGetAllSessions];
+    
+    for (id<TJPSessionProtocol> session in sessions) {
+        if (available) {
+            // 通知会话网络恢复
+            [session networkDidBecomeAvailable];
+        } else {
+            // 通知会话网络断开
+            [session networkDidBecomeUnavailable];
+        }
+    }
 }
 
 
@@ -161,6 +240,23 @@
     dispatch_barrier_async(self->_sessionQueue, ^{
         [self.sessionMap removeObjectForKey:session.sessionId];
         TJPLOG_INFO(@"Removed session: %@, remaining: %lu",  session.sessionId, (unsigned long)self.sessionMap.count);
+    });
+}
+
+- (void)scheduleReconnectForSession:(id<TJPSessionProtocol>)session {
+    dispatch_async(self->_sessionQueue, ^{
+        TJPConcreteSession *concreteSession = (TJPConcreteSession *)session;
+        
+        // 只有特定原因的断开才尝试重连
+        TJPDisconnectReason reason = concreteSession.disconnectReason;
+        if (reason == TJPDisconnectReasonNetworkError ||
+            reason == TJPDisconnectReasonHeartbeatTimeout ||
+            reason == TJPDisconnectReasonIdleTimeout) {
+            
+            [concreteSession.reconnectPolicy attemptConnectionWithBlock:^{
+                [concreteSession connectToHost:concreteSession.host port:concreteSession.port];
+            }];
+        }
     });
 }
 

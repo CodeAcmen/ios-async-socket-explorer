@@ -42,6 +42,9 @@
 
 #define kNetworkFatalErrorNotification @"kNetworkFatalErrorNotification"
 #define kSessionDataReceiveNotification @"kSessionDataReceiveNotification"
+#define kNetworkStatusChangedNotification @"kNetworkStatusChangedNotification"
+#define kHeartbeatTimeoutNotification @"kHeartbeatTimeoutNotification"
+
 
 
 

@@ -17,7 +17,6 @@ NS_ASSUME_NONNULL_BEGIN
 
 @interface TJPNetworkCoordinator : NSObject <TJPSessionDelegate>
 
-//@property (nonatomic, strong, readonly) id<TJPSessionProtocol> defaultSession;
 @property (nonatomic, strong, readonly) NSMapTable<NSString *, id<TJPSessionProtocol>> *sessionMap;
 
 
@@ -31,6 +30,8 @@ NS_ASSUME_NONNULL_BEGIN
 /// 监控专用队列  串行：网络监控相关
 @property (nonatomic, strong) dispatch_queue_t monitorQueue;
 
+
+
 /// 单例
 + (instancetype)shared;
 
@@ -38,6 +39,8 @@ NS_ASSUME_NONNULL_BEGIN
 - (id<TJPSessionProtocol>)createSessionWithConfiguration:(TJPNetworkConfig *)config;
 /// 统一更新所有会话状态
 - (void)updateAllSessionsState:(TJPConnectState)state;
+/// 统一管理重连
+- (void)scheduleReconnectForSession:(id<TJPSessionProtocol>)session;
 /// 移除会话
 - (void)removeSession:(id<TJPSessionProtocol>)session;
 

@@ -26,10 +26,10 @@ NS_ASSUME_NONNULL_BEGIN
 
 
 /// 初始化方法
-- (instancetype)initWithBaseInterval:(NSTimeInterval)baseInterval seqManager:(TJPSequenceManager *)seqManager;
+- (instancetype)initWithBaseInterval:(NSTimeInterval)baseInterval seqManager:(TJPSequenceManager *)seqManager session:(id<TJPSessionProtocol>)session;
 
 /// 开始监听
-- (void)startMonitoringForSession:(id<TJPSessionProtocol>)session;
+- (void)startMonitoring;
 /// 停止监听
 - (void)stopMonitoring;
 /// 调整心跳频率

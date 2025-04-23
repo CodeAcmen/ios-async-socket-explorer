@@ -6,8 +6,11 @@
 //
 
 #import "TJPReconnectPolicy.h"
+#import <Reachability/Reachability.h>
+
 #import "TJPNetworkCoordinator.h"
 #import "TJPNetworkDefine.h"
+
 
 static const NSTimeInterval kMaxReconnectDelay = 30;
 
@@ -61,13 +64,20 @@ static const NSTimeInterval kMaxReconnectDelay = 30;
 
    
     self.currentRetryTask = dispatch_block_create(DISPATCH_BLOCK_INHERIT_QOS_CLASS, ^{
-        if ([TJPNetworkCoordinator shared].reachability) {
-            TJPLOG_INFO(@"网络状态可达，执行连接块");
-            if (connectionBlock) connectionBlock();
-            self->_currentAttempt++;
-            TJPLOG_INFO(@"当前尝试次数更新为%ld", (long)self->_currentAttempt);
-        }
-    });
+            // 检查网络是否真的可达
+        if ([[TJPNetworkCoordinator shared].reachability currentReachabilityStatus] != NotReachable) {
+                TJPLOG_INFO(@"网络状态可达，执行连接块");
+                if (connectionBlock) connectionBlock();
+                self->_currentAttempt++;
+                TJPLOG_INFO(@"当前尝试次数更新为%ld", (long)self->_currentAttempt);
+            } else {
+                TJPLOG_INFO(@"网络不可达，跳过本次重连");
+                // 网络不可达时延迟再次尝试
+                dispatch_after(dispatch_time(DISPATCH_TIME_NOW, 5 * NSEC_PER_SEC), queue, ^{
+                    [self attemptConnectionWithBlock:connectionBlock];
+                });
+            }
+        });
     
     dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(delay * NSEC_PER_SEC)), queue, self.currentRetryTask);
     
