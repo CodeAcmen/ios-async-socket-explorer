@@ -210,6 +210,12 @@
         if (!strongSession) {
             return;
         }
+        
+        // 先增加重试计数，再进行判断
+        self.retryCount++;
+        
+        TJPLOG_INFO(@"当前重试次数: %ld/%ld", (long)self.retryCount, (long)self.maxRetryCount);
+
 
         if (self.retryCount >= self.maxRetryCount) {
             TJPLOG_ERROR(@"心跳连续失败 %ld 次，触发会话重建", (long)self.maxRetryCount);
@@ -218,11 +224,12 @@
             return;
         }
         
-        // 指数退避重试（3^retryCount 秒）
-        NSTimeInterval delay = pow(3, self.retryCount);
+        // 指数退避重试（2^retryCount 秒）
+        NSTimeInterval delay = pow(2, self.retryCount - 1);  // 1s 2s 4s 8s
+        
+        TJPLOG_INFO(@"安排在 %.1f 秒后进行第 %ld 次重试", delay, (long)self.retryCount);
         dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(delay * NSEC_PER_SEC)), self.heartbeatQueue, ^{
             [self sendHeartbeat];
-            self.retryCount++;
         });
     });
 }

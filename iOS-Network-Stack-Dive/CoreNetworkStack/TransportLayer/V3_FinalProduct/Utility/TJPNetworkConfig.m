@@ -36,6 +36,8 @@
         _maxRetry = 5;
         _heartbeat = 15.0;
         _baseDelay = 2.0;
+        _shouldReconnectAfterBackground = YES;
+        _shouldReconnectAfterServerClose = NO;
     }
     return self;
 }

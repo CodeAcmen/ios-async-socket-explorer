@@ -39,8 +39,6 @@ NS_ASSUME_NONNULL_BEGIN
 
 
 
-
-
 /// 发送心跳包
 - (void)sendHeartbeat:(NSData *)heartbeatData;
 /// 更新连接状态

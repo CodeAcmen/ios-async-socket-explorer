@@ -60,6 +60,7 @@ static const NSTimeInterval kDefaultRetryInterval = 10;
 #pragma mark - Lifecycle
 - (instancetype)initWithConfiguration:(TJPNetworkConfig *)config {
     if (self = [super init]) {
+        _config = config;
         _autoReconnectEnabled = YES;
         _sessionId = [[NSUUID UUID] UUIDString];
         // 创建专用队列（串行，中等优先级）

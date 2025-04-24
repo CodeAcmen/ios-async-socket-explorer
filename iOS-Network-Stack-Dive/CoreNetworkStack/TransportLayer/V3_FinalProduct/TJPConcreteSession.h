@@ -14,6 +14,10 @@ NS_ASSUME_NONNULL_BEGIN
 @class TJPNetworkConfig, TJPConnectStateMachine, TJPMessageContext, TJPReconnectPolicy;
 @interface TJPConcreteSession : NSObject <TJPSessionProtocol>
 
+
+@property (nonatomic, strong) TJPNetworkConfig *config;
+
+
 /// 连接状态机
 @property (nonatomic, strong) TJPConnectStateMachine *stateMachine;
 /// 独立的sessionId
