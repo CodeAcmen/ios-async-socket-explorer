@@ -37,6 +37,9 @@
         
         _session = session;
         
+        // 初始化字典
+        _pendingHeartbeats = [NSMutableDictionary dictionary];
+        
         // 专用串行队列，低优先级
         _heartbeatQueue = dispatch_queue_create("com.tjp.dynamicHeartbeat.serialQueue", DISPATCH_QUEUE_SERIAL);
         dispatch_set_target_queue(_heartbeatQueue, dispatch_get_global_queue(QOS_CLASS_UTILITY, 0));
@@ -49,32 +52,36 @@
 
 
 - (void)startMonitoring {
-    //重置状态
-    _currentInterval = _baseInterval;
-    [_pendingHeartbeats removeAllObjects];
-
-    
-    TJPLOG_INFO(@"heartbeat 准备开始发送心跳");
-    //发送心跳包
-    [self sendHeartbeat];
-    
-    //获取旧定时器
-    if (_heartbeatTimer) {
-        dispatch_source_cancel(_heartbeatTimer);
-        _heartbeatTimer = nil;
-    }
-    
-    //创建心跳包定时器
-    _heartbeatTimer = dispatch_source_create(DISPATCH_SOURCE_TYPE_TIMER, 0, 0, self.heartbeatQueue);
-    //设置定时器的触发时间
-    [self _updateTimerInterval];
-    
-    //设置定时器的事件处理顺序
-    dispatch_source_set_event_handler(_heartbeatTimer, ^{
+    dispatch_async(self.heartbeatQueue, ^{
+        //重置状态
+        self.currentInterval = self.baseInterval;
+        
+        // 清空 pendingHeartbeats 字典
+        [self.pendingHeartbeats removeAllObjects];
+        
+        TJPLOG_INFO(@"heartbeat 准备开始发送心跳");
+        //发送心跳包
         [self sendHeartbeat];
+        
+        //获取旧定时器
+        if (self->_heartbeatTimer) {
+            dispatch_source_cancel(self->_heartbeatTimer);
+            self->_heartbeatTimer = nil;
+        }
+        
+        //创建心跳包定时器
+        self->_heartbeatTimer = dispatch_source_create(DISPATCH_SOURCE_TYPE_TIMER, 0, 0, self.heartbeatQueue);
+        //设置定时器的触发时间
+        [self _updateTimerInterval];
+        
+        //设置定时器的事件处理顺序
+        dispatch_source_set_event_handler(self->_heartbeatTimer, ^{
+            [self sendHeartbeat];
+        });
+        //启动定时器
+        dispatch_resume(self->_heartbeatTimer);
+        
     });
-    //启动定时器
-    dispatch_resume(_heartbeatTimer);
 }
 
 
@@ -169,8 +176,11 @@
         NSString *beijingTime = [formatter stringFromDate:sendTime];
 
         
-        //将心跳包的序列号和发送时间存入 pendingHeartbeats
-        [self.pendingHeartbeats setObject:sendTime forKey:@(sequence)];
+        //将心跳包的序列号和发送时间存入 pendingHeartbeats  使用 dispatch_barrier_async 来安全地更新字典
+        dispatch_barrier_async(self.heartbeatQueue, ^{
+            //将心跳包的序列号和发送时间存入 pendingHeartbeats
+            [self.pendingHeartbeats setObject:sendTime forKey:@(sequence)];
+        });
             
         //发送心跳包
         TJPLOG_INFO(@"heartbeatManager 准备将心跳包移交给 session 发送  当前北京时间:%@", beijingTime);
@@ -187,7 +197,7 @@
             if (self.pendingHeartbeats[@(sequence)]) {
                 TJPLOG_INFO(@"触发序列号 %u 的心跳超时检测", sequence);
                 [self handleHeaderbeatTimeoutForSequence:sequence];
-                [self _removeHeartbeatsForSequence:sequence];
+//                [self _removeHeartbeatsForSequence:sequence];
             }
         });
     });
@@ -220,6 +230,7 @@
 - (void)heartbeatACKNowledgedForSequence:(uint32_t)sequence {
     dispatch_async(self.heartbeatQueue, ^{
         NSDate *sendTime = self.pendingHeartbeats[@(sequence)];
+        
         if (sendTime) {
             // 立即移除待处理心跳，避免超时逻辑误触发
             [self _removeHeartbeatsForSequence:sequence];
@@ -276,13 +287,9 @@
 }
 
 
-- (NSMutableDictionary<NSNumber *,NSDate *> *)pendingHeartbeats {
-    if (!_pendingHeartbeats) {
-        _pendingHeartbeats = [NSMutableDictionary dictionary];
-    }
-    return _pendingHeartbeats;
-}
-
 
 
 @end
+
+
+
