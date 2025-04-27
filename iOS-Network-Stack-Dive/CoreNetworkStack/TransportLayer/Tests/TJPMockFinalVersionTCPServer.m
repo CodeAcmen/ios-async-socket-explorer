@@ -86,11 +86,13 @@ static const NSUInteger kHeaderLength = sizeof(TJPFinalAdavancedHeader);
     NSData *payload = [data subdataWithRange:NSMakeRange(kHeaderLength, bodyLength)];
     
     // 校验checksum
-    uint32_t receivedChecksum = header.checksum;
+    uint32_t receivedChecksum = ntohl(header.checksum);  // 转换为主机字节序
     uint32_t calculatedChecksum = [TJPNetworkUtil crc32ForData:payload];
-    
+
+    NSLog(@"[MOCK SERVER] 接收到的校验和: %u, 计算的校验和: %u", receivedChecksum, calculatedChecksum);
+
     if (receivedChecksum != calculatedChecksum) {
-        NSLog(@"Checksum 不匹配, socket即将断开连接, 请检查代码!");
+        NSLog(@"Checksum 不匹配, 期望: %u, 收到: %u", calculatedChecksum, receivedChecksum);
         [sock disconnect];
         return;
     }
@@ -137,15 +139,13 @@ static const NSUInteger kHeaderLength = sizeof(TJPFinalAdavancedHeader);
     header.magic = htonl(kProtocolMagic);
     header.version_major = 1;
     header.version_minor = 0;
-    header.msgType = htons(TJPMessageTypeACK); // ACK类型
+    header.msgType = htons(TJPMessageTypeACK);
     header.sequence = htonl(seq);
-    header.bodyLength = 0;  // 如果没有有效载荷，bodyLength 就是 0
-
-    // 计算 header 的校验和，确保数据完整性
-    NSData *headerData = [NSData dataWithBytes:&header length:sizeof(header)];
-    uint32_t calculatedChecksum = [TJPNetworkUtil crc32ForData:headerData];
-    header.checksum = htonl(calculatedChecksum);  // 将校验和写入 header 中
-
+    header.bodyLength = 0;  // ACK没有数据体
+    
+    // ACK包没有数据体，checksum设为0
+    header.checksum = 0;
+    
     NSData *ackData = [NSData dataWithBytes:&header length:sizeof(header)];
     NSLog(@"[MOCK SERVER] 普通消息响应包字段：magic=0x%X, msgType=%hu, sequence=%u, checksum=%u",
           ntohl(header.magic), ntohs(header.msgType), ntohl(header.sequence), ntohl(header.checksum));
@@ -161,19 +161,17 @@ static const NSUInteger kHeaderLength = sizeof(TJPFinalAdavancedHeader);
     reply.magic = htonl(kProtocolMagic);
     reply.version_major = 1;
     reply.version_minor = 0;
-    reply.msgType = htons(TJPMessageTypeHeartbeat); // 心跳ACK
+    reply.msgType = htons(TJPMessageTypeHeartbeat);
     reply.sequence = htonl(seq);
     reply.bodyLength = 0;
     
-    // 计算正确的 checksum
-    NSData *ackData = [NSData dataWithBytes:&reply length:sizeof(reply)];
-    uint32_t checksum = [TJPNetworkUtil crc32ForData:ackData];  // 计算 checksum
-    reply.checksum = htonl(checksum);  // 将 checksum 填入响应包
+    // 心跳ACK没有数据体，checksum设为0
+    reply.checksum = 0;
     
+    NSData *ackData = [NSData dataWithBytes:&reply length:sizeof(reply)];
     NSLog(@"[MOCK SERVER] 心跳响应包字段：magic=0x%X, msgType=%hu, sequence=%u, checksum=%u",
-          ntohl(reply.magic), ntohs(reply.msgType), ntohl(reply.sequence), ntohl(reply.checksum));
+          ntohl(reply.magic), ntohs(reply.msgType), ntohl(reply.sequence), 0);
     [socket writeData:ackData withTimeout:-1 tag:0];
 }
-
 
 @end

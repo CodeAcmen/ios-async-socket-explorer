@@ -175,58 +175,58 @@
     TJPDisconnectReason reason = [(TJPConcreteSession *)session disconnectReason];
     NSString *sessionId = session.sessionId;
     
-
+    
     // 使用全局队列处理重连逻辑，避免阻塞主要队列
-        dispatch_async(dispatch_get_global_queue(QOS_CLASS_UTILITY, 0), ^{
-            // 根据断开原因决定下一步操作
-            switch (reason) {
-                case TJPDisconnectReasonNetworkError:
-                case TJPDisconnectReasonHeartbeatTimeout:
-                case TJPDisconnectReasonIdleTimeout:
-                    // 这些原因是需要尝试重连的
-                    TJPLOG_INFO(@"会话 %@ 因 %@ 断开，尝试自动重连", sessionId, [self reasonToString:reason]);
+    dispatch_async(dispatch_get_global_queue(QOS_CLASS_UTILITY, 0), ^{
+        // 根据断开原因决定下一步操作
+        switch (reason) {
+            case TJPDisconnectReasonNetworkError:
+            case TJPDisconnectReasonHeartbeatTimeout:
+            case TJPDisconnectReasonIdleTimeout:
+                // 这些原因是需要尝试重连的
+                TJPLOG_INFO(@"会话 %@ 因 %@ 断开，尝试自动重连", sessionId, [self reasonToString:reason]);
+                [self scheduleReconnectForSession:session];
+                break;
+                
+            case TJPDisconnectReasonUserInitiated:
+            case TJPDisconnectReasonForceReconnect:
+                // 这些原因是不需要重连的，应直接移除会话
+                TJPLOG_INFO(@"会话 %@ 因 %@ 断开，不会重连", sessionId, [self reasonToString:reason]);
+                [self removeSession:session];
+                break;
+                
+            case TJPDisconnectReasonSocketError: {
+                // 服务器关闭连接，需要根据业务策略决定是否重连
+                TJPLOG_WARN(@"会话 %@ 因套接字错误断开，检查是否重连", sessionId);
+                
+                // 获取会话配置，决定是否重连
+                TJPConcreteSession *concreteSession = (TJPConcreteSession *)session;
+                if (concreteSession.config.shouldReconnectAfterServerClose) {
                     [self scheduleReconnectForSession:session];
-                    break;
-                    
-                case TJPDisconnectReasonUserInitiated:
-                case TJPDisconnectReasonForceReconnect:
-                    // 这些原因是不需要重连的，应直接移除会话
-                    TJPLOG_INFO(@"会话 %@ 因 %@ 断开，不会重连", sessionId, [self reasonToString:reason]);
+                } else {
                     [self removeSession:session];
-                    break;
-                    
-                case TJPDisconnectReasonSocketError: {
-                    // 服务器关闭连接，需要根据业务策略决定是否重连
-                    TJPLOG_WARN(@"会话 %@ 因套接字错误断开，检查是否重连", sessionId);
-
-                    // 获取会话配置，决定是否重连
-                    TJPConcreteSession *concreteSession = (TJPConcreteSession *)session;
-                    if (concreteSession.config.shouldReconnectAfterServerClose) {
-                        [self scheduleReconnectForSession:session];
-                    } else {
-                        [self removeSession:session];
-                    }
-                    break;
                 }
-                    
-                case TJPDisconnectReasonAppBackgrounded: {
-                    // 应用进入后台，根据配置决定是否保持连接
-                    TJPLOG_INFO(@"会话 %@ 因应用进入后台而断开", sessionId);
-                    TJPConcreteSession *concreteSessionBackground = (TJPConcreteSession *)session;
-                    if (concreteSessionBackground.config.shouldReconnectAfterBackground) {
-                        // 标记为需要在回到前台时重连
-//                        concreteSessionBackground.needsReconnectOnForeground = YES;
-                    } else {
-                        [self removeSession:session];
-                    }
-                    break;
-                }
-                default:
-                    TJPLOG_WARN(@"会话 %@ 断开原因未知: %d，默认不重连", sessionId, (int)reason);
-                    [self removeSession:session];
-                    break;
+                break;
             }
-        });
+                
+            case TJPDisconnectReasonAppBackgrounded: {
+                // 应用进入后台，根据配置决定是否保持连接
+                TJPLOG_INFO(@"会话 %@ 因应用进入后台而断开", sessionId);
+                TJPConcreteSession *concreteSessionBackground = (TJPConcreteSession *)session;
+                if (concreteSessionBackground.config.shouldReconnectAfterBackground) {
+                    // 标记为需要在回到前台时重连
+                    //                        concreteSessionBackground.needsReconnectOnForeground = YES;
+                } else {
+                    [self removeSession:session];
+                }
+                break;
+            }
+            default:
+                TJPLOG_WARN(@"会话 %@ 断开原因未知: %d，默认不重连", sessionId, (int)reason);
+                [self removeSession:session];
+                break;
+        }
+    });
 }
 
 - (NSString *)reasonToString:(TJPDisconnectReason)reason {

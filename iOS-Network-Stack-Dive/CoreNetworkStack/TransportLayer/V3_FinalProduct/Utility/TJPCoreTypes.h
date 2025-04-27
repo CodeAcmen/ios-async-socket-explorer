@@ -62,12 +62,6 @@ static const uint8_t kProtocolVersionMinor = 0;
 
 
 
-//typedef NS_ENUM(NSUInteger, TJPConnecationState) {
-//    TJPConnecationStateDisconnected = 1 << 0,  // 连接已断开
-//    TJPConnecationStateConnecting   = 1 << 1,  // 正在建立连接
-//    TJPConnecationStateConnected    = 1 << 2   // 已成功连接
-//};
-
 //定义状态和事件
 typedef NSString * TJPConnectState NS_STRING_ENUM;
 typedef NSString * TJPConnectEvent NS_STRING_ENUM;
@@ -81,11 +75,12 @@ extern TJPConnectState const TJPConnectStateDisconnecting;  //正在断开
 //事件
 extern TJPConnectEvent const TJPConnectEventConnect;
 extern TJPConnectEvent const TJPConnectEventConnectSuccess;
-extern TJPConnectEvent const TJPConnectEventConnectFailed;
+extern TJPConnectEvent const TJPConnectEventConnectFailure;
 extern TJPConnectEvent const TJPConnectEventNetworkError;
 extern TJPConnectEvent const TJPConnectEventDisconnect;
 extern TJPConnectEvent const TJPConnectEventDisconnectComplete;
 extern TJPConnectEvent const TJPConnectEventForceDisconnect;       
+extern TJPConnectEvent const TJPConnectEventReconnect; 
 
 
 

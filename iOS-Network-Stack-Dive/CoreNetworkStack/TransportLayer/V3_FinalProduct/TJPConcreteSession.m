@@ -63,15 +63,16 @@ static const NSTimeInterval kDefaultRetryInterval = 10;
         _config = config;
         _autoReconnectEnabled = YES;
         _sessionId = [[NSUUID UUID] UUIDString];
+        
         // 创建专用队列（串行，中等优先级）
         _socketQueue = dispatch_queue_create("com.concreteSession.tjp.socketQueue", DISPATCH_QUEUE_SERIAL);
         dispatch_set_target_queue(_socketQueue, dispatch_get_global_queue(QOS_CLASS_DEFAULT, 0));
         
         
         // 初始化状态机（初始状态：断开连接）
-        _stateMachine = [[TJPConnectStateMachine alloc] initWithInitialState:TJPConnectStateDisconnected];
+        _stateMachine = [[TJPConnectStateMachine alloc] initWithInitialState:TJPConnectStateDisconnected setupStandardRules:YES];
         [self setupStateMachine];
-        
+
         // 初始化组件
         [self setupComponentWithConfig:config];
         
@@ -103,53 +104,56 @@ static const NSTimeInterval kDefaultRetryInterval = 10;
 
 //制定转换规则
 - (void)setupStateMachine {
-    //增加强制断开规则：允许从任何状态直接进入 Disconnected
-    [_stateMachine addTransitionFromState:TJPConnectStateConnected toState:TJPConnectStateDisconnected forEvent:TJPConnectEventForceDisconnect];
-    [_stateMachine addTransitionFromState:TJPConnectStateConnecting toState:TJPConnectStateDisconnected forEvent:TJPConnectEventForceDisconnect];
-    [_stateMachine addTransitionFromState:TJPConnectStateDisconnecting toState:TJPConnectStateDisconnected forEvent:TJPConnectEventForceDisconnect];
-    
-
-    //状态保留规则
-    [_stateMachine addTransitionFromState:TJPConnectStateConnecting toState:TJPConnectStateConnecting forEvent:TJPConnectEventConnect];
-    [_stateMachine addTransitionFromState:TJPConnectStateDisconnected toState:TJPConnectStateDisconnected forEvent:TJPConnectEventDisconnectComplete];
-
-    
-    //网络错误
-    [_stateMachine addTransitionFromState:TJPConnectStateConnecting toState:TJPConnectStateDisconnected forEvent:TJPConnectEventNetworkError];
-
-    
-    /*    状态流转规则     */
-    //未连接->连接中 连接事件
-    [_stateMachine addTransitionFromState:TJPConnectStateDisconnected toState:TJPConnectStateConnecting forEvent:TJPConnectEventConnect];
-    //连接中->已连接 连接成功事件
-    [_stateMachine addTransitionFromState:TJPConnectStateConnecting toState:TJPConnectStateConnected forEvent:TJPConnectEventConnectSuccess];
-    [_stateMachine addTransitionFromState:TJPConnectStateDisconnected toState:TJPConnectStateConnected forEvent:TJPConnectEventConnectSuccess];
-    //连接中->未连接 连接失败事件
-    [_stateMachine addTransitionFromState:TJPConnectStateConnecting toState:TJPConnectStateDisconnected forEvent:TJPConnectEventConnectFailed];
-    [_stateMachine addTransitionFromState:TJPConnectStateDisconnected toState:TJPConnectStateDisconnected forEvent:TJPConnectEventConnectFailed];
-    
-    //已连接->断开中 断开连接事件
-    [_stateMachine addTransitionFromState:TJPConnectStateConnecting toState:TJPConnectStateDisconnecting forEvent:TJPConnectEventDisconnect];
-    [_stateMachine addTransitionFromState:TJPConnectStateConnected toState:TJPConnectStateDisconnecting forEvent:TJPConnectEventDisconnect];
-    
-    //断开中->未连接 断开完成事件
-    [_stateMachine addTransitionFromState:TJPConnectStateDisconnecting toState:TJPConnectStateDisconnected forEvent:TJPConnectEventDisconnectComplete];
-    /*    ----------     */
-
-        
-    //注册状态变更回调
     __weak typeof(self) weakSelf = self;
-    [_stateMachine onStateChange:^(TJPConnectState  _Nonnull oldState, TJPConnectState  _Nonnull newState) {
-        TJPLOG_INFO(@"连接状态变更: 旧状态:%@ -> 新状态:%@", oldState, newState);
-        if (weakSelf.delegate && [weakSelf.delegate respondsToSelector:@selector(session:stateChanged:)]) {
-            [weakSelf.delegate session:weakSelf stateChanged:newState];
+//    // 设置无效转换处理器
+//    [_stateMachine setInvalidTransitionHandler:^(TJPConnectState state, TJPConnectEvent event) {
+//        __strong typeof(weakSelf) strongSelf = weakSelf;
+//        if (!strongSelf) return;
+//        
+//        // 记录错误
+//        TJPLOG_ERROR(@"会话 %@ 状态转换错误: %@ -> %@，尝试恢复", strongSelf.sessionId, state, event);
+//
+//        // 尝试恢复逻辑
+//        if ([event isEqualToString:TJPConnectEventConnect] &&
+//            ![state isEqualToString:TJPConnectStateDisconnected]) {
+//            // 如果试图从非断开状态发起连接，先强制断开
+//            [strongSelf.stateMachine sendEvent:TJPConnectEventForceDisconnect];
+//            // 延迟后再尝试连接
+//            dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(0.5 * NSEC_PER_SEC)),
+//                           dispatch_get_main_queue(), ^{
+//                [strongSelf.stateMachine sendEvent:TJPConnectEventConnect];
+//            });
+//        }
+//        
+//    }];
+    
+    // 设置状态变化监听
+    [_stateMachine onStateChange:^(TJPConnectState oldState, TJPConnectState newState) {
+        __strong typeof(weakSelf) strongSelf = weakSelf;
+        if (!strongSelf) return;
+
+        TJPLOG_INFO(@"会话 %@ 状态变化: %@ -> %@", strongSelf.sessionId, oldState, newState);
+
+        // 通知代理
+        if (strongSelf.delegate && [strongSelf.delegate respondsToSelector:@selector(session:stateChanged:)]) {
+            dispatch_async(dispatch_get_main_queue(), ^{
+                [strongSelf.delegate session:strongSelf stateChanged:newState];
+            });
         }
         
+        // 根据新状态执行相应操作
         if ([newState isEqualToString:TJPConnectStateConnected]) {
-            [weakSelf flushPendingMessages];
+            // 连接成功，启动心跳
+            [strongSelf.heartbeatManager startMonitoring];
+            // 如果有积压消息 发送积压消息
+            [strongSelf flushPendingMessages];
+            //通知代理
+            [self notifyDelegateOfStateChange];
+        } else if ([newState isEqualToString:TJPConnectStateDisconnected]) {
+            // 断开连接，停止心跳
+            [strongSelf.heartbeatManager stopMonitoring];
         }
     }];
-
 }
 
 
@@ -348,7 +352,7 @@ static const NSTimeInterval kDefaultRetryInterval = 10;
     [self.reconnectPolicy stopRetrying];
     
     // 将状态机转为断开状态
-    [self.stateMachine sendEvent:TJPConnectEventConnectFailed];
+    [self.stateMachine sendEvent:TJPConnectEventConnectFailure];
     
     // 关闭 socket 连接
     [self.socket disconnect];
@@ -375,22 +379,12 @@ static const NSTimeInterval kDefaultRetryInterval = 10;
         //触发连接成功事件 状态转换为"已连接"
         [self.stateMachine sendEvent:TJPConnectEventConnectSuccess];
         
-        
         //启动TLS  Mock时将TLS关闭
 //        NSDictionary *tlsSettings = @{(id)kCFStreamSSLPeerName: host};
 //        [sock startTLS:tlsSettings];
-        
-        //启动心跳
-        [self.heartbeatManager startMonitoring];
-        
+                
         //开始读取数据
         [sock readDataWithTimeout:-1 tag:0];
-        
-        //通知代理
-        [self notifyDelegateOfStateChange];
-        
-        //发送积压消息
-        [self flushPendingMessages];
     });
 }
 
@@ -492,6 +486,11 @@ static const NSTimeInterval kDefaultRetryInterval = 10;
     });
 }
 
+- (void)forceDisconnect { 
+    
+}
+
+
 // 心跳超时处理
 - (void)handleHeartbeatTimeout:(NSNotification *)notification {
     id<TJPSessionProtocol> session = notification.userInfo[@"session"];
@@ -519,7 +518,10 @@ static const NSTimeInterval kDefaultRetryInterval = 10;
     header.msgType = htons(TJPMessageTypeNormalData); // 普通消息类型
     header.sequence = htonl(seq);
     header.bodyLength = htonl((uint32_t)data.length);
-    header.checksum = [TJPNetworkUtil crc32ForData:data];
+    
+    // 计算数据体的CRC32
+    uint32_t checksum = [TJPNetworkUtil crc32ForData:data];
+    header.checksum = htonl(checksum);  // 注意要转换为网络字节序
     
     // 构建完整协议包
     NSMutableData *packet = [NSMutableData dataWithBytes:&header length:sizeof(header)];

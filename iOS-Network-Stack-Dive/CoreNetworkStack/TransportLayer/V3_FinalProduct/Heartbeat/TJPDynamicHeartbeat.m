@@ -53,6 +53,12 @@
 
 - (void)startMonitoring {
     dispatch_async(self.heartbeatQueue, ^{
+        // 如果定时器已存在，先停止当前的监控
+        if (self->_heartbeatTimer) {
+            TJPLOG_INFO(@"心跳监控已在运行，先停止当前监控");
+            [self stopMonitoring];
+        }
+        
         //重置状态
         self.currentInterval = self.baseInterval;
         
