@@ -26,6 +26,12 @@ NS_ASSUME_NONNULL_BEGIN
 /// 基础延迟默认 2秒
 @property (nonatomic, assign) NSTimeInterval baseDelay;
 
+/// 是否在服务器关闭连接后重连
+@property (nonatomic, assign) BOOL shouldReconnectAfterServerClose;
+
+/// 是否在应用进入后台后重连
+@property (nonatomic, assign) BOOL shouldReconnectAfterBackground;
+
 
 /// 初始化方法
 + (instancetype)configWithHost:(NSString *)host port:(uint16_t)port maxRetry:(NSUInteger)maxRetry heartbeat:(CGFloat)heartbeat;

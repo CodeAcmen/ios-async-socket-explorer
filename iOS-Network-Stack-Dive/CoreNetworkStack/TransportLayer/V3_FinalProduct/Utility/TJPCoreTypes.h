@@ -17,13 +17,14 @@ typedef NS_ENUM(uint16_t, TJPMessageType) {
 };
 
 
-typedef NS_ENUM(NSInteger, TJPDisconnectReason){
+typedef NS_ENUM(NSInteger, TJPDisconnectReason) {
     TJPDisconnectReasonNone,                   // 默认状态
     TJPDisconnectReasonUserInitiated,          // 手动断开连接
     TJPDisconnectReasonNetworkError,           // 网络错误导致断开
     TJPDisconnectReasonHeartbeatTimeout,       // 心跳超时导致断开
-    TJPDisconnectReasonIdleTimeout,
-    TJPDisconnectReasonSocketError,
+    TJPDisconnectReasonIdleTimeout,            // 空闲超时导致断开
+    TJPDisconnectReasonSocketError,            // 套接字错误导致断开
+    TJPDisconnectReasonAppBackgrounded,        // APP进入后台误导致断开
     TJPDisconnectReasonForceReconnect          // 强制重连导致断开
 };
 
@@ -61,12 +62,6 @@ static const uint8_t kProtocolVersionMinor = 0;
 
 
 
-//typedef NS_ENUM(NSUInteger, TJPConnecationState) {
-//    TJPConnecationStateDisconnected = 1 << 0,  // 连接已断开
-//    TJPConnecationStateConnecting   = 1 << 1,  // 正在建立连接
-//    TJPConnecationStateConnected    = 1 << 2   // 已成功连接
-//};
-
 //定义状态和事件
 typedef NSString * TJPConnectState NS_STRING_ENUM;
 typedef NSString * TJPConnectEvent NS_STRING_ENUM;
@@ -80,11 +75,12 @@ extern TJPConnectState const TJPConnectStateDisconnecting;  //正在断开
 //事件
 extern TJPConnectEvent const TJPConnectEventConnect;
 extern TJPConnectEvent const TJPConnectEventConnectSuccess;
-extern TJPConnectEvent const TJPConnectEventConnectFailed;
+extern TJPConnectEvent const TJPConnectEventConnectFailure;
 extern TJPConnectEvent const TJPConnectEventNetworkError;
 extern TJPConnectEvent const TJPConnectEventDisconnect;
 extern TJPConnectEvent const TJPConnectEventDisconnectComplete;
 extern TJPConnectEvent const TJPConnectEventForceDisconnect;       
+extern TJPConnectEvent const TJPConnectEventReconnect; 
 
 
 

@@ -168,26 +168,113 @@
 
 
 - (void)handleSessionDisconnection:(id<TJPSessionProtocol>)session {
+    if (!session) {
+        TJPLOG_ERROR(@"处理断开连接的会话为空");
+        return;
+    }
     TJPDisconnectReason reason = [(TJPConcreteSession *)session disconnectReason];
+    NSString *sessionId = session.sessionId;
     
-//    dispatch_async(dispatch_get_global_queue(QOS_CLASS_UTILITY, 0), ^{
-//        if (reason == TJPDisconnectReasonNetworkError || reason == TJPDisconnectReasonIdleTimeout) {
-//            TJPLOG_INFO(@"Session %@ marked for possible reconnect", session.sessionId);
-//            [self.reconnectPolicy scheduleReconnectForSession:session];
-//        } else {
-//            TJPLOG_INFO(@"Session %@ removed due to intentional disconnect", session.sessionId);
-//            [self removeSession:session];
-//        }
-//    });
+    
+    // 使用全局队列处理重连逻辑，避免阻塞主要队列
+    dispatch_async(dispatch_get_global_queue(QOS_CLASS_UTILITY, 0), ^{
+        // 根据断开原因决定下一步操作
+        switch (reason) {
+            case TJPDisconnectReasonNetworkError:
+            case TJPDisconnectReasonHeartbeatTimeout:
+            case TJPDisconnectReasonIdleTimeout:
+                // 这些原因是需要尝试重连的
+                TJPLOG_INFO(@"会话 %@ 因 %@ 断开，尝试自动重连", sessionId, [self reasonToString:reason]);
+                [self scheduleReconnectForSession:session];
+                break;
+                
+            case TJPDisconnectReasonUserInitiated:
+            case TJPDisconnectReasonForceReconnect:
+                // 这些原因是不需要重连的，应直接移除会话
+                TJPLOG_INFO(@"会话 %@ 因 %@ 断开，不会重连", sessionId, [self reasonToString:reason]);
+                [self removeSession:session];
+                break;
+                
+            case TJPDisconnectReasonSocketError: {
+                // 服务器关闭连接，需要根据业务策略决定是否重连
+                TJPLOG_WARN(@"会话 %@ 因套接字错误断开，检查是否重连", sessionId);
+                
+                // 获取会话配置，决定是否重连
+                TJPConcreteSession *concreteSession = (TJPConcreteSession *)session;
+                if (concreteSession.config.shouldReconnectAfterServerClose) {
+                    [self scheduleReconnectForSession:session];
+                } else {
+                    [self removeSession:session];
+                }
+                break;
+            }
+                
+            case TJPDisconnectReasonAppBackgrounded: {
+                // 应用进入后台，根据配置决定是否保持连接
+                TJPLOG_INFO(@"会话 %@ 因应用进入后台而断开", sessionId);
+                TJPConcreteSession *concreteSessionBackground = (TJPConcreteSession *)session;
+                if (concreteSessionBackground.config.shouldReconnectAfterBackground) {
+                    // 标记为需要在回到前台时重连
+                    //                        concreteSessionBackground.needsReconnectOnForeground = YES;
+                } else {
+                    [self removeSession:session];
+                }
+                break;
+            }
+            default:
+                TJPLOG_WARN(@"会话 %@ 断开原因未知: %d，默认不重连", sessionId, (int)reason);
+                [self removeSession:session];
+                break;
+        }
+    });
 }
 
+- (NSString *)reasonToString:(TJPDisconnectReason)reason {
+    switch (reason) {
+        case TJPDisconnectReasonNone:
+            return @"默认状态";
+        case TJPDisconnectReasonUserInitiated:
+            return @"用户手动断开";
+        case TJPDisconnectReasonNetworkError:
+            return @"网络错误";
+        case TJPDisconnectReasonHeartbeatTimeout:
+            return @"心跳超时";
+        case TJPDisconnectReasonIdleTimeout:
+            return @"空闲超时";
+        case TJPDisconnectReasonSocketError:
+            return @"套接字错误";
+        case TJPDisconnectReasonForceReconnect:
+            return @"强制重连";
+        default:
+            return @"未知原因";
+    }
+    
+}
 
 - (NSArray *)safeGetAllSessions {
     __block NSArray *sessions;
-    dispatch_sync(self->_sessionQueue, ^{  // 同步读取
+    dispatch_sync(self->_sessionQueue, ^{
         sessions = [[_sessionMap objectEnumerator] allObjects];
     });
     return sessions;
+}
+
+//安全获取单个会话的方法
+- (id<TJPSessionProtocol>)safeGetSessionWithId:(NSString *)sessionId {
+    __block id<TJPSessionProtocol> session = nil;
+    dispatch_sync(self->_sessionQueue, ^{
+        session = [self.sessionMap objectForKey:sessionId];
+    });
+    return session;
+}
+
+//获取当前会话总数
+- (NSUInteger)sessionCount {
+    __block NSUInteger count = 0;
+    dispatch_sync(self->_sessionQueue, ^{
+        count = self.sessionMap.count;
+    });
+    return count;
 }
 
 
