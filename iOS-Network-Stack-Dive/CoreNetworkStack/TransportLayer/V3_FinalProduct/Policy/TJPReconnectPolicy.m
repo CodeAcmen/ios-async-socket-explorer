@@ -84,10 +84,12 @@ static const NSTimeInterval kMaxReconnectDelay = 30;
 }
 
 - (NSTimeInterval)calculateDelay {
-    //mock测试时 移除随机延迟
-//    return MIN(pow(_baseDelay, _currentAttempt), kMaxReconnectDelay);
-    //指数退避 + 随机延迟
-    return MIN(pow(_baseDelay, _currentAttempt) + arc4random_uniform(3), kMaxReconnectDelay);
+    // 使用更标准的指数退避公式: 基础延迟 * (2^尝试次数) + 随机扰动   mock测试时要关闭随机数
+    double randomJitter = ((double)arc4random_uniform(1000)) / 1000.0; // 0-1的随机数
+    NSTimeInterval delay = _baseDelay * pow(2, _currentAttempt) + randomJitter;
+    
+    // 设置上限
+    return MIN(delay, kMaxReconnectDelay);
 }
 
 - (void)notifyReachMaxAttempts {

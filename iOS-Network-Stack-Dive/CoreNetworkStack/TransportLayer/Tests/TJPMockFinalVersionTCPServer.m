@@ -13,7 +13,7 @@
 static const NSUInteger kHeaderLength = sizeof(TJPFinalAdavancedHeader);
 
 @interface TJPMockFinalVersionTCPServer ()
-
+@property (nonatomic, strong) NSMutableData *receiveBuffer;
 
 @end
 
@@ -27,6 +27,7 @@ static const NSUInteger kHeaderLength = sizeof(TJPFinalAdavancedHeader);
     self = [super init];
     if (self) {
         _connectedSockets = [NSMutableArray array];
+        _receiveBuffer = [NSMutableData data];
     }
     return self;
 }
@@ -54,6 +55,7 @@ static const NSUInteger kHeaderLength = sizeof(TJPFinalAdavancedHeader);
 - (void)socket:(GCDAsyncSocket *)sock didAcceptNewSocket:(GCDAsyncSocket *)newSocket {
     NSLog(@"[MOCK SERVER] 接收到客户端连接");
     [self.connectedSockets addObject:newSocket];
+    // 先读取协议头
     [newSocket readDataWithTimeout:-1 tag:0];
 }
 

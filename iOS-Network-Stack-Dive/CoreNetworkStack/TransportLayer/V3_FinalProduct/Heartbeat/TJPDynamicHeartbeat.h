@@ -32,6 +32,8 @@ NS_ASSUME_NONNULL_BEGIN
 - (void)startMonitoring;
 /// 停止监听
 - (void)stopMonitoring;
+/// 更新session
+- (void)updateSession:(id<TJPSessionProtocol>)session;
 /// 调整心跳频率
 - (void)adjustIntervalWithNetworkCondition:(TJPNetworkCondition *)condition;
 /// 发送心跳

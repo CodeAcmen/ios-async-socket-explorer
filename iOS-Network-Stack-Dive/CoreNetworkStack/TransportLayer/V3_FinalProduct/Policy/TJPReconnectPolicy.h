@@ -22,13 +22,17 @@ NS_ASSUME_NONNULL_BEGIN
 
 /// 最大尝试数
 @property (nonatomic, assign) NSInteger maxAttempts;
+/// 当前尝试次数
+@property (nonatomic, assign) NSInteger currentAttempt;
 /// 基础延迟
 @property (nonatomic, assign) NSTimeInterval baseDelay;
+/// 最大延迟
+@property (nonatomic, assign) NSTimeInterval maxDelay;
+
 
 //单元测试用
 @property (nonatomic, readonly) dispatch_qos_class_t qosClass;
 
-@property (nonatomic, assign) NSInteger currentAttempt;
 
 
 /// 初始化方法

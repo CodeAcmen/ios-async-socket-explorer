@@ -23,6 +23,7 @@ typedef NS_ENUM(NSInteger, TJPDisconnectReason) {
     TJPDisconnectReasonNetworkError,           // 网络错误导致断开
     TJPDisconnectReasonHeartbeatTimeout,       // 心跳超时导致断开
     TJPDisconnectReasonIdleTimeout,            // 空闲超时导致断开
+    TJPDisconnectReasonConnectionTimeout,      // 连接超时导致断开
     TJPDisconnectReasonSocketError,            // 套接字错误导致断开
     TJPDisconnectReasonAppBackgrounded,        // APP进入后台误导致断开
     TJPDisconnectReasonForceReconnect          // 强制重连导致断开
