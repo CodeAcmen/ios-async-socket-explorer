@@ -52,5 +52,11 @@
 #define TJPSCREEN_HEIGHT ([UIScreen mainScreen].bounds.size.height)
 
 
+#define TJPSEQUENCE_BODY_MASK 0x00FFFFFF
+#define TJPSEQUENCE_CATEGORY_MASK 0xFF
+#define TJPSEQUENCE_WARNING_THRESHOLD 0xFFFFF0  // 接近最大值的警告阈值
+#define TJPSEQUENCE_MAX_MASK 0xFFFFFF
+
+
 
 #endif /* TJPNetworkDefine_h */

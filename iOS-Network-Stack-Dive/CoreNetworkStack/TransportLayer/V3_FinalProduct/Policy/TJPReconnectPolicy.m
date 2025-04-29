@@ -48,6 +48,16 @@ static const NSTimeInterval kMaxReconnectDelay = 30;
 }
 
 - (void)attemptConnectionWithBlock:(dispatch_block_t)connectionBlock {
+    // 在开始重连前检查会话当前状态
+    if (self.delegate && [self.delegate respondsToSelector:@selector(getCurrentConnectionState)]) {
+        NSString *currentState = [self.delegate getCurrentConnectionState];
+        if ([currentState isEqualToString:TJPConnectStateConnected] ||
+            [currentState isEqualToString:TJPConnectStateConnecting]) {
+            TJPLOG_INFO(@"会话已在连接状态(%@)，不需要重连", currentState);
+            return;
+        }
+    }
+    
     TJPLOG_INFO(@"开始连接尝试，当前尝试次数%ld/%ld", (long)_currentAttempt, (long)_maxAttempts);
     //如果超过最大重试次数 停止重试
     if (_currentAttempt >= _maxAttempts) {
@@ -84,10 +94,12 @@ static const NSTimeInterval kMaxReconnectDelay = 30;
 }
 
 - (NSTimeInterval)calculateDelay {
-    //mock测试时 移除随机延迟
-//    return MIN(pow(_baseDelay, _currentAttempt), kMaxReconnectDelay);
-    //指数退避 + 随机延迟
-    return MIN(pow(_baseDelay, _currentAttempt) + arc4random_uniform(3), kMaxReconnectDelay);
+    // 使用更标准的指数退避公式: 基础延迟 * (2^尝试次数) + 随机扰动   mock测试时要关闭随机数
+    double randomJitter = ((double)arc4random_uniform(1000)) / 1000.0; // 0-1的随机数
+    NSTimeInterval delay = _baseDelay * pow(2, _currentAttempt) + randomJitter;
+    
+    // 设置上限
+    return MIN(delay, kMaxReconnectDelay);
 }
 
 - (void)notifyReachMaxAttempts {

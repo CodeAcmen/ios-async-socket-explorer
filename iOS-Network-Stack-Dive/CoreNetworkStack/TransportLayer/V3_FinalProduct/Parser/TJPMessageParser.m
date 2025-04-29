@@ -42,16 +42,22 @@
 }
 
 - (TJPParsedPacket *)nextPacket {
+    //如果当前数据包是头部 先解析头部
     if (_state == TJPParseStateHeader) {
-        return [self parseHeaderData];
+        if (![self parseHeaderData]) {
+            //头部解析失败直接返回
+            return nil;
+        };
     }
+    //如果数据包是是body 解析消息体
     if (_state == TJPParseStateBody) {
         return [self parseBodyData];
     }
+    
     return nil;
 }
 
-- (TJPParsedPacket *)parseHeaderData {
+- (BOOL)parseHeaderData {
     if (_buffer.length < sizeof(TJPFinalAdavancedHeader)) {
         TJPLOG_INFO(@"数据长度不够数据头解析");
         return nil;
@@ -66,18 +72,17 @@
     if (ntohl(currentHeader.magic) != kProtocolMagic) {
         TJPLOG_INFO(@"解析头部后魔数校验失败... 请检查");
         _state = TJPParseStateError;
-        return nil;
+        return NO;
     }
     TJPLOG_INFO(@"解析数据头部成功...魔数校验成功!");
     _currentHeader = currentHeader;
     //移除已处理的Header数据
     [_buffer replaceBytesInRange:NSMakeRange(0, sizeof(TJPFinalAdavancedHeader)) withBytes:NULL length:0];
     
-    TJPParsedPacket *header = [TJPParsedPacket packetWithHeader:_currentHeader];
     TJPLOG_INFO(@"解析序列号:%u 的头部成功", ntohl(_currentHeader.sequence));
     _state = TJPParseStateBody;
     
-    return header;
+    return YES;
 }
 
 - (TJPParsedPacket *)parseBodyData {

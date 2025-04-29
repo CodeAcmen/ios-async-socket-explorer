@@ -23,6 +23,10 @@
 //上次报告的状态
 @property (nonatomic, assign) NetworkStatus lastReportedStatus;
 
+//网络防抖
+@property (nonatomic, strong) NSDate *lastNetworkChangeTime;
+@property (nonatomic, assign) NSTimeInterval networkChangeDebounceInterval; // 默认设为2秒
+
 
 @end
 
@@ -40,6 +44,7 @@
 
 - (instancetype)init {
     if (self = [super init]) {
+        _networkChangeDebounceInterval = 2;
         _sessionMap = [NSMapTable strongToStrongObjectsMapTable];
         [self setupQueues];
         [self setupNetworkMonitoring];
@@ -80,6 +85,17 @@
     NetworkStatus status = [reachability currentReachabilityStatus];
     
     dispatch_async(self.monitorQueue, ^{
+        // 检查是否在防抖动时间内
+        NSDate *now = [NSDate date];
+        if (self.lastNetworkChangeTime &&
+            [now timeIntervalSinceDate:self.lastNetworkChangeTime] < self.networkChangeDebounceInterval) {
+            TJPLOG_INFO(@"网络状态频繁变化，忽略当前变化");
+            return;
+        }
+        
+        // 更新最后变化时间
+        self.lastNetworkChangeTime = now;
+        
         // 检查状态是否有变化
         if (status == self.lastReportedStatus && self.lastReportedStatus != NotReachable) {
             // 如果状态相同且不是不可达状态，不重复处理

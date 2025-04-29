@@ -90,6 +90,27 @@
     });
 }
 
+- (void)updateSession:(id<TJPSessionProtocol>)session {
+    dispatch_async(self.heartbeatQueue, ^{
+        self->_session = session;
+        TJPLOG_INFO(@"心跳管理器更新 session 引用");
+        
+        // 同步状态检查
+        if (session && [session.connectState isEqualToString:TJPConnectStateConnected]) {
+            // 如果会话已连接但心跳未启动，则启动心跳
+            if (!self->_heartbeatTimer) {
+                TJPLOG_INFO(@"会话已连接但心跳未启动，自动启动心跳");
+                [self startMonitoring];
+            }
+        } else {
+            // 如果会话未连接但心跳已启动，则停止心跳
+            if (self->_heartbeatTimer) {
+                TJPLOG_INFO(@"会话未连接但心跳仍在运行，自动停止心跳");
+                [self stopMonitoring];
+            }
+        }
+    });
+}
 
 
 - (void)_updateTimerInterval {
@@ -153,6 +174,7 @@
     dispatch_async(self.heartbeatQueue, ^{
         id<TJPSessionProtocol> strongSession = self->_session;
         if (!strongSession) {
+            TJPLOG_ERROR(@"动态心跳管理的session已被销毁");
             return;
         }
         if (![strongSession.connectState isEqualToString:TJPConnectStateConnected]) {
@@ -164,7 +186,7 @@
         self.retryCount = 0;
         
         //获取序列号
-        uint32_t sequence = [self.sequenceManager nextSequence];
+        uint32_t sequence = [self.sequenceManager nextSequenceForCategory:TJPMessageCategoryHeartbeat];
         
         TJPLOG_INFO(@"心跳包正在组装,准备发出  序列号为: %u", sequence);
         
@@ -242,6 +264,7 @@
 
 - (void)heartbeatACKNowledgedForSequence:(uint32_t)sequence {
     dispatch_async(self.heartbeatQueue, ^{
+        TJPLOG_INFO(@"接收到 心跳ACK 数据包并进行处理");
         NSDate *sendTime = self.pendingHeartbeats[@(sequence)];
         
         if (sendTime) {
