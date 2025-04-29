@@ -232,7 +232,7 @@ static const NSTimeInterval kDefaultRetryInterval = 10;
         }
         TJPLOG_INFO(@"session 准备构造数据包");
         //创建序列号
-        uint32_t seq = [self.seqManager nextSequence];
+        uint32_t seq = [self.seqManager nextSequenceForCategory:TJPMessageCategoryNormal];
         
         //构造协议包  实际通过Socket发送的协议包(协议头+原始数据)
         NSData *packet = [self _buildPacketWithData:data seq:seq];
@@ -388,12 +388,18 @@ static const NSTimeInterval kDefaultRetryInterval = 10;
     TJPLOG_INFO(@"当前连接退出");
 }
 
+- (NSString *)getCurrentConnectionState {
+    return self.stateMachine.currentState;
+}
+
 
 
 #pragma mark - GCDAsyncSocketDelegate
 - (void)socket:(GCDAsyncSocket *)sock didConnectToHost:(NSString *)host port:(uint16_t)port {
     dispatch_async(self->_socketQueue, ^{
         TJPLOG_INFO(@"连接成功 准备给状态机发送连接成功事件");
+        self.isReconnecting = NO;
+
         //触发连接成功事件 状态转换为"已连接"
         [self.stateMachine sendEvent:TJPConnectEventConnectSuccess];
         
@@ -435,6 +441,8 @@ static const NSTimeInterval kDefaultRetryInterval = 10;
 
 - (void)socketDidDisconnect:(GCDAsyncSocket *)sock withError:(NSError *)err {
     dispatch_async(self->_socketQueue, ^{
+        self.isReconnecting = NO;
+
         //处理状态转换
         [self handleDisconnectStateTransition];
         
@@ -520,11 +528,19 @@ static const NSTimeInterval kDefaultRetryInterval = 10;
 
 - (void)networkDidBecomeAvailable {
     dispatch_async(self->_socketQueue, ^{
+        // 检查是否已经在重连
+        if (self.isReconnecting) {
+            TJPLOG_INFO(@"已有重连过程在进行，忽略");
+            return;
+        }
+        
         // 只有当前状态为断开状态且启用了自动重连才尝试重连
         if ([self.stateMachine.currentState isEqualToString:TJPConnectStateDisconnected] &&
             self.autoReconnectEnabled &&
             self.disconnectReason != TJPDisconnectReasonUserInitiated) {
             
+            
+            self.isReconnecting = YES;
             TJPLOG_INFO(@"网络恢复，尝试自动重连");
             [self connectToHost:self.host port:self.port];
         }
@@ -603,7 +619,7 @@ static const NSTimeInterval kDefaultRetryInterval = 10;
 
 //处理消息
 - (void)processReceivedPacket:(TJPParsedPacket *)packet {
-    TJPLOG_INFO(@"接收到数据包 消息类型为 %hu", packet.messageType);
+//    TJPLOG_INFO(@"接收到数据包 消息类型为 %hu", packet.messageType);
     switch (packet.messageType) {
         case TJPMessageTypeNormalData:
             [self handleDataPacket:packet];
@@ -623,6 +639,7 @@ static const NSTimeInterval kDefaultRetryInterval = 10;
 
 //处理普通数据包
 - (void)handleDataPacket:(TJPParsedPacket *)packet {
+    TJPLOG_INFO(@"接收到 普通消息 数据包并进行处理");
     if (self.delegate && [self.delegate respondsToSelector:@selector(session:didReceiveData:)]) {
         [self.delegate session:self didReceiveData:packet.payload];
     }
@@ -630,13 +647,44 @@ static const NSTimeInterval kDefaultRetryInterval = 10;
 
 //处理ACK确认
 - (void)handleACKForSequence:(uint32_t)sequence {
-    // 统一处理所有 ACK
+    TJPLOG_INFO(@"接收到 ACK 数据包并进行处理");
+    
+    // 检查是否已处理过这个ACK
+    static NSMutableSet *processedACKs;
+    static dispatch_once_t onceToken;
+    dispatch_once(&onceToken, ^{
+        processedACKs = [NSMutableSet set];
+    });
+
+    // 生成唯一的ACK标识符
+    NSString *ackId = [NSString stringWithFormat:@"%u", sequence];
+    
+    // 如果已处理过，直接返回
+    if ([processedACKs containsObject:ackId]) {
+        return;
+    }
+    
+    // 将此ACK标记为已处理
+    [processedACKs addObject:ackId];
+
+    // 首先检查是否是普通消息的ACK
     if ([self.pendingMessages objectForKey:@(sequence)]) {
         // 普通消息 ACK：移除待确认队列
+        TJPLOG_INFO(@"处理普通消息ACK，序列号: %u", sequence);
         [self.pendingMessages removeObjectForKey:@(sequence)];
-    } else if (sequence == [self.heartbeatManager.sequenceManager currentSequence]) {
-        // 心跳 ACK：通知心跳管理器
+    }else if ([self.seqManager isSequenceForCategory:sequence category:TJPMessageCategoryHeartbeat]) {
+        // 检查是否是心跳的ACK
+        TJPLOG_INFO(@"处理心跳ACK，序列号: %u", sequence);
         [self.heartbeatManager heartbeatACKNowledgedForSequence:sequence];
+    }
+    else {
+        // 未知ACK
+        TJPLOG_WARN(@"收到未知ACK，序列号: %u", sequence);
+    }
+    
+    // 定期清理处理过的ACK集合，避免无限增长
+    if (processedACKs.count > 1000) {
+        [processedACKs removeAllObjects];
     }
 }
 

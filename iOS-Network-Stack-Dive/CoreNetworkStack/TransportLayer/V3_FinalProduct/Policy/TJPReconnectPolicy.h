@@ -13,6 +13,7 @@ NS_ASSUME_NONNULL_BEGIN
 @protocol TJPReconnectPolicyDelegate <NSObject>
 @optional
 - (void)reconnectPolicyDidReachMaxAttempts:(TJPReconnectPolicy *)reconnectPolicy;
+- (NSString *)getCurrentConnectionState;
 @end
 
 @interface TJPReconnectPolicy : NSObject

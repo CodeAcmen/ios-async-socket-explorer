@@ -17,6 +17,14 @@ typedef NS_ENUM(uint16_t, TJPMessageType) {
 };
 
 
+typedef NS_ENUM(uint8_t, TJPMessageCategory) {
+    TJPMessageCategoryNormal = 0,    // 普通消息
+    TJPMessageCategoryHeartbeat = 1, // 心跳消息
+    TJPMessageCategoryControl = 2,   // 控制消息
+    TJPMessageCategoryMedia = 3      // 媒体消息
+};
+
+
 typedef NS_ENUM(NSInteger, TJPDisconnectReason) {
     TJPDisconnectReasonNone,                   // 默认状态
     TJPDisconnectReasonUserInitiated,          // 手动断开连接

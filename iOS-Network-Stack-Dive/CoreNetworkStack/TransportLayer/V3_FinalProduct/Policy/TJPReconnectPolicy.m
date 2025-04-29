@@ -48,6 +48,16 @@ static const NSTimeInterval kMaxReconnectDelay = 30;
 }
 
 - (void)attemptConnectionWithBlock:(dispatch_block_t)connectionBlock {
+    // 在开始重连前检查会话当前状态
+    if (self.delegate && [self.delegate respondsToSelector:@selector(getCurrentConnectionState)]) {
+        NSString *currentState = [self.delegate getCurrentConnectionState];
+        if ([currentState isEqualToString:TJPConnectStateConnected] ||
+            [currentState isEqualToString:TJPConnectStateConnecting]) {
+            TJPLOG_INFO(@"会话已在连接状态(%@)，不需要重连", currentState);
+            return;
+        }
+    }
+    
     TJPLOG_INFO(@"开始连接尝试，当前尝试次数%ld/%ld", (long)_currentAttempt, (long)_maxAttempts);
     //如果超过最大重试次数 停止重试
     if (_currentAttempt >= _maxAttempts) {

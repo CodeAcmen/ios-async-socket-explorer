@@ -14,9 +14,10 @@ NS_ASSUME_NONNULL_BEGIN
 @class TJPNetworkConfig, TJPConnectStateMachine, TJPMessageContext, TJPReconnectPolicy;
 @interface TJPConcreteSession : NSObject <TJPSessionProtocol>
 
-
 @property (nonatomic, strong) TJPNetworkConfig *config;
 
+/// 重连标志符
+@property (atomic, assign) BOOL isReconnecting;
 
 /// 连接状态机
 @property (nonatomic, strong) TJPConnectStateMachine *stateMachine;
@@ -29,7 +30,6 @@ NS_ASSUME_NONNULL_BEGIN
 @property (nonatomic, strong) TJPReconnectPolicy *reconnectPolicy;
 
 @property (nonatomic, weak) id<TJPSessionDelegate> delegate;
-
 
 @property (nonatomic, assign) TJPDisconnectReason disconnectReason; // 断开原因
 /// 是否允许自动重连 默认开启

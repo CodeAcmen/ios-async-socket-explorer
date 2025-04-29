@@ -163,7 +163,7 @@ static const NSUInteger kHeaderLength = sizeof(TJPFinalAdavancedHeader);
     reply.magic = htonl(kProtocolMagic);
     reply.version_major = 1;
     reply.version_minor = 0;
-    reply.msgType = htons(TJPMessageTypeHeartbeat);
+    reply.msgType = htons(TJPMessageTypeACK);
     reply.sequence = htonl(seq);
     reply.bodyLength = 0;
     

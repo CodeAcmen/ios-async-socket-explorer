@@ -186,7 +186,7 @@
         self.retryCount = 0;
         
         //获取序列号
-        uint32_t sequence = [self.sequenceManager nextSequence];
+        uint32_t sequence = [self.sequenceManager nextSequenceForCategory:TJPMessageCategoryHeartbeat];
         
         TJPLOG_INFO(@"心跳包正在组装,准备发出  序列号为: %u", sequence);
         
@@ -264,6 +264,7 @@
 
 - (void)heartbeatACKNowledgedForSequence:(uint32_t)sequence {
     dispatch_async(self.heartbeatQueue, ^{
+        TJPLOG_INFO(@"接收到 心跳ACK 数据包并进行处理");
         NSDate *sendTime = self.pendingHeartbeats[@(sequence)];
         
         if (sendTime) {
