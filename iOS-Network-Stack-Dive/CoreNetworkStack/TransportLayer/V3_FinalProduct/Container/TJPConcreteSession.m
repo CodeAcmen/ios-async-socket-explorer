@@ -135,9 +135,9 @@ static const NSTimeInterval kDefaultRetryInterval = 10;
         TJPLOG_INFO(@"会话 %@ 状态变化: %@ -> %@", strongSelf.sessionId, oldState, newState);
 
         // 通知代理
-        if (strongSelf.delegate && [strongSelf.delegate respondsToSelector:@selector(session:stateChanged:)]) {
+        if (strongSelf.delegate && [strongSelf.delegate respondsToSelector:@selector(session:didChangeState:)]) {
             dispatch_async(dispatch_get_main_queue(), ^{
-                [strongSelf.delegate session:strongSelf stateChanged:newState];
+                [strongSelf.delegate session:strongSelf didChangeState:newState];
             });
         }
         
@@ -640,8 +640,8 @@ static const NSTimeInterval kDefaultRetryInterval = 10;
 //处理普通数据包
 - (void)handleDataPacket:(TJPParsedPacket *)packet {
     TJPLOG_INFO(@"接收到 普通消息 数据包并进行处理");
-    if (self.delegate && [self.delegate respondsToSelector:@selector(session:didReceiveData:)]) {
-        [self.delegate session:self didReceiveData:packet.payload];
+    if (self.delegate && [self.delegate respondsToSelector:@selector(session:didReceiveRawData:)]) {
+        [self.delegate session:self didReceiveRawData:packet.payload];
     }
 }
 

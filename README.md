@@ -77,62 +77,45 @@
 **Objective-C 接入示例**
 
 ```Objc
-// 1. 初始化配置
-NSString *host = @"127.0.0.1";
-uint16_t port = 12345;
-TJPNetworkConfig *config = [TJPNetworkConfig configWithHost:host port:port maxRetry:5 heartbeat:15.0];
+// 0. 在AppDelegate中添加
+[TJPMessageFactory load];
+// 1. 初始化客户端
+TJPIMClient *client = [TJPIMClient shared];
 
-// 2. 创建会话（中心协调器自动管理）
-TJPConcreteSession *session = [[TJPNetworkCoordinator shared] createSessionWithConfiguration:config];
+// 2. 连接服务器（自动处理重连和心跳）
+[client connectToHost:@"im.example.com" port:8080];
 
-// 3. 连接服务器
-[self.session connectToHost:host port:port];
+// 3. 创建文本消息（自动处理TLV序列化）
+TJPTextMessage *textMsg = [TJPTextMessage messageWithText:@"Hello World"];
 
-// 4. 构造TLV格式消息体
-NSMutableData *bodyData = [NSMutableData data];
-
-// 添加用户ID（Tag=0x1001）
-uint16_t userIdTag = CFSwapInt16HostToBig(0x1001);  // 大端转换
-NSString *userId = @"user123";
-NSData *userIdValue = [userId dataUsingEncoding:NSUTF8StringEncoding];
-uint32_t userIdLength = CFSwapInt32HostToBig(userIdValue.length);  // 大端转换
-[bodyData appendBytes:&userIdTag length:2];
-[bodyData appendBytes:&userIdLength length:4];
-[bodyData appendData:userIdValue];
-
-// 5. 发送消息
-[session sendData:bodyData];
+// 4. 发送消息（自动路由到最佳会话）
+[client sendMessage:textMsg completion:^(NSError *error) {
+    if (!error) {
+        NSLog(@"消息已成功送达");
+    }
+}];
 ```
 
 **Swift 接入示例**
 
 ```Swift
-// 1. 初始化配置
-let host = "127.0.0.1"
-let port: UInt16 = 12345
-let config = TJPNetworkConfig(host: host, port: port, maxRetry: 5, heartbeat: 15.0)
+// 0. 在AppDelegate中添加
+TJPMessageFactory.load
+// 1. 获取客户端实例
+let client = TJPIMClient.shared
 
-// 2. 创建会话（中心协调器自动管理）
-let session = TJPNetworkCoordinator.shared.createSession(with: config)
+// 2. 连接服务器（自动处理网络切换）
+client.connect(host: "im.example.com", port: 8080)
 
-// 3. 连接服务器
-session.connectToHost(host, port: port)
+// 3. 构造多媒体消息（自动压缩和格式转换）
+let imageMessage = TJPImageMessage(image: UIImage(named: "avatar")!, 
+                                  quality: .high)
 
-// 4. 构造TLV格式消息体
-var bodyData = Data()
-
-// 添加用户ID（Tag=0x1001）
-let userIdTag: UInt16 = 0x1001
-let userId = "user123"
-if let userIdValue = userId.data(using: .utf8) {
-    // 大端转换
-    bodyData.append(userIdTag.bigEndian.data)  
-    bodyData.append(UInt32(userIdValue.count).bigEndian.data)
-    bodyData.append(userIdValue)
+// 4. 发送消息（自动重试和QoS保证）
+client.send(message: imageMessage) { error in
+    guard error == nil else { return }
+    print("图片消息已确认接收")
 }
-
-// 5. 发送消息
-session.sendData(bodyData)
 ```
 ##### 企业级 VIPER 架构体系
 **中大型应用分层解耦设计解决方案**
@@ -153,21 +136,21 @@ session.sendData(bodyData)
 - **v1.0.0**：网络框架基础核心功能基本完成、生产级VIPER架构演示完成
 - **v1.0.1**：修复了因libffi编译导致无法在模拟器运行的问题
 - **v1.1.0**：新增全链路追踪、关键指标采集（网络质量/成功率/延迟）并添加演示Demo，引入序列号分区机制，整体逻辑优化
-- **v1.1.1**：优化序列号用尽后重置逻辑，协议改造为TLV结构，消息构造和解析逻辑发生本质变化，详见Doc
+- **v1.2.0**：协议改造为TLV结构，支持协议无缝升级，整体逻辑重构，消息构造和解析逻辑发生本质变化，详见Doc
 
 ### 版本规划
 
-#### 🔜v1.2.0（开发中） - 长连接优化
+#### 🔜v1.3.0（开发中） - 长连接优化
 - **心跳保活增强**：运营商NAT超时适配
 - **防拦截策略**：运营商级心跳包伪装
 - **连接保持**：智能心跳间隔动态调整
 
-#### v1.3.0（规划中） - 性能升级
+#### v1.4.0（规划中） - 性能升级
 - **连接池优化**：智能资源分配
 - **分包策略升级**：大文件分片传输
 - **QoS保障**：流量优先级控制
 
-#### v1.4.0（规划中） - 极端场景优化
+#### v1.5.0（规划中） - 极端场景优化
 - **弱网对抗**：智能降级策略
 - **错误恢复**：多级故障回滚
 - **协议演进**：可靠UDP传输
@@ -187,28 +170,36 @@ session.sendData(bodyData)
 ## 核心实现
 Socket通信模块架构
 ```
-+--------------------------+
-|     Network Layer         |
-| (CocoaAsyncSocket wrapper)|
-+--------------------------+
-           |
-           v
-+--------------------------+
-|       SocketManager       |
-| (Connection, Heartbeat)   |
-+--------------------------+
-           |
-           v
-+--------------------------+
-|       Message Handler     |
-| (Message Parsing, Packets)|
-+--------------------------+
-           |
-           v
-+--------------------------+
-|      Protocol Layer       |
-|  (Custom Protocol Logic)  |
-+--------------------------+
++---------------------------------------------------+
+|                    应用层                          |
+|  					  	使用统一API管理网络通信			            |
++---------------------------------------------------+
+                        |
+                        v
++---------------------------------------------------+
+|                TJPIMClient                  |
+|  (门面模式: 高级API + 内部适配器管理 + 代理分发)        |
++---------------------------------------------------+
+                        |
+              +---------+---------+
+              |                   |
+              v                   v
++-------------------------+    +-------------------------+
+| TJPContentSessionAdapter|    |   TJPConcreteSession   |
+| (内容编解码与代理适配)     |    |   (底层连接管理)        |
++-------------------------+    +-------------------------+
+                                          |
+                                          v
+                               +-------------------------+
+                               |  TJPNetworkCoordinator  |
+                               | (多会话协调与全局网络管理) |
+                               +-------------------------+
+                                          |
+                                          v
+                               +-------------------------+
+                               |     GCDAsyncSocket      |
+                               |    (底层套接字通信)       |
+                               +-------------------------+
 ```
 ### TLV数据区格式
 - **Tag**：业务标识（如 0x1001=用户ID），大端字节序。

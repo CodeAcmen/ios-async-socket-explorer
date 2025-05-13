@@ -13,6 +13,9 @@
 #import "TJPMockFinalVersionTCPServer.h"
 #import "TJPMetricsConsoleReporter.h"
 
+#import "TJPIMClient.h"
+#import "TJPTextMessage.h"
+
 
 @interface TJPNetworkMonitorViewController ()
 
@@ -23,6 +26,9 @@
 @property (nonatomic, strong) UIButton *sendMessageButton;
 
 @property (nonatomic, strong) UITextView *logTextView;
+
+
+@property (nonatomic, strong) TJPIMClient *client;
 
 
 @end
@@ -62,13 +68,17 @@
     NSString *host = @"127.0.0.1";
     uint16_t port = 12345;
     
-    TJPNetworkConfig *config = [TJPNetworkConfig configWithHost:host port:port maxRetry:5 heartbeat:15.0];
+//    TJPNetworkConfig *config = [TJPNetworkConfig configWithHost:host port:port maxRetry:5 heartbeat:15.0];
+//
+//    // 2. 创建会话（中心协调器自动管理）
+//    self.session = [[TJPNetworkCoordinator shared] createSessionWithConfiguration:config];
+//
+//    // 3. 连接服务器
+//    [self.session connectToHost:host port:port];
+    
+    self.client = [TJPIMClient shared];
+    [self.client connectToHost:host port:port];
 
-    // 2. 创建会话（中心协调器自动管理）
-    self.session = [[TJPNetworkCoordinator shared] createSessionWithConfiguration:config];
-
-    // 3. 连接服务器
-    [self.session connectToHost:host port:port];
     
 }
 
@@ -92,9 +102,13 @@
 // 发送消息按钮点击事件
 - (void)sendMessageButtonTapped {
     // 4. 发送消息
-    NSData *messageData = [@"Hello World" dataUsingEncoding:NSUTF8StringEncoding];
-    [self.session sendData:messageData];
-    NSLog(@"发送消息: %@", [[NSString alloc] initWithData:messageData encoding:NSUTF8StringEncoding]);
+//    NSData *messageData = [@"Hello World" dataUsingEncoding:NSUTF8StringEncoding];
+//    [self.session sendData:messageData];
+//    NSLog(@"发送消息: %@", [[NSString alloc] initWithData:messageData encoding:NSUTF8StringEncoding]);
+    
+    TJPTextMessage *textMsg = [[TJPTextMessage alloc] initWithText:@"Hello World!!!!!111112223333"];
+    [self.client sendMessage:textMsg];
+    NSLog(@"发送消息: %@", textMsg.text);
 }
 
 

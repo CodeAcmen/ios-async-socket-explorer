@@ -35,6 +35,7 @@ NS_ASSUME_NONNULL_BEGIN
 
 /// 初始化方法
 + (instancetype)configWithHost:(NSString *)host port:(uint16_t)port maxRetry:(NSUInteger)maxRetry heartbeat:(CGFloat)heartbeat;
++ (instancetype)defaultConfig;
 
 
 @end

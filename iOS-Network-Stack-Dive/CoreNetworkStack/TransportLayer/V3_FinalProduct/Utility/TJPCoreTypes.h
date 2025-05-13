@@ -24,6 +24,16 @@ typedef NS_ENUM(NSUInteger, TJPTLVParseError) {
     TJPTLVParseErrorInvalidNestedTag            // 非法嵌套Tag（未使用保留Tag进行嵌套）
 };
 
+// 内容类型标签枚举
+typedef NS_ENUM(uint16_t, TJPContentType) {
+    TJPContentTypeText = 0x1001,     // 文本消息
+    TJPContentTypeImage = 0x1002,    // 图片消息
+    TJPContentTypeAudio = 0x1003,    // 音频消息
+    TJPContentTypeVideo = 0x1004,    // 视频消息
+    TJPContentTypeFile = 0x1005,     // 文件消息
+    TJPContentTypeLocation = 0x1006, // 位置消息
+    TJPContentTypeCustom = 0x1007,   // 自定义消息
+};
 
 typedef NS_ENUM(uint16_t, TJPMessageType) {
     TJPMessageTypeNormalData,      //普通数据消息

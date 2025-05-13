@@ -18,6 +18,10 @@
     return [[TJPNetworkConfig alloc] initWithHost:host port:port maxRetry:maxRetry heartbeat:heartbeat];
 }
 
++ (instancetype)defaultConfig {
+    return [[TJPNetworkConfig alloc] init];
+}
+
 - (instancetype)initWithHost:(NSString *)host port:(uint16_t)port maxRetry:(NSUInteger)maxRetry heartbeat:(CGFloat)heartbeat {
     if (self = [super init]) {
         _host = host;

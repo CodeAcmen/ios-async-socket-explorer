@@ -96,8 +96,6 @@ IM领域业内常用设计：
 - 协议升级协商：通过特定命令类型交换双方支持的版本号，触发动态升降级
 - 版本兼容：收到新版本服务器响应时，忽略未知TLV标签，若检测到旧客户端版本请求时，不返回新增Tag字段
 
-
-
 ### Body如何改造为 TLV 结构？
 
 #### **TLV 条目定义**
@@ -120,7 +118,36 @@ IM领域业内常用设计：
 | 兼容性 | 旧版本解析器可跳过未知 Tag（依赖 parseTLVFromData 的跳过逻辑） |
 | 方便调试 | 通过 tlvEntries 可直观查看所有字段，便于日志记录和问题排查 |
 
+### **关键实现细节**
 
+1. **Mach-O Section 注册**
+   利用 `__attribute__((section))` 将类名写入 Mach-O 文件的 `__DATA` 段，运行时通过 `dladdr` 和 `getsectiondata` 扫描所有注册的类
+2. 引入 `TJPMessage` 协议，所有消息类型必须实现数据序列化和类型标记
+3. 在现有 `TJPConcreteSession` 中增加 `sendMessage:` 方法，自动调用消息对象的 `tlvData` 方法
+4. 新增 `TJPMessageSerializer` 处理公共字段的字节序转换、CRC 计算等底层细节
+
+### **TLV 解析器 `TJPParsedPacket` 核心作用**
+
+- **TLV 解包**：将二进制流按 TLV 格式拆解为 `Tag(2B) + Length(4B) + Value(NB)` 三元组
+- **嵌套处理**：递归解析保留标签（如 `0xFFFF`），支持树形数据结构
+- **字节序转换**：自动处理网络字节序 → 主机字节序（`ntohs/ntohl`）
+
+### **序列化器 `TJPMessageSerializer` 核心作用**
+
+- **TLV 打包**：将对象属性转换为 `Tag + Length + Value` 字节流
+- 智能优化
+  - 字符串自动 UTF-8 编码
+  - 图片智能压缩（根据网络质量选择 JPEG/WebP）
+  - 数值类型变长编码（Varint）
+
+双模块协作流程：
+```
+发送端：
+业务对象 → TJPMessageSerializer → TLV 二进制 → Socket 发送
+
+接收端：
+Socket 数据 → TJPParsedPacket → 结构化字典 → 业务对象映射
+```
 
 ## 并发场景下的问题与解决方案
 
