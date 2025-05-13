@@ -68,11 +68,11 @@
 ---
 
 ##### NetworkManagerFinal（企业级多路复用）
-**日均10w+连接验证 | 单元测试覆盖率>90%**
+**日均10w+消息真实验证 | 单元测试覆盖率>90%**
 - **架构亮点**
   - **中心协调器**：动态扩容 + 故障隔离
   - **会话自治模型**：独立状态机 + 自适应心跳
-  - **安全协议栈**：二进制协议设计 + TLS加密
+  - **安全协议栈**：二进制协议设计（定长头+TLV） + TLS加密
 ---
 **Objective-C 接入示例**
 
@@ -88,9 +88,20 @@ TJPConcreteSession *session = [[TJPNetworkCoordinator shared] createSessionWithC
 // 3. 连接服务器
 [self.session connectToHost:host port:port];
 
-// 4. 发送消息
-NSData *messageData = [@"Hello World" dataUsingEncoding:NSUTF8StringEncoding];
-[session sendData:messageData];
+// 4. 构造TLV格式消息体
+NSMutableData *bodyData = [NSMutableData data];
+
+// 添加用户ID（Tag=0x1001）
+uint16_t userIdTag = CFSwapInt16HostToBig(0x1001);  // 大端转换
+NSString *userId = @"user123";
+NSData *userIdValue = [userId dataUsingEncoding:NSUTF8StringEncoding];
+uint32_t userIdLength = CFSwapInt32HostToBig(userIdValue.length);  // 大端转换
+[bodyData appendBytes:&userIdTag length:2];
+[bodyData appendBytes:&userIdLength length:4];
+[bodyData appendData:userIdValue];
+
+// 5. 发送消息
+[session sendData:bodyData];
 ```
 
 **Swift 接入示例**
@@ -107,11 +118,21 @@ let session = TJPNetworkCoordinator.shared.createSession(with: config)
 // 3. 连接服务器
 session.connectToHost(host, port: port)
 
-// 4. 发送消息
-let message = "Hello World"
-if let messageData = message.data(using: .utf8) {
-    session.sendData(messageData)
+// 4. 构造TLV格式消息体
+var bodyData = Data()
+
+// 添加用户ID（Tag=0x1001）
+let userIdTag: UInt16 = 0x1001
+let userId = "user123"
+if let userIdValue = userId.data(using: .utf8) {
+    // 大端转换
+    bodyData.append(userIdTag.bigEndian.data)  
+    bodyData.append(UInt32(userIdValue.count).bigEndian.data)
+    bodyData.append(userIdValue)
 }
+
+// 5. 发送消息
+session.sendData(bodyData)
 ```
 ##### 企业级 VIPER 架构体系
 **中大型应用分层解耦设计解决方案**
@@ -132,6 +153,7 @@ if let messageData = message.data(using: .utf8) {
 - **v1.0.0**：网络框架基础核心功能基本完成、生产级VIPER架构演示完成
 - **v1.0.1**：修复了因libffi编译导致无法在模拟器运行的问题
 - **v1.1.0**：新增全链路追踪、关键指标采集（网络质量/成功率/延迟）并添加演示Demo，引入序列号分区机制，整体逻辑优化
+- **v1.1.1**：优化序列号用尽后重置逻辑，协议改造为TLV结构，消息构造和解析逻辑发生本质变化，详见Doc
 
 ### 版本规划
 
@@ -187,6 +209,16 @@ Socket通信模块架构
 |      Protocol Layer       |
 |  (Custom Protocol Logic)  |
 +--------------------------+
+```
+### TLV数据区格式
+- **Tag**：业务标识（如 0x1001=用户ID），大端字节序。
+- **Length**：Value 部分长度（不含 Tag 和 Length），大端字节序。
+- **Value**：原始数据或嵌套 TLV（用保留 Tag 0xFFFF 标记）。
+```
++------+----------+--------+
+| Tag  |  Length  | Value  |
+| 2字节| 4字节    | N字节  |
++------+----------+--------+
 ```
 
 ### 完整TCP状态机实现

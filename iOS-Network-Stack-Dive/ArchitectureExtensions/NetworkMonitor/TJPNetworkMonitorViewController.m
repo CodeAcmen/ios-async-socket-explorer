@@ -46,6 +46,13 @@
     }];
 }
 
+- (void)viewWillDisappear:(BOOL)animated {
+    [super viewWillDisappear:animated];
+    
+    [self.mockServer stop];
+    [self.session disconnect];
+}
+
 - (void)setupNetwork {
     // 初始化模拟服务器
     self.mockServer = [[TJPMockFinalVersionTCPServer alloc] init];

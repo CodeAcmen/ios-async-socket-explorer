@@ -95,7 +95,13 @@
     NSData *payload = [_buffer subdataWithRange:NSMakeRange(0, bodyLength)];
     [_buffer replaceBytesInRange:NSMakeRange(0, bodyLength) withBytes:NULL length:0];
     
-    TJPParsedPacket *body = [TJPParsedPacket packetWithHeader:_currentHeader payload:payload];
+    NSError *error = nil;
+    TJPParsedPacket *body = [TJPParsedPacket packetWithHeader:_currentHeader payload:payload policy:TJPTLVTagPolicyRejectDuplicates maxNestedDepth:4 error:&error];
+    if (error) {
+        TJPLOG_INFO(@"解析序列号:%u 的内容失败: %@", ntohl(_currentHeader.sequence), error.localizedDescription);
+        return nil;
+    }
+    
     TJPLOG_INFO(@"解析序列号:%u 的内容成功", ntohl(_currentHeader.sequence));
 
     _state = TJPParseStateHeader;

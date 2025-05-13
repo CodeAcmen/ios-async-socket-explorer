@@ -27,7 +27,7 @@
     config.heartbeat = 5.0;
     self.mockSession = [[TJPConcreteSession alloc] initWithConfiguration:config];
     self.seqManager = [[TJPSequenceManager alloc] init];
-    self.heartbeatManager = [[TJPDynamicHeartbeat alloc] initWithBaseInterval:config.heartbeat seqManager:self.seqManager];
+    self.heartbeatManager = [[TJPDynamicHeartbeat alloc] initWithBaseInterval:5 seqManager:self.seqManager session:self.mockSession];
 }
 - (void)tearDown {
     // Put teardown code here. This method is called after the invocation of each test method in the class.
@@ -36,7 +36,7 @@
 
 
 - (void)testAdjustIntervalWithNetworkCondition {
-    [self.heartbeatManager startMonitoringForSession:self.mockSession];
+    [self.heartbeatManager startMonitoring];
 
     TJPNetworkCondition *excellentCondition = [[TJPNetworkCondition alloc] init];
     // Excellent RTT
@@ -109,7 +109,7 @@
 
 // 模拟网络波动场景
 - (void)testNetworkFluctuation {
-    TJPDynamicHeartbeat *heartbeat = [[TJPDynamicHeartbeat alloc] initWithBaseInterval:60 seqManager:self.seqManager];
+    TJPDynamicHeartbeat *heartbeat = [[TJPDynamicHeartbeat alloc] initWithBaseInterval:60 seqManager:self.seqManager session:self.mockSession];
     
     // 第一阶段：优质网络（RTT=150ms, 丢包率0%）
     for (int i=0; i<10; i++) {

@@ -24,7 +24,7 @@
 
 
 - (void)testReconnectPolicyInitialization {
-    TJPReconnectPolicy *reconnectPolicy = [[TJPReconnectPolicy alloc] initWithMaxAttempst:5 baseDelay:10.0 qos:TJPNetworkQoSUserInitiated];
+    TJPReconnectPolicy *reconnectPolicy = [[TJPReconnectPolicy alloc] initWithMaxAttempst:5 baseDelay:10.0 qos:TJPNetworkQoSUserInitiated delegate:nil];
     
     // 验证初始化参数是否正确
     XCTAssertEqual(reconnectPolicy.maxAttempts, 5, @"最大重试次数应为5");
@@ -34,7 +34,7 @@
 
 - (void)testAttemptConnectionWithBlock {
     __block BOOL connectionAttempted = NO;
-    TJPReconnectPolicy *reconnectPolicy = [[TJPReconnectPolicy alloc] initWithMaxAttempst:3 baseDelay:1.0 qos:TJPNetworkQoSUserInitiated];
+    TJPReconnectPolicy *reconnectPolicy = [[TJPReconnectPolicy alloc] initWithMaxAttempst:3 baseDelay:1.0 qos:TJPNetworkQoSUserInitiated delegate:nil];
     
     // 使用 XCTestExpectation 来确保重试机制按预期工作
     XCTestExpectation *expectation = [self expectationWithDescription:@"Retrying connection"];
@@ -52,7 +52,7 @@
 }
 
 - (void)testCalculateDelay {
-    TJPReconnectPolicy *reconnectPolicy = [[TJPReconnectPolicy alloc] initWithMaxAttempst:5 baseDelay:2.0 qos:TJPNetworkQoSUserInitiated];
+    TJPReconnectPolicy *reconnectPolicy = [[TJPReconnectPolicy alloc] initWithMaxAttempst:5 baseDelay:2.0 qos:TJPNetworkQoSUserInitiated delegate:nil];
 
     // 设置 _currentAttempt 为 2，并测试延迟计算
     reconnectPolicy.currentAttempt = 2;
@@ -71,7 +71,7 @@
 
 
 - (void)testNotifyReachMaxAttempts {
-    TJPReconnectPolicy *reconnectPolicy = [[TJPReconnectPolicy alloc] initWithMaxAttempst:3 baseDelay:1.0 qos:TJPNetworkQoSUserInitiated];
+    TJPReconnectPolicy *reconnectPolicy = [[TJPReconnectPolicy alloc] initWithMaxAttempst:3 baseDelay:1.0 qos:TJPNetworkQoSUserInitiated delegate:nil];
     
     // 使用 XCTestExpectation 来确保最大重试次数达到时的通知被触发
     XCTestExpectation *expectation = [self expectationWithDescription:@"Max retry attempts reached"];

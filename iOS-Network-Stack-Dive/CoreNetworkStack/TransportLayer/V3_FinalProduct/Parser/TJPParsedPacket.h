@@ -20,11 +20,15 @@ NS_ASSUME_NONNULL_BEGIN
 @property (nonatomic, assign) TJPFinalAdavancedHeader header;
 /// 消息内容
 @property (nonatomic, strong) NSData *payload;
+/// TLV解析后的字段（Tag -> Value）
+@property (nonatomic, strong) NSDictionary<NSNumber *, id> *tlvEntries; // 支持嵌套存储
+/// TLV策略
+@property (nonatomic, assign) TJPTLVTagPolicy tagPolicy;
 
 
 + (instancetype)packetWithHeader:(TJPFinalAdavancedHeader)header;
 
-+ (instancetype)packetWithHeader:(TJPFinalAdavancedHeader)header payload:(NSData *)payload;
++ (instancetype)packetWithHeader:(TJPFinalAdavancedHeader)header payload:(NSData *)payload policy:(TJPTLVTagPolicy)policy maxNestedDepth:(NSUInteger)maxDepth error:(NSError **)error;
 
 @end
 

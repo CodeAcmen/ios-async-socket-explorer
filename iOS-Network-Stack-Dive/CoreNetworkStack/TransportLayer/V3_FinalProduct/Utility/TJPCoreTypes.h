@@ -9,6 +9,22 @@
 #define TJPCoreTypes_h
 
 
+typedef NS_ENUM(NSUInteger, TJPTLVTagPolicy) {
+    TJPTLVTagPolicyAllowDuplicates,         //允许重复Tag
+    TJPTLVTagPolicyRejectDuplicates         //不允许重复Tag
+};
+
+typedef NS_ENUM(NSUInteger, TJPTLVParseError) {
+    TJPTLVParseErrorNone = 0,
+    TJPTLVParseErrorIncompleteTag,              // 数据不足以读取完整Tag（需至少2字节）
+    TJPTLVParseErrorIncompleteLength,           // 数据不足以读取完整Length（需至少4字节）
+    TJPTLVParseErrorIncompleteValue,            // Value长度不足（声明的Length超过剩余数据长度）
+    TJPTLVParseErrorNestedTooDeep,              // 嵌套层级超过maxNestedDepth限制
+    TJPTLVParseErrorDuplicateTag,               // 发现重复Tag（当策略为TJPTLVTagPolicyRejectDuplicates时触发）
+    TJPTLVParseErrorInvalidNestedTag            // 非法嵌套Tag（未使用保留Tag进行嵌套）
+};
+
+
 typedef NS_ENUM(uint16_t, TJPMessageType) {
     TJPMessageTypeNormalData,      //普通数据消息
     TJPMessageTypeHeartbeat,       //心跳消息
@@ -50,12 +66,49 @@ typedef NS_ENUM(NSUInteger, TJPNetworkQoS) {
 };
 
 
+//定义心跳模式
+typedef NS_ENUM(NSUInteger, TJPHeartbeatMode) {
+    TJPHeartbeatModeForeground,         //应用在前台
+    TJPHeartbeatModeBackground,         //应用在后台
+    TJPHeartbeatModeSuspended,          //心跳暂停
+    TJPHeartbeatModeLowPower            //低功耗模式
+};
+
+//运营商类型定义
+typedef NS_ENUM(NSUInteger, TJPCarrierType) {
+    TJPCarrierTypeUnknown,              //未知运营商
+    TJPCarrierTypeChinaMobile,          //中国移动
+    TJPCarrierTypeChinaUnicom,          //中国联通
+    TJPCarrierTypeChinaTelecom,         //中国电信
+    TJPCarrierTypeOther,                //其他运营商
+};
+
+//网络类型定义
+typedef NS_ENUM(NSUInteger, TJPNetworkType) {
+    TJPNetworkTypeUnknown,          //未知网络
+    TJPNetworkTypeWiFi,             //WIFI
+    TJPNetworkType5G,               //5G
+    TJPNetworkType4G,               //4G
+    TJPNetworkType3G,               //3G
+    TJPNetworkType2G,               //2G
+    TJPNetworkTypeNone,             //无网络
+};
+
+//网络健康状态
+typedef NS_ENUM(NSUInteger, TJPNetworkHealthStatus) {
+    TJPNetworkHealthStatusGood,         //健康心跳
+    TJPNetworkHealthStatusFair,         //一般心跳
+    TJPNetworkHealthStatusPoor,         //心跳较差
+    TJPNetworkHealthStatusCritical      //心跳严重问题
+};
+
+
 
 //基于V2的协议头扩充完善
 #pragma pack(push, 1)
 typedef struct {
     uint32_t magic;                 //魔数 0xDECAFBAD     4字节
-    uint8_t version_major;          //协议主版本(大端)      1字节
+    uint8_t version_major;          //协议主版本           1字节
     uint8_t version_minor;          //协议次版本           1字节
     uint16_t msgType;               //消息类型             2字节
     uint32_t sequence;              //序列号               4字节
