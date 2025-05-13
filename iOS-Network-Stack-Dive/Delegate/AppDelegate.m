@@ -10,6 +10,7 @@
 #import "HomeViewController.h"
 #import "TJPViewPushHandler.h"
 #import "TJPViewPresentHandler.h"
+#import "TJPMessageFactory.h"
 
 @interface AppDelegate ()
 
@@ -23,6 +24,9 @@
 
 
 - (BOOL)application:(UIApplication *)application didFinishLaunchingWithOptions:(NSDictionary *)launchOptions {
+    
+    //自动注册所有消息类型
+    [TJPMessageFactory load];
     
     [self setupNavigationCoordinator];
         

@@ -28,11 +28,11 @@
 
 - (void)testNextSeq {
     // 1. 测试初始值
-    uint32_t seq1 = [self.seqManager nextSequence];
+    uint32_t seq1 = [self.seqManager nextSequenceForCategory:TJPMessageCategoryNormal];
     XCTAssertEqual(seq1, 1, @"序列号应从1开始");
 
     // 2. 测试普通递增
-    uint32_t seq2 = [self.seqManager nextSequence];
+    uint32_t seq2 = [self.seqManager nextSequenceForCategory:TJPMessageCategoryNormal];
     XCTAssertEqual(seq2, 2, @"序列号应递增");
 
     // 3. 测试循环逻辑（直接设置到边界值）
@@ -40,7 +40,7 @@
     [self.seqManager resetSequence];
     [self.seqManager setValue:@(UINT32_MAX) forKey:@"_sequence"];
 
-    uint32_t seqAfterMax = [self.seqManager nextSequence];
+    uint32_t seqAfterMax = [self.seqManager nextSequenceForCategory:TJPMessageCategoryNormal];
     XCTAssertEqual(seqAfterMax, 1, @"达到最大值后应循环回1");
 }
 
@@ -49,14 +49,14 @@
     TJPSequenceManager *manager = [[TJPSequenceManager alloc] init];
     
     // 测试递增后
-    [manager nextSequence];
-    [manager nextSequence];
-    uint32_t seqBeforeReset = [manager nextSequence];
+    [manager nextSequenceForCategory:TJPMessageCategoryNormal];
+    [manager nextSequenceForCategory:TJPMessageCategoryNormal];
+    uint32_t seqBeforeReset = [manager nextSequenceForCategory:TJPMessageCategoryNormal];
     XCTAssertEqual(seqBeforeReset, 3, @"序列号应该递增到3");
 
     // 测试重置
     [manager resetSequence];
-    uint32_t seqAfterReset = [manager nextSequence];
+    uint32_t seqAfterReset = [manager nextSequenceForCategory:TJPMessageCategoryNormal];
     XCTAssertEqual(seqAfterReset, 1, @"重置后序列号应该从1开始");
 }
 

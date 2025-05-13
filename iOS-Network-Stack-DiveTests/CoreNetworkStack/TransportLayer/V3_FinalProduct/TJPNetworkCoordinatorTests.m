@@ -47,7 +47,7 @@
     XCTAssertNotNil(session, @"Session should not be nil after creation.");
     
     // 使用 dispatch_barrier_async 确保 sessionMap 更新后触发期望
-    dispatch_barrier_async([TJPNetworkCoordinator shared].ioQueue, ^{
+    dispatch_barrier_async([TJPNetworkCoordinator shared].sessionQueue, ^{
         // 触发期望，表示 sessionMap 更新完成
         [expectation fulfill];
     });

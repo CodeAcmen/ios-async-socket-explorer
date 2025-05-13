@@ -11,8 +11,11 @@ NS_ASSUME_NONNULL_BEGIN
 
 @protocol TJPHeartbeatProtocol <NSObject>
 
+// 开始监听
 - (void)startMonitoring;
+// 停止监听
 - (void)stopMonitoring;
+// 自适应心跳
 - (void)adjustInterval:(NSTimeInterval)interval;
 
 @end
