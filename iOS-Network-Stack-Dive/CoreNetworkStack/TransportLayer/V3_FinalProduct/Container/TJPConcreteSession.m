@@ -133,7 +133,6 @@ static const NSTimeInterval kDefaultRetryInterval = 10;
                 [strongSelf.stateMachine sendEvent:TJPConnectEventConnect];
             });
         }
-        
     }];
     
     // 设置状态变化监听
@@ -156,8 +155,6 @@ static const NSTimeInterval kDefaultRetryInterval = 10;
             [strongSelf.heartbeatManager updateSession:strongSelf];
             // 如果有积压消息 发送积压消息
             [strongSelf flushPendingMessages];
-            //通知代理
-            [self notifyDelegateOfStateChange];
         } else if ([newState isEqualToString:TJPConnectStateDisconnected]) {
             // 断开连接，停止心跳
             [strongSelf.heartbeatManager stopMonitoring];
@@ -881,9 +878,6 @@ static const NSTimeInterval kDefaultRetryInterval = 10;
 }
 
 
-- (void)notifyDelegateOfStateChange {
-    
-}
 
 
 #pragma mark - Lazy
