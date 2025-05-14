@@ -46,6 +46,10 @@
 #define kHeartbeatTimeoutNotification @"kHeartbeatTimeoutNotification"
 
 
+#define TJPMAX_BODY_SIZE (10 * 1024 * 1024)  // 10MB 最大消息体大小
+#define TJPMAX_BUFFER_SIZE (20 * 1024 * 1024) // 20MB 最大缓冲区大小
+#define TJPMAX_TIME_WINDOW 60 // 60秒时间窗口，防重放攻击
+
 
 
 #define TJPSCREEN_WIDTH ([UIScreen mainScreen].bounds.size.width)

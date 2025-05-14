@@ -24,6 +24,18 @@ typedef NS_ENUM(NSUInteger, TJPTLVParseError) {
     TJPTLVParseErrorInvalidNestedTag            // 非法嵌套Tag（未使用保留Tag进行嵌套）
 };
 
+typedef NS_ENUM(uint8_t, TJPEncryptType) {
+    TJPEncryptTypeNone = 0,
+    TJPEncryptTypeCRC32,
+    TJPEncryptTypeAES256,
+};
+
+typedef NS_ENUM(uint8_t, TJPCompressType) {
+    TJPCompressTypeNone = 0,
+    TJPCompressTypeZlib,
+};
+
+
 // 内容类型标签枚举
 typedef NS_ENUM(uint16_t, TJPContentType) {
     TJPContentTypeText = 0x1001,     // 文本消息
@@ -117,13 +129,17 @@ typedef NS_ENUM(NSUInteger, TJPNetworkHealthStatus) {
 //基于V2的协议头扩充完善
 #pragma pack(push, 1)
 typedef struct {
-    uint32_t magic;                 //魔数 0xDECAFBAD     4字节
-    uint8_t version_major;          //协议主版本           1字节
-    uint8_t version_minor;          //协议次版本           1字节
-    uint16_t msgType;               //消息类型             2字节
-    uint32_t sequence;              //序列号               4字节
-    uint32_t bodyLength;            //Body长度(网络字节序)  4字节
-    uint32_t checksum;              //CRC32               4字节
+    uint32_t magic;                 //魔数 0xDECAFBAD         4字节
+    uint8_t version_major;          //协议主版本               1字节
+    uint8_t version_minor;          //协议次版本               1字节
+    uint16_t msgType;               //消息类型                 2字节
+    uint32_t sequence;              //序列号                   4字节
+    uint32_t timestamp;             //时间戳 (秒级，防重放攻击)   4字节
+    TJPEncryptType encrypt_type;    // 加密类型                1字节
+    TJPCompressType compress_type;  // 压缩类型                1字节
+    uint16_t session_id;            // 会话ID                  2字节
+    uint32_t bodyLength;            //Body长度(网络字节序)       4字节
+    uint32_t checksum;              //CRC32                   4字节
 } TJPFinalAdavancedHeader;
 #pragma pack(pop)
 

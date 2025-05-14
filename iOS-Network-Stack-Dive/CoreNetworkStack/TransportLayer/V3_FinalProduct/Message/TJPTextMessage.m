@@ -24,7 +24,9 @@ static const char *kTJPTextMessageRegistration = "TJPTextMessage";
     return self;
 }
 
-+ (uint16_t)messageTag { return TJPContentTypeText; }
++ (uint16_t)messageTag {
+    return TJPContentTypeText;
+}
 
 - (NSData *)tlvData {
     return [TJPMessageSerializer serializeText:self.text tag:[self.class messageTag]];

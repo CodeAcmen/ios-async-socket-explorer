@@ -17,6 +17,7 @@
 #import "TJPReconnectPolicy.h"
 #import "TJPDynamicHeartbeat.h"
 #import "TJPMessageParser.h"
+#import "TJPMessageBuilder.h"
 #import "TJPMessageContext.h"
 #import "TJPParsedPacket.h"
 #import "TJPSequenceManager.h"
@@ -24,6 +25,7 @@
 #import "TJPConnectStateMachine.h"
 #import "TJPNetworkCondition.h"
 #import "TJPMetricsConsoleReporter.h"
+
 
 
 
@@ -231,21 +233,45 @@ static const NSTimeInterval kDefaultRetryInterval = 10;
             return;
         }
         TJPLOG_INFO(@"session 准备构造数据包");
+        
+        // 参数验证
+        if (!data) {
+            TJPLOG_ERROR(@"发送数据为空");
+            return;
+        }
+        
+        // 检查数据大小
+        if (data.length > TJPMAX_BODY_SIZE) {
+            TJPLOG_ERROR(@"数据大小超过限制: %lu > %d", (unsigned long)data.length, TJPMAX_BODY_SIZE);
+            return;
+        }
+        
+        
         //创建序列号
         uint32_t seq = [self.seqManager nextSequenceForCategory:TJPMessageCategoryNormal];
         
+        // 获取当前会话使用的加密和压缩类型
+        TJPEncryptType encryptType = TJPEncryptTypeCRC32;
+        TJPCompressType compressType = TJPCompressTypeZlib;
+
+        
         //构造协议包  实际通过Socket发送的协议包(协议头+原始数据)
-        NSData *packet = [self _buildPacketWithData:data seq:seq];
+        NSData *packet = [TJPMessageBuilder buildPacketWithMessageType:TJPMessageTypeNormalData sequence:seq payload:data encryptType:encryptType compressType:compressType sessionID:self.sessionId];
+        
+        if (!packet) {
+            TJPLOG_ERROR(@"消息包构建失败");
+            return;
+        }
         
         //消息的上下文,用于跟踪消息状态(发送时间,重试次数,序列号)
-        TJPMessageContext *context = [TJPMessageContext contextWithData:data seq:seq];
+        TJPMessageContext *context = [TJPMessageContext contextWithData:data seq:seq messageType:TJPMessageTypeNormalData encryptType:encryptType compressType:compressType sessionId:self.sessionId];
         //存储待确认消息
         self.pendingMessages[@(context.sequence)] = context;
         
         //设置超时重传
         [self scheduleRetransmissionForSequence:context.sequence];
         
-        TJPLOG_INFO(@"session 消息即将发出");
+        TJPLOG_INFO(@"session 消息即将发出, 序列号: %u, 大小: %lu字节", seq, (unsigned long)packet.length);
         //发送消息
         [self.socket writeData:packet withTimeout:-1 tag:context.sequence];
     });
@@ -581,26 +607,6 @@ static const NSTimeInterval kDefaultRetryInterval = 10;
 
 
 #pragma mark - Private Method
-- (NSData *)_buildPacketWithData:(NSData *)data seq:(uint32_t)seq {
-    // 初始化协议头
-    TJPFinalAdavancedHeader header = {0};
-    header.magic = htonl(kProtocolMagic);
-    header.version_major = kProtocolVersionMajor;
-    header.version_minor = kProtocolVersionMinor;
-    header.msgType = htons(TJPMessageTypeNormalData); // 普通消息类型
-    header.sequence = htonl(seq);
-    header.bodyLength = htonl((uint32_t)data.length);
-    
-    // 计算数据体的CRC32
-    uint32_t checksum = [TJPNetworkUtil crc32ForData:data];
-    header.checksum = htonl(checksum);  // 注意要转换为网络字节序
-    
-    // 构建完整协议包
-    NSMutableData *packet = [NSMutableData dataWithBytes:&header length:sizeof(header)];
-    [packet appendData:data];
-    return packet;
-}
-
 //超时重传
 - (void)scheduleRetransmissionForSequence:(uint32_t)sequence {
     dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(dispatch_time(DISPATCH_TIME_NOW, kDefaultRetryInterval) * NSEC_PER_SEC)), self->_socketQueue, ^{

@@ -10,37 +10,55 @@
 #import <arpa/inet.h>
 #import <zlib.h>
 
+#import "TJPNetworkDefine.h"
+
 @implementation TJPNetworkUtil
 
-
-+ (NSData *)buildPacketWithData:(NSData *)data type:(TJPMessageType)type sequence:(uint32_t)sequence {
-    
-    //初始化协议头
-    TJPFinalAdavancedHeader header = {0};
-    header.magic = htonl(kProtocolMagic);
-    header.version_major = kProtocolVersionMajor;
-    header.version_minor = kProtocolVersionMinor;
-    header.msgType = htons(type);
-    header.sequence = htonl(sequence);
-    header.bodyLength = htonl((uint32_t)data.length);
-    //crc32ForData需要转换为网络字节序
-    header.checksum = htonl([self crc32ForData:data]);
-    
-    //构建完整包
-    NSMutableData *packet = [NSMutableData dataWithBytes:&header length:sizeof(header)];
-    [packet appendData:data];
-    return packet;
-        
-}
+//+ (NSData *)buildPacketWithData:(NSData *)data type:(TJPMessageType)type sequence:(uint32_t)sequence {
+//    
+//    //初始化协议头
+//    TJPFinalAdavancedHeader header = {0};
+//    header.magic = htonl(kProtocolMagic);
+//    header.version_major = kProtocolVersionMajor;
+//    header.version_minor = kProtocolVersionMinor;
+//    header.msgType = htons(type);
+//    header.sequence = htonl(sequence);
+//    header.bodyLength = htonl((uint32_t)data.length);
+//    //crc32ForData需要转换为网络字节序
+//    header.checksum = htonl([self crc32ForData:data]);
+//    
+//    //构建完整包
+//    NSMutableData *packet = [NSMutableData dataWithBytes:&header length:sizeof(header)];
+//    [packet appendData:data];
+//    return packet;
+//        
+//}
 
 + (uint32_t)crc32ForData:(NSData *)data {
+    if (!data || data.length == 0) {
+        return 0;  // 对空数据的处理
+    }
+    // 限制最大数据大小，防止DoS攻击
+    if (data.length > TJPMAX_BODY_SIZE) {
+        TJPLOG_ERROR(@"数据大小超过限制: %lu", (unsigned long)data.length);
+        return 0;
+    }
+    
     uLong crc = crc32(0L, Z_NULL, 0);
     crc = crc32(crc, [data bytes], (uInt)[data length]);
     
-    NSLog(@"Calculated CRC32: %u", (uint32_t)crc);  // 输出计算的 CRC32 值
+#ifdef DEBUG
+NSLog(@"Calculated CRC32: %u", (uint32_t)crc);
+#endif
     return (uint32_t)crc;
 }
 
+
+// 未来升级成256加密
++ (NSData *)hmacSHA256ForData:(NSData *)data withKey:(NSData *)key {
+    
+    return nil;
+}
 
 
 + (NSData *)compressData:(NSData *)data {
