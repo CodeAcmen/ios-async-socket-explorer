@@ -176,6 +176,118 @@ Socket 数据 → TJPParsedPacket → 结构化字典 → 业务对象映射
 - **解析操作在独立的串行队列 (`dispatch_queue_t`) 中执行**：
   - 避免多个线程同时修改解析状态，确保线程安全。
   - 解析过程不会影响其他会话，提高并发性能。
+  
+### Log完整流程分析
+
+  1. 消息发送准备:
+  
+     ```
+     [INFO] [TJPConcreteSession.m:242 -[TJPConcreteSession sendData:]_block_invoke] session 准备构造数据包
+     ```
+  
+     - 客户端开始准备构造数据包，准备发送"Hello World!!!!!111112223333"消息
+  
+  2. 计算校验和:
+  
+     ```
+     Calculated CRC32: 1789856453
+     ```
+  
+     - 成功计算了消息体的CRC32校验值: 1789856453
+  
+  3. 安排重传计时器:
+  
+     ```
+     [INFO] [TJPConcreteSession.m:693 -[TJPConcreteSession scheduleRetransmissionForSequence:]] 为消息 8 安排重传，间隔 3.0 秒，当前重试次数 0
+     ```
+  
+     - 为序列号为8的消息安排了重传计时器，超时时间3秒，当前是第一次发送(重试次数0)
+  
+  4. 发送消息:
+  
+     ```
+     [INFO] [TJPConcreteSession.m:281 -[TJPConcreteSession sendData:]_block_invoke] session 消息即将发出, 序列号: 8, 大小: 62字节
+     ```
+  
+     - 消息即将发送，序列号8，总大小62字节(包括协议头和消息体)
+  
+  5. 服务端接收数据:
+  
+     ```
+     [MOCK SERVER] 接收到客户端发送的数据
+     [MOCK SERVER] 接收到的消息: 类型=0, 序列号=8, 时间戳=1747215938, 会话ID=4850, 加密类型=1, 压缩类型=1
+     ```
+  
+     - 服务端成功接收到数据
+     - 正确解析出消息类型(0=普通数据)、序列号(8)、时间戳、会话ID和加密/压缩类型
+  
+  6. 服务端验证校验和:
+  
+     ```
+     Calculated CRC32: 1789856453
+     [MOCK SERVER] 接收到的校验和: 1789856453, 计算的校验和: 1789856453
+     ```
+  
+     - 服务端计算的CRC32校验值与接收到的校验值完全匹配，验证通过
+  
+  7. 服务端处理消息并发送ACK:
+  
+     ```
+     [MOCK SERVER] 收到普通消息，序列号: 8
+     [MOCK SERVER] 普通消息响应包字段：magic=0xDECAFBAD, msgType=2, sequence=8, timestamp=1747215938, sessionId=4850
+     ```
+  
+     - 服务端识别为普通消息，序列号8
+     - 发送ACK响应，消息类型为2(ACK)，保持相同的序列号、时间戳和会话ID
+  
+  8. 客户端接收ACK:
+  
+     ```
+     [INFO] [TJPConcreteSession.m:456 -[TJPConcreteSession socket:didReadData:withTag:]_block_invoke] 读取到数据 缓冲区准备添加数据
+     [INFO] [TJPConcreteSession.m:462 -[TJPConcreteSession socket:didReadData:withTag:]_block_invoke] 开始解析数据
+     ```
+  
+     - 客户端接收到服务端的响应数据并开始解析
+  
+  9. 客户端解析ACK:
+  
+     ```
+     [INFO] [TJPMessageParser.m:108 -[TJPMessageParser parseHeaderData]] 解析数据头部成功...魔数校验成功!
+     [INFO] [TJPMessageParser.m:113 -[TJPMessageParser parseHeaderData]] 解析序列号:8 的头部成功
+     [INFO] [TJPMessageParser.m:144 -[TJPMessageParser parseBodyData]] 解析序列号:8 的内容成功
+     ```
+  
+     - 客户端成功解析ACK数据包的头部和内容
+     - 验证魔数成功，确认序列号为8
+  
+  10. 客户端处理ACK:
+  
+      ```
+      [INFO] [TJPConcreteSession.m:800 -[TJPConcreteSession handleACKForSequence:]] 接收到 ACK 数据包并进行处理
+      [INFO] [TJPConcreteSession.m:831 -[TJPConcreteSession handleACKForSequence:]] 处理普通消息ACK，序列号: 8
+      ```
+  
+      - 客户端识别并处理ACK数据包
+      - 确认这是针对序列号8的普通消息的ACK
+  
+  11. 取消重传计时器:
+  
+      ```
+      [INFO] [TJPConcreteSession.m:684 -[TJPConcreteSession scheduleRetransmissionForSequence:]_block_invoke] 取消消息 8 的重传计时器
+      ```
+  
+      - 由于已收到序列号8的ACK确认，取消相应的重传计时器
+
+  ### 流程评估
+
+  整个流程完全符合预期，展示了一个健壮的消息发送-确认机制：
+
+  1. ✅ **消息构建正确**：包含了所有必要字段，校验和计算无误
+  2. ✅ **重传机制运作良好**：安排了重传计时器，并在接收到ACK后正确取消
+  3. ✅ **服务端处理正确**：验证校验和，发送正确格式的ACK响应
+  4. ✅ **客户端处理ACK正确**：识别并处理ACK，取消重传
+  5. ✅ **所有时间戳、会话ID、序列号匹配**：确保消息追踪的一致性
+  6. ✅ **日志信息完整详细**：包含了关键步骤的所有必要信息，便于调试和监控
 
 ### **总结**
 - 最终会使用**会话隔离+中心管理**方案。支持统一重连策略，更细粒度的并发控制，减少内存占用;**标志位控制解析阶段，确保数据完整性,解析逻辑独立执行，提升系统吞吐量与响应速度。**

@@ -18,7 +18,7 @@ NS_ASSUME_NONNULL_BEGIN
 /// 连接方法
 - (void)connectToHost:(NSString *)host port:(uint16_t)port;
 
-/// 发送消息
+/// 发送消息  消息类型详见 TJPCoreTypes 头文件定义的 TJPContentType
 - (void)sendMessage:(id<TJPMessage>)message;
 
 /// 断开连接

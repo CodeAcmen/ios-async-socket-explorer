@@ -13,6 +13,7 @@ NS_ASSUME_NONNULL_BEGIN
 @interface TJPTextMessage : NSObject <TJPMessage>
 
 @property (nonatomic, copy) NSString *text;
+
 - (instancetype)initWithText:(NSString *)text;
 
 

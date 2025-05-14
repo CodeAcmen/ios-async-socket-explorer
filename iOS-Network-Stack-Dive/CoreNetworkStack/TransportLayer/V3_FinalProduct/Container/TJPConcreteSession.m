@@ -9,7 +9,6 @@
 #import <GCDAsyncSocket.h>
 #import <Reachability/Reachability.h>
 
-
 #import "TJPNetworkConfig.h"
 #import "TJPNetworkDefine.h"
 
@@ -17,6 +16,7 @@
 #import "TJPReconnectPolicy.h"
 #import "TJPDynamicHeartbeat.h"
 #import "TJPMessageParser.h"
+#import "TJPMessageBuilder.h"
 #import "TJPMessageContext.h"
 #import "TJPParsedPacket.h"
 #import "TJPSequenceManager.h"
@@ -24,6 +24,8 @@
 #import "TJPConnectStateMachine.h"
 #import "TJPNetworkCondition.h"
 #import "TJPMetricsConsoleReporter.h"
+#import "TJPErrorUtil.h"
+
 
 
 
@@ -36,6 +38,9 @@ static const NSTimeInterval kDefaultRetryInterval = 10;
 
 @property (nonatomic, strong) GCDAsyncSocket *socket;
 @property (nonatomic, strong) dispatch_queue_t socketQueue;
+
+//消息超时重传定时器
+@property (nonatomic, strong) NSMutableDictionary<NSString *, dispatch_source_t> *retransmissionTimers;
 
 /// 动态心跳
 @property (nonatomic, strong) TJPDynamicHeartbeat *heartbeatManager;
@@ -55,6 +60,8 @@ static const NSTimeInterval kDefaultRetryInterval = 10;
 
 - (void)dealloc {
     TJPLogDealloc();
+    //清理定时器
+    [self cancelAllRetransmissionTimers];
 }
 
 #pragma mark - Lifecycle
@@ -64,6 +71,8 @@ static const NSTimeInterval kDefaultRetryInterval = 10;
         _autoReconnectEnabled = YES;
         _sessionId = [[NSUUID UUID] UUIDString];
         
+        _retransmissionTimers = [NSMutableDictionary dictionary];
+
         // 创建专用队列（串行，中等优先级）
         _socketQueue = dispatch_queue_create("com.concreteSession.tjp.socketQueue", DISPATCH_QUEUE_SERIAL);
         dispatch_set_target_queue(_socketQueue, dispatch_get_global_queue(QOS_CLASS_DEFAULT, 0));
@@ -231,21 +240,45 @@ static const NSTimeInterval kDefaultRetryInterval = 10;
             return;
         }
         TJPLOG_INFO(@"session 准备构造数据包");
+        
+        // 参数验证
+        if (!data) {
+            TJPLOG_ERROR(@"发送数据为空");
+            return;
+        }
+        
+        // 检查数据大小
+        if (data.length > TJPMAX_BODY_SIZE) {
+            TJPLOG_ERROR(@"数据大小超过限制: %lu > %d", (unsigned long)data.length, TJPMAX_BODY_SIZE);
+            return;
+        }
+        
+        
         //创建序列号
         uint32_t seq = [self.seqManager nextSequenceForCategory:TJPMessageCategoryNormal];
         
+        // 获取当前会话使用的加密和压缩类型
+        TJPEncryptType encryptType = TJPEncryptTypeCRC32;
+        TJPCompressType compressType = TJPCompressTypeZlib;
+
+        
         //构造协议包  实际通过Socket发送的协议包(协议头+原始数据)
-        NSData *packet = [self _buildPacketWithData:data seq:seq];
+        NSData *packet = [TJPMessageBuilder buildPacketWithMessageType:TJPMessageTypeNormalData sequence:seq payload:data encryptType:encryptType compressType:compressType sessionID:self.sessionId];
+        
+        if (!packet) {
+            TJPLOG_ERROR(@"消息包构建失败");
+            return;
+        }
         
         //消息的上下文,用于跟踪消息状态(发送时间,重试次数,序列号)
-        TJPMessageContext *context = [TJPMessageContext contextWithData:data seq:seq];
+        TJPMessageContext *context = [TJPMessageContext contextWithData:data seq:seq messageType:TJPMessageTypeNormalData encryptType:encryptType compressType:compressType sessionId:self.sessionId];
         //存储待确认消息
         self.pendingMessages[@(context.sequence)] = context;
         
         //设置超时重传
         [self scheduleRetransmissionForSequence:context.sequence];
         
-        TJPLOG_INFO(@"session 消息即将发出");
+        TJPLOG_INFO(@"session 消息即将发出, 序列号: %u, 大小: %lu字节", seq, (unsigned long)packet.length);
         //发送消息
         [self.socket writeData:packet withTimeout:-1 tag:context.sequence];
     });
@@ -500,9 +533,30 @@ static const NSTimeInterval kDefaultRetryInterval = 10;
 - (void)cleanupAfterDisconnect {
     // 清理资源
     [self.heartbeatManager stopMonitoring];
+    
+    // 清理所有重传计时器
+    [self cancelAllRetransmissionTimers];
+    
+    // 清理待确认消息队列
     [self.pendingMessages removeAllObjects];
 }
 
+- (void)cancelAllRetransmissionTimers {
+    dispatch_async(self->_socketQueue, ^{
+        // 取消所有计时器
+        for (NSString *key in [self.retransmissionTimers allKeys]) {
+            dispatch_source_t timer = self.retransmissionTimers[key];
+            if (timer) {
+                dispatch_source_cancel(timer);
+            }
+        }
+        
+        // 清空计时器字典
+        [self.retransmissionTimers removeAllObjects];
+        
+        TJPLOG_INFO(@"已清理所有重传计时器");
+    });
+}
 
 - (void)handleReconnectionAfterDisconnect {
     // 检查网络状态，只有在网络可达时才尝试重连
@@ -581,41 +635,137 @@ static const NSTimeInterval kDefaultRetryInterval = 10;
 
 
 #pragma mark - Private Method
-- (NSData *)_buildPacketWithData:(NSData *)data seq:(uint32_t)seq {
-    // 初始化协议头
-    TJPFinalAdavancedHeader header = {0};
-    header.magic = htonl(kProtocolMagic);
-    header.version_major = kProtocolVersionMajor;
-    header.version_minor = kProtocolVersionMinor;
-    header.msgType = htons(TJPMessageTypeNormalData); // 普通消息类型
-    header.sequence = htonl(seq);
-    header.bodyLength = htonl((uint32_t)data.length);
-    
-    // 计算数据体的CRC32
-    uint32_t checksum = [TJPNetworkUtil crc32ForData:data];
-    header.checksum = htonl(checksum);  // 注意要转换为网络字节序
-    
-    // 构建完整协议包
-    NSMutableData *packet = [NSMutableData dataWithBytes:&header length:sizeof(header)];
-    [packet appendData:data];
-    return packet;
-}
-
 //超时重传
 - (void)scheduleRetransmissionForSequence:(uint32_t)sequence {
-    dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(dispatch_time(DISPATCH_TIME_NOW, kDefaultRetryInterval) * NSEC_PER_SEC)), self->_socketQueue, ^{
-        if (self.pendingMessages[@(sequence)]) {
-            TJPLOG_INFO(@"消息 %u 超时未确认, 尝试重传", sequence);
-            [self resendPacket:self.pendingMessages[@(sequence)]];
-        }
+    // 取消之前可能存在的重传计时器
+    NSString *timerKey = [NSString stringWithFormat:@"retry_%u", sequence];
+    dispatch_source_t existingTimer = self.retransmissionTimers[timerKey];
+    if (existingTimer) {
+        dispatch_source_cancel(existingTimer);
+        [self.retransmissionTimers removeObjectForKey:timerKey];
+    }
+    
+    //获取消息上下文
+    TJPMessageContext *context = self.pendingMessages[@(sequence)];
+    if (!context) {
+        TJPLOG_ERROR(@"无法为序列号 %u 安排重传! 原因:消息上下文不存在", sequence);
+        return;
+    }
+    
+    //如果已经达到最大重试次数,不再安排重传
+    if (context.retryCount >= context.maxRetryCount) {
+        TJPLOG_WARN(@"消息 %u 已达到最大重试次数 %ld，不再重试", sequence, (long)context.maxRetryCount);
+        return;
+    }
+    
+    //创建GCD定时器
+    __weak typeof(self) weakSelf = self;
+    dispatch_source_t timer = dispatch_source_create(DISPATCH_SOURCE_TYPE_TIMER, 0, 0, self->_socketQueue);
+    
+    //设置定时器间隔 (默认3秒一次)
+    NSTimeInterval retryInterval = context.retryTimeout > 0 ? context.retryTimeout : kDefaultRetryInterval;
+    uint64_t intervalInNanoseconds = (uint64_t)(retryInterval * NSEC_PER_SEC);
+    
+    
+    dispatch_source_set_timer(timer,
+                              dispatch_time(DISPATCH_TIME_NOW, intervalInNanoseconds),
+                              DISPATCH_TIME_FOREVER, // 不重复
+                              (1ull * NSEC_PER_SEC) / 10); // 100ms的精度
+    
+    dispatch_source_set_event_handler(timer, ^{
+        __strong typeof(weakSelf) strongSelf = weakSelf;
+        if (!strongSelf) return;
+        
+        [strongSelf handleRetransmissionForSequence:sequence];
     });
+    
+    // 设置定时器取消处理函数
+    dispatch_source_set_cancel_handler(timer, ^{
+        TJPLOG_INFO(@"取消消息 %u 的重传计时器", sequence);
+    });
+    
+    // 保存定时器
+    self.retransmissionTimers[timerKey] = timer;
+    
+    // 启动定时器
+    dispatch_resume(timer);
+    
+    TJPLOG_INFO(@"为消息 %u 安排重传，间隔 %.1f 秒，当前重试次数 %ld", sequence, retryInterval, (long)context.retryCount);
 }
 
-//重传消息
-- (void)resendPacket:(TJPMessageContext *)context {
+// 重传处理方法
+- (void)handleRetransmissionForSequence:(uint32_t)sequence {
+    // 获取消息上下文
+    TJPMessageContext *context = self.pendingMessages[@(sequence)];
+    
+    // 清理计时器
+    NSString *timerKey = [NSString stringWithFormat:@"retry_%u", sequence];
+    dispatch_source_t timer = self.retransmissionTimers[timerKey];
+    if (timer) {
+        dispatch_source_cancel(timer);
+        [self.retransmissionTimers removeObjectForKey:timerKey];
+    }
+    
+    // 如果消息已确认，不需要重传
+    if (!context) {
+        TJPLOG_INFO(@"消息 %u 已确认，不需要重传", sequence);
+        return;
+    }
+    
+    // 检查连接状态
+    if (![self.stateMachine.currentState isEqualToString:TJPConnectStateConnected]) {
+        TJPLOG_WARN(@"当前连接状态为 %@，无法重传消息 %u", self.stateMachine.currentState, sequence);
+        return;
+    }
+    
+    // 检查重试次数是否已达上限
+    if (context.retryCount >= context.maxRetryCount) {
+        TJPLOG_ERROR(@"消息 %u 重传失败，已达最大重试次数 %ld", sequence, (long)context.maxRetryCount);
+        
+        // 移除待确认消息
+        [self.pendingMessages removeObjectForKey:@(sequence)];
+        
+        // 通知上层应用消息发送失败
+        if (self.delegate && [self.delegate respondsToSelector:@selector(session:didFailToSendMessageWithSequence:error:)]) {
+            NSError *error = [TJPErrorUtil errorWithCode:TJPErrorMessageRetryExceeded
+                                           description:[NSString stringWithFormat:@"消息 %u 发送失败，超过最大重试次数", sequence]
+                                             userInfo:@{@"sequence": @(sequence), @"retryCount": @(context.retryCount)}];
+            
+            dispatch_async(dispatch_get_main_queue(), ^{
+                [self.delegate session:self didFailToSendMessageWithSequence:sequence error:error];
+            });
+        }
+        return;
+    }
+    
+    // 执行重传
+    TJPLOG_INFO(@"重传消息 %u，第 %ld 次尝试", sequence, (long)context.retryCount + 1);
     NSData *packet = [context buildRetryPacket];
-    [self.socket writeData:packet withTimeout:-1 tag:context.sequence];
+    [self.socket writeData:packet withTimeout:-1 tag:sequence];
+    
+    // 安排下一次重传
+    [self scheduleRetransmissionForSequence:sequence];
 }
+
+// 替换现有的resendPacket方法
+- (void)resendPacket:(TJPMessageContext *)context {
+    if (!context) return;
+    
+    // 构建重传包
+    NSData *packet = [context buildRetryPacket];
+    
+    // 判断当前连接状态
+    if ([self.stateMachine.currentState isEqualToString:TJPConnectStateConnected]) {
+        // 直接发送
+        [self.socket writeData:packet withTimeout:-1 tag:context.sequence];
+        
+        // 安排下一次重传
+        [self scheduleRetransmissionForSequence:context.sequence];
+    } else {
+        TJPLOG_WARN(@"当前连接状态为 %@，无法发送消息 %u", self.stateMachine.currentState, context.sequence);
+    }
+}
+
 
 //处理消息
 - (void)processReceivedPacket:(TJPParsedPacket *)packet {
@@ -666,6 +816,14 @@ static const NSTimeInterval kDefaultRetryInterval = 10;
     
     // 将此ACK标记为已处理
     [processedACKs addObject:ackId];
+    
+    // 取消对应的重传计时器
+    NSString *timerKey = [NSString stringWithFormat:@"retry_%u", sequence];
+    dispatch_source_t timer = self.retransmissionTimers[timerKey];
+    if (timer) {
+        dispatch_source_cancel(timer);
+        [self.retransmissionTimers removeObjectForKey:timerKey];
+    }
 
     // 首先检查是否是普通消息的ACK
     if ([self.pendingMessages objectForKey:@(sequence)]) {

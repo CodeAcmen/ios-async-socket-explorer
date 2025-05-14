@@ -78,8 +78,6 @@
     
     self.client = [TJPIMClient shared];
     [self.client connectToHost:host port:port];
-
-    
 }
 
 - (void)setupLogTextView {
