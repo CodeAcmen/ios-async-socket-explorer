@@ -83,6 +83,14 @@ static const NSUInteger kHeaderLength = sizeof(TJPFinalAdavancedHeader);
     uint32_t seq = ntohl(header.sequence);
     uint32_t bodyLength = ntohl(header.bodyLength);
     uint16_t msgType = ntohs(header.msgType);
+    TJPEncryptType encryptType = header.encrypt_type;
+    TJPCompressType compressType = header.compress_type;
+    uint16_t sessionId = ntohs(header.session_id);
+    uint32_t timestamp = ntohl(header.timestamp);
+    
+    NSLog(@"[MOCK SERVER] 接收到的消息: 类型=%hu, 序列号=%u, 时间戳=%u, 会话ID=%hu, 加密类型=%d, 压缩类型=%d",
+         msgType, seq, timestamp, sessionId, encryptType, compressType);
+
     
     // 读取完整消息体
     NSData *payload = [data subdataWithRange:NSMakeRange(kHeaderLength, bodyLength)];
@@ -106,7 +114,7 @@ static const NSUInteger kHeaderLength = sizeof(TJPFinalAdavancedHeader);
             if (self.didReceiveDataHandler) {
                 self.didReceiveDataHandler(payload, seq);
             }
-            [self sendACKForSequence:seq toSocket:sock];
+            [self sendACKForSequence:seq sessionId:sessionId toSocket:sock];
         }
             break;
             
@@ -116,7 +124,7 @@ static const NSUInteger kHeaderLength = sizeof(TJPFinalAdavancedHeader);
             if (self.didReceiveDataHandler) {
                 self.didReceiveDataHandler(payload, seq);
             }
-            [self sendHeartbeatACKForSequence:seq toSocket:sock];
+            [self sendHeartbeatACKForSequence:seq sessionId:sessionId toSocket:sock];
         }
             
             break;
@@ -134,46 +142,70 @@ static const NSUInteger kHeaderLength = sizeof(TJPFinalAdavancedHeader);
 }
 
 #pragma mark - Response Methods
-- (void)sendACKForSequence:(uint32_t)seq toSocket:(GCDAsyncSocket *)socket {
+- (void)sendACKForSequence:(uint32_t)seq sessionId:(uint16_t)sessionId toSocket:(GCDAsyncSocket *)socket {
     NSLog(@"[MOCK SERVER] 收到普通消息，序列号: %u", seq);
+    
+    // 使用与客户端相同的时间戳生成ACK响应
+    uint32_t currentTime = (uint32_t)[[NSDate date] timeIntervalSince1970];
+
 
     TJPFinalAdavancedHeader header = {0};
     header.magic = htonl(kProtocolMagic);
-    header.version_major = 1;
-    header.version_minor = 0;
+    header.version_major = kProtocolVersionMajor;
+    header.version_minor = kProtocolVersionMinor;
     header.msgType = htons(TJPMessageTypeACK);
     header.sequence = htonl(seq);
-    header.bodyLength = 0;  // ACK没有数据体
+    header.timestamp = htonl(currentTime);  // 使用当前时间戳
+    header.encrypt_type = TJPEncryptTypeNone;
+    header.compress_type = TJPCompressTypeNone;
+    header.session_id = htons(sessionId);  // 保持与请求相同的会话ID
     
+    header.bodyLength = 0;  // ACK没有数据体
     // ACK包没有数据体，checksum设为0
     header.checksum = 0;
     
     NSData *ackData = [NSData dataWithBytes:&header length:sizeof(header)];
-    NSLog(@"[MOCK SERVER] 普通消息响应包字段：magic=0x%X, msgType=%hu, sequence=%u, checksum=%u",
-          ntohl(header.magic), ntohs(header.msgType), ntohl(header.sequence), ntohl(header.checksum));
-    
+    NSLog(@"[MOCK SERVER] 普通消息响应包字段：magic=0x%X, msgType=%hu, sequence=%u, timestamp=%u, sessionId=%hu",
+          ntohl(header.magic), ntohs(header.msgType), ntohl(header.sequence), ntohl(header.timestamp), ntohs(header.session_id));
+
     [socket writeData:ackData withTimeout:-1 tag:0];
 }
 
 
-- (void)sendHeartbeatACKForSequence:(uint32_t)seq toSocket:(GCDAsyncSocket *)socket {
+- (void)sendHeartbeatACKForSequence:(uint32_t)seq sessionId:(uint16_t)sessionId toSocket:(GCDAsyncSocket *)socket {
     NSLog(@"[MOCK SERVER] 收到心跳包，序列号: %u", seq);
+    
+    
+    // 使用当前时间戳
+    uint32_t currentTime = (uint32_t)[[NSDate date] timeIntervalSince1970];
 
     TJPFinalAdavancedHeader reply = {0};
     reply.magic = htonl(kProtocolMagic);
-    reply.version_major = 1;
-    reply.version_minor = 0;
+    reply.version_major = kProtocolVersionMajor;
+    reply.version_minor = kProtocolVersionMinor;
     reply.msgType = htons(TJPMessageTypeACK);
     reply.sequence = htonl(seq);
+    reply.timestamp = htonl(currentTime);  // 使用当前时间戳
+    reply.encrypt_type = TJPEncryptTypeNone;
+    reply.compress_type = TJPCompressTypeNone;
+    reply.session_id = htons(sessionId);   // 保持与请求相同的会话ID
     reply.bodyLength = 0;
     
     // 心跳ACK没有数据体，checksum设为0
     reply.checksum = 0;
     
     NSData *ackData = [NSData dataWithBytes:&reply length:sizeof(reply)];
-    NSLog(@"[MOCK SERVER] 心跳响应包字段：magic=0x%X, msgType=%hu, sequence=%u, checksum=%u",
-          ntohl(reply.magic), ntohs(reply.msgType), ntohl(reply.sequence), 0);
+    NSLog(@"[MOCK SERVER] 心跳响应包字段：magic=0x%X, msgType=%hu, sequence=%u, timestamp=%u, sessionId=%hu",
+          ntohl(reply.magic), ntohs(reply.msgType), ntohl(reply.sequence), ntohl(reply.timestamp), ntohs(reply.session_id));
     [socket writeData:ackData withTimeout:-1 tag:0];
+}
+
+
+//旧方法 已废弃目前单元测试在用 后续移除
+- (void)sendHeartbeatACKForSequence:(uint32_t)seq toSocket:(nonnull GCDAsyncSocket *)socket {
+}
+
+- (void)sendACKForSequence:(uint32_t)seq toSocket:(nonnull GCDAsyncSocket *)socket {
 }
 
 @end

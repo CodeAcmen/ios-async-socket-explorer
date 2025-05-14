@@ -7,6 +7,7 @@
 
 #import "TJPParsedPacket.h"
 #import "TJPNetworkDefine.h"
+#import "TJPErrorUtil.h"
 
 static const uint16_t kTLVReservedNestedTag = 0xFFFF;
 
@@ -44,8 +45,9 @@ static const uint16_t kTLVReservedNestedTag = 0xFFFF;
 + (NSDictionary *)parseTLVFromData:(NSData *)data policy:(TJPTLVTagPolicy)policy maxNestedDepth:(NSUInteger)maxDepth currentDepth:(NSUInteger)currentDepth error:(NSError **)error {
     if (currentDepth > maxDepth) {
         if (error) {
-            NSString *msg = [NSString stringWithFormat:@"嵌套深度超过限制:%lu", maxDepth];
-            *error = [NSError errorWithDomain:@"TLVError" code:TJPTLVParseErrorNestedTooDeep userInfo:@{NSLocalizedDescriptionKey: msg}];
+            *error = [TJPErrorUtil errorWithCode:TJPErrorTLVNestedTooDeep
+                                    description:[NSString stringWithFormat:@"嵌套深度超过限制:%lu", maxDepth]
+                                      userInfo:@{@"maxDepth": @(maxDepth), @"currentDepth": @(currentDepth)}];
         }
         return nil;
     }
@@ -60,7 +62,9 @@ static const uint16_t kTLVReservedNestedTag = 0xFFFF;
         if (offset + 2 > length) {
             TJPLOG_ERROR(@"TLV解析失败：Tag不完整 (offset=%lu, total=%lu)", offset, length);
             if (error) {
-                *error = [NSError errorWithDomain:@"TLVError" code:TJPTLVParseErrorIncompleteTag userInfo:nil];
+                *error = [TJPErrorUtil errorWithCode:TJPErrorTLVIncompleteTag
+                                        description:@"TLV解析失败：Tag不完整"
+                                          userInfo:@{@"offset": @(offset), @"length": @(length)}];
             }
             return nil;
         }
@@ -72,7 +76,9 @@ static const uint16_t kTLVReservedNestedTag = 0xFFFF;
         if (offset + 4 > length) {
             TJPLOG_ERROR(@"TLV解析失败：Length不完整 (offset=%lu)", offset);
             if (error) {
-                *error = [NSError errorWithDomain:@"TLVError" code:TJPTLVParseErrorIncompleteTag userInfo:nil];
+                *error = [TJPErrorUtil errorWithCode:TJPErrorTLVIncompleteLength
+                                        description:@"TLV解析失败：Length不完整"
+                                          userInfo:@{@"offset": @(offset), @"length": @(length)}];
             }
             return nil;
         }
@@ -84,7 +90,9 @@ static const uint16_t kTLVReservedNestedTag = 0xFFFF;
         if (offset + valueLen > length) {
             TJPLOG_ERROR(@"TLV解析失败：Value长度越界 (声明长度=%u, 剩余长度=%lu)", valueLen, (length - offset));
             if (error) {
-                *error = [NSError errorWithDomain:@"TLVError" code:TJPTLVParseErrorIncompleteValue userInfo:nil];
+                *error = [TJPErrorUtil errorWithCode:TJPErrorTLVIncompleteValue
+                                        description:@"TLV解析失败：Value长度越界"
+                                          userInfo:@{@"valueLen": @(valueLen)}];
             }
             return nil;
         }
@@ -94,10 +102,11 @@ static const uint16_t kTLVReservedNestedTag = 0xFFFF;
         
         //查重Tag
         if (policy == TJPTLVTagPolicyRejectDuplicates && tlvDict[@(tag)]) {
-            NSString *msg = [NSString stringWithFormat:@"重复Tag:0x%04X", tag];
-            TJPLOG_ERROR(@"%@", msg);
+            TJPLOG_ERROR(@"%@", [NSString stringWithFormat:@"重复Tag:0x%04X", tag]);
             if (error) {
-                *error = [NSError errorWithDomain:@"TLVError" code:TJPTLVParseErrorDuplicateTag userInfo:@{NSLocalizedDescriptionKey: msg}];
+                *error = [TJPErrorUtil errorWithCode:TJPErrorTLVDuplicateTag
+                                        description:@"TLV解析失败：重复Tag"
+                                            userInfo:@{@"tag": @(tag)}];
             }
             return nil;
         }

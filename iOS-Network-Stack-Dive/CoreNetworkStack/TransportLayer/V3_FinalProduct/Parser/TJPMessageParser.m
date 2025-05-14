@@ -10,6 +10,7 @@
 #import "TJPParsedPacket.h"
 #import "TJPCoreTypes.h"
 #import "TJPNetworkUtil.h"
+#import "TJPErrorUtil.h"
 
 
 @interface TJPMessageParser () {
@@ -97,7 +98,9 @@
     [_buffer getBytes:&currentHeader length:sizeof(TJPFinalAdavancedHeader)];
     
     // 安全验证
-    if (![self validateHeader:currentHeader]) {
+    NSError *validationError = nil;
+    if (![self validateHeader:currentHeader error:&validationError]) {
+        TJPLOG_ERROR(@"头部验证失败: %@", validationError.localizedDescription);
         _state = TJPParseStateError;
         return NO;
     }
@@ -162,22 +165,46 @@
 }
 
 #pragma mark - Private Method
-- (BOOL)validateHeader:(TJPFinalAdavancedHeader)header {
+- (BOOL)validateHeader:(TJPFinalAdavancedHeader)header error:(NSError **)error {
     //魔数校验
     if (ntohl(header.magic) != kProtocolMagic) {
+        if (error) {
+            *error = [TJPErrorUtil errorWithCode:TJPErrorProtocolMagicInvalid
+                                    description:@"无效的魔数"
+                                      userInfo:@{@"receivedMagic": @(ntohl(header.magic)),
+                                                @"expectedMagic": @(kProtocolMagic)}];
+        }
         TJPLOG_ERROR(@"魔数校验失败: 0x%X != 0x%X", ntohl(header.magic), kProtocolMagic);
         return NO;
     }
     
     //版本校验
     if (header.version_major != kProtocolVersionMajor || header.version_minor > kProtocolVersionMinor) {
-        TJPLOG_ERROR(@"协议版本不支持: %d.%d (当前支持: %d.%d)", header.version_major, header.version_minor, kProtocolVersionMajor, kProtocolVersionMinor);
+        if (error) {
+            *error = [TJPErrorUtil errorWithCode:TJPErrorProtocolVersionMismatch
+                                    description:@"不支持的协议版本"
+                                      userInfo:@{@"receivedVersion": [NSString stringWithFormat:@"%d.%d",
+                                                                    header.version_major,
+                                                                    header.version_minor],
+                                                @"supportedVersion": [NSString stringWithFormat:@"%d.%d",
+                                                                    kProtocolVersionMajor,
+                                                                    kProtocolVersionMinor]}];
+        }
+        TJPLOG_ERROR(@"协议版本不支持: %d.%d (当前支持: %d.%d)",
+                   header.version_major, header.version_minor,
+                   kProtocolVersionMajor, kProtocolVersionMinor);
         return NO;
     }
     
     //消息体长度校验
     uint32_t bodyLength = ntohl(header.bodyLength);
     if (bodyLength > TJPMAX_BODY_SIZE) {
+        if (error) {
+            *error = [TJPErrorUtil errorWithCode:TJPErrorMessageTooLarge
+                                    description:@"消息体长度超过限制"
+                                      userInfo:@{@"bodyLength": @(bodyLength),
+                                                @"maxSize": @(TJPMAX_BODY_SIZE)}];
+        }
         TJPLOG_ERROR(@"消息体长度超过限制: %u > %d", bodyLength, TJPMAX_BODY_SIZE);
         return NO;
     }
@@ -188,7 +215,15 @@
     int32_t timeDiff = (int32_t)currTime - (int32_t)timestamp;
 
     if (abs(timeDiff) > TJPMAX_TIME_WINDOW) {
-        TJPLOG_ERROR(@"时间戳超出有效窗口: 当前时间 %u, 消息时间 %u, 差值 %d秒", currTime, timestamp, timeDiff);
+        if (error) {
+            *error = [TJPErrorUtil errorWithCode:TJPErrorProtocolTimestampInvalid
+                                    description:@"时间戳超出有效窗口"
+                                      userInfo:@{@"currentTime": @(currTime),
+                                                @"messageTime": @(timestamp),
+                                                @"difference": @(timeDiff)}];
+        }
+        TJPLOG_ERROR(@"时间戳超出有效窗口: 当前时间 %u, 消息时间 %u, 差值 %d秒",
+                   currTime, timestamp, timeDiff);
         return NO;
     }
     
@@ -198,19 +233,35 @@
     
     @synchronized (_recentSequences) {
         if ([_recentSequences containsObject:uniqueID]) {
+            if (error) {
+                *error = [TJPErrorUtil errorWithCode:TJPErrorSecurityReplayAttackDetected
+                                         description:@"检测到重放攻击"
+                                            userInfo:@{@"sequence": @(sequence),
+                                                       @"timestamp": @(timestamp)}];
+            }
             TJPLOG_ERROR(@"检测到重放攻击: 序列号 %u, 时间戳 %u", sequence, timestamp);
             return NO;
         }
         [_recentSequences addObject:uniqueID];
     }
     
-    // 6. 校验加密类型和压缩类型
+    // 校验加密类型和压缩类型
     if (![self isSupportedEncryptType:header.encrypt_type]) {
+        if (error) {
+            *error = [TJPErrorUtil errorWithCode:TJPErrorProtocolUnsupportedEncryption
+                                    description:@"不支持的加密类型"
+                                      userInfo:@{@"encryptType": @(header.encrypt_type)}];
+        }
         TJPLOG_ERROR(@"不支持的加密类型: %d", header.encrypt_type);
         return NO;
     }
     
     if (![self isSupportedCompressType:header.compress_type]) {
+        if (error) {
+            *error = [TJPErrorUtil errorWithCode:TJPErrorProtocolUnsupportedCompression
+                                    description:@"不支持的压缩类型"
+                                      userInfo:@{@"compressType": @(header.compress_type)}];
+        }
         TJPLOG_ERROR(@"不支持的压缩类型: %d", header.compress_type);
         return NO;
     }

@@ -43,6 +43,9 @@ NS_ASSUME_NONNULL_BEGIN
 // 接收自定义内容
 - (void)session:(id<TJPSessionProtocol>)session didReceiveCustomData:(NSData *)data withType:(uint16_t)customType;
 
+// 发送消息失败
+- (void)session:(id<TJPSessionProtocol>)session didFailToSendMessageWithSequence:(uint32_t)sequence error:(NSError *)error;
+
 // === 原始数据回调（高级用户） ===
 // 接收原始数据
 - (void)session:(id<TJPSessionProtocol>)session didReceiveRawData:(NSData *)data;
