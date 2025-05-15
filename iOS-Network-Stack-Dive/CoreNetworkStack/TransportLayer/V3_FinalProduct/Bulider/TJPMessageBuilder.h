@@ -15,6 +15,7 @@ NS_ASSUME_NONNULL_BEGIN
 /// 组装数据包
 + (NSData *)buildPacketWithMessageType:(TJPMessageType)msgType sequence:(uint32_t)sequence payload:(NSData *)payload encryptType:(TJPEncryptType)encryptType compressType:(TJPCompressType)compressType sessionID:(NSString *)sessionID;
 
++ (uint16_t)sessionIDFromUUID:(NSString *)uuidString;
 @end
 
 NS_ASSUME_NONNULL_END

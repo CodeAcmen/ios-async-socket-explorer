@@ -13,7 +13,7 @@
 #import <mach-o/ldsyms.h>
 
 
-#import "TJPMessage.h"
+#import "TJPMessageProtocol.h"
 
 @implementation TJPMessageFactory
 
@@ -35,13 +35,13 @@
     for (int i = 0; i < size/sizeof(uintptr_t); i++) {
         const char *className = (const char *)section[i];
         Class cls = objc_getClass(className);
-        if ([cls conformsToProtocol:@protocol(TJPMessage)]) {
+        if ([cls conformsToProtocol:@protocol(TJPMessageProtocol)]) {
             [self registerClass:cls];
         }
     }
 }
 
-+ (void)registerClass:(Class<TJPMessage>)messageClass {
++ (void)registerClass:(Class<TJPMessageProtocol>)messageClass {
     // 存储消息类型与类的映射
     [[self classMap] setObject:messageClass forKey:@([messageClass messageTag])];
 }

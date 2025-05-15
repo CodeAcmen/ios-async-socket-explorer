@@ -1,5 +1,5 @@
 //
-//  TJPMessage.h
+//  TJPMessageProtocol.h
 //  iOS-Network-Stack-Dive
 //
 //  Created by 唐佳鹏 on 2025/5/13.
@@ -9,7 +9,7 @@
 
 NS_ASSUME_NONNULL_BEGIN
 
-@protocol TJPMessage <NSObject>
+@protocol TJPMessageProtocol <NSObject>
 
 @required
 /// 消息类型

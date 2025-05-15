@@ -6,11 +6,11 @@
 //
 
 #import <Foundation/Foundation.h>
-#import "TJPMessage.h"
+#import "TJPMessageProtocol.h"
 
 NS_ASSUME_NONNULL_BEGIN
 
-@interface TJPTextMessage : NSObject <TJPMessage>
+@interface TJPTextMessage : NSObject <TJPMessageProtocol>
 
 @property (nonatomic, copy) NSString *text;
 

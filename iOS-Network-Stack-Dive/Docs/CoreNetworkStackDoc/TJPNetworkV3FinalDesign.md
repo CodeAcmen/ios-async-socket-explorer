@@ -16,16 +16,15 @@ NetworkCoordinator(管理层)
   └─ ConcreteSession(会话层)
        └─ GCDAsyncSocket(传输层)
 // 细分设计
-NetworkCoordinator(管理层)
-├─ sessionQueue(Serial)    # 会话映射表操作
-├─ parseQueue(Serial)      # 数据解析专用  
-└─ monitorQueue(Serial)    # 网络监控
-  │
-  └─ ConcreteSession(会话层)
-      └─ socketQueue(Serial)  # 原子化Socket操作
-          ├─ GCDAsyncSocket
-          └─ StateMachine
-       
+TJPIMClient (门面模式，屏蔽底层实现细节)
+├── TJPNetworkCoordinator (多会话管理)
+│   ├── TJPConcreteSession (会话自制模型)
+│   │   ├── TJPConnectionManager (连接管理)
+│   │   ├── TJPDynamicHeartbeat (动态心跳)
+│   │   ├── TJPMessageParser (消息解析)
+│   │   ├── TJPMessageBuilder (消息组装)
+│   │   ├── TJPSequenceManager (序列号管理)
+
 
 ```
 ### 1.2状态机驱动设计

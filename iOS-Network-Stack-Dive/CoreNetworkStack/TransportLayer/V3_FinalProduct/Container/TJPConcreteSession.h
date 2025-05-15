@@ -12,33 +12,41 @@
 NS_ASSUME_NONNULL_BEGIN
 
 @class TJPNetworkConfig, TJPConnectStateMachine, TJPMessageContext, TJPReconnectPolicy;
+
 @interface TJPConcreteSession : NSObject <TJPSessionProtocol>
 
-@property (nonatomic, strong) TJPNetworkConfig *config;
+@property (nonatomic, weak) id<TJPSessionDelegate> delegate;
 
-/// 重连标志符
-@property (atomic, assign) BOOL isReconnecting;
+/// 独立的sessionId
+@property (nonatomic, copy) NSString *sessionId;
+
+/// 配置
+@property (nonatomic, strong) TJPNetworkConfig *config;
 
 /// 连接状态机
 @property (nonatomic, strong) TJPConnectStateMachine *stateMachine;
 
-/// 独立的sessionId
-@property (nonatomic, copy) NSString *sessionId;
-/// 待确认消息
-@property (nonatomic, strong) NSMutableDictionary<NSNumber *, TJPMessageContext *> *pendingMessages;
 /// 重试策略
 @property (nonatomic, strong) TJPReconnectPolicy *reconnectPolicy;
 
-@property (nonatomic, weak) id<TJPSessionDelegate> delegate;
+/// 待确认消息
+@property (nonatomic, strong) NSMutableDictionary<NSNumber *, TJPMessageContext *> *pendingMessages;
 
-@property (nonatomic, assign) TJPDisconnectReason disconnectReason; // 断开原因
+/// 断开原因
+@property (nonatomic, assign) TJPDisconnectReason disconnectReason;
+
+/// 重连标志符
+@property (atomic, assign) BOOL isReconnecting;
+
 /// 是否允许自动重连 默认开启
 @property (nonatomic, assign) BOOL autoReconnectEnabled;
 
 
-
 /// 初始化方法
 - (instancetype)initWithConfiguration:(TJPNetworkConfig *)config;
+- (void)disconnect;
+- (void)forceReconnect;
+- (void)prepareForRelease;
 
 @end
 

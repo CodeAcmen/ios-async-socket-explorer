@@ -11,6 +11,7 @@
 #import "TJPNetworkCondition.h"
 #import "TJPSequenceManager.h"
 #import "TJPNetworkDefine.h"
+#import "TJPMessageBuilder.h"
 
 
 @interface TJPDynamicHeartbeat ()
@@ -192,7 +193,10 @@
         
         //组装心跳包
         NSData *packet = [self buildHeartbeatPacket:sequence];
-//        TJPLOG_INFO(@"心跳包组装完成  序列号为: %u", sequence);
+        if (!packet) {
+            TJPLOG_ERROR(@"心跳包构建失败，取消此次心跳");
+            return;
+        }
         
         //记录发送时间(毫秒级)
         NSDate *sendTime = [NSDate date];
@@ -225,7 +229,6 @@
             if (self.pendingHeartbeats[@(sequence)]) {
                 TJPLOG_INFO(@"触发序列号 %u 的心跳超时检测", sequence);
                 [self handleHeaderbeatTimeoutForSequence:sequence];
-//                [self _removeHeartbeatsForSequence:sequence];
             }
         });
     });
@@ -264,20 +267,27 @@
 
 - (void)heartbeatACKNowledgedForSequence:(uint32_t)sequence {
     dispatch_async(self.heartbeatQueue, ^{
-        TJPLOG_INFO(@"接收到 心跳ACK 数据包并进行处理");
         NSDate *sendTime = self.pendingHeartbeats[@(sequence)];
         
-        if (sendTime) {
-            // 立即移除待处理心跳，避免超时逻辑误触发
-            [self _removeHeartbeatsForSequence:sequence];
-            
-            //计算RTT并更新网络状态
-            NSTimeInterval rtt = [[NSDate date] timeIntervalSinceDate:sendTime] * 1000; //转毫秒
-            [self.networkCondition updateRTTWithSample:rtt];
-            [self.networkCondition updateLostWithSample:NO];
-            // 收到ACK后主动调整间隔
-            [self adjustIntervalWithNetworkCondition:self.networkCondition];
+        if (!sendTime) {
+            TJPLOG_INFO(@"收到未知心跳包的ACK，序列号: %u", sequence);
+            return;
         }
+        
+        TJPLOG_INFO(@"接收到 心跳ACK 数据包并进行处理");
+        //计算RTT并更新网络状态
+        NSTimeInterval rtt = [[NSDate date] timeIntervalSinceDate:sendTime] * 1000; //转毫秒
+
+        //更新网络状况
+        [self.networkCondition updateRTTWithSample:rtt];
+        [self.networkCondition updateLostWithSample:NO];
+
+
+        //收到ACK后主动调整间隔
+        [self adjustIntervalWithNetworkCondition:self.networkCondition];
+
+        //移除已确认心跳，避免超时逻辑误触发
+        [self _removeHeartbeatsForSequence:sequence];
     });
 }
 
@@ -312,16 +322,32 @@
 }
 
 - (NSData *)buildHeartbeatPacket:(uint32_t)sequence {
-    TJPFinalAdavancedHeader header = {0};
-    header.magic = htonl(kProtocolMagic);
-    header.msgType = htons(TJPMessageTypeHeartbeat);
-    //携带序列号
-    header.sequence = htonl(sequence);
+    NSData *emptyPayload = [NSData data]; // 心跳包通常没有负载
+
+    NSString *sessionID = _session.sessionId;
+
+    // 使用TJPMessageBuilder统一构建心跳包
+    NSData *packet = [TJPMessageBuilder buildPacketWithMessageType:TJPMessageTypeHeartbeat
+                                                         sequence:sequence
+                                                          payload:emptyPayload
+                                                      encryptType:TJPEncryptTypeNone
+                                                     compressType:TJPCompressTypeNone
+                                                        sessionID:sessionID];
+
     
-    NSData *packet = [NSData dataWithBytes:&header length:sizeof(header)];
+    if (!packet) {
+        TJPLOG_ERROR(@"心跳包构建失败");
+        return nil;
+    }
+
     return packet;
 }
 
+
+- (BOOL)isHeartbeatSequence:(uint32_t)sequence {
+    // 判断序列号是否属于心跳类别
+    return [self.sequenceManager isSequenceForCategory:sequence category:TJPMessageCategoryHeartbeat];
+}
 
 
 

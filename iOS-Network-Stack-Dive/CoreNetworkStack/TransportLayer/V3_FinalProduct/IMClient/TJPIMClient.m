@@ -31,7 +31,7 @@
     [self.session connectToHost:host port:port];
 }
 
-- (void)sendMessage:(id<TJPMessage>)message {
+- (void)sendMessage:(id<TJPMessageProtocol>)message {
     NSData *tlvData = [message tlvData];
     [self.session sendData:tlvData];
 }
