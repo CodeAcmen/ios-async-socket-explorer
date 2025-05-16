@@ -52,6 +52,21 @@ static const NSTimeInterval kDefaultRetryInterval = 10;
 @property (nonatomic, strong) TJPMessageParser *parser;
 
 
+/*    版本协商规则    */
+//上次握手时间
+@property (nonatomic, strong) NSDate *lastHandshakeTime;
+//断开连接事件
+@property (nonatomic, strong) NSDate *disconnectionTime;
+//是否完成握手
+@property (nonatomic, assign) BOOL hasCompletedHandshake;
+
+//协商后的版本号
+@property (nonatomic, assign) uint16_t negotiatedVersion;
+
+//协商后的特性标志
+@property (nonatomic, assign) uint16_t negotiatedFeatures;
+
+
 
 @end
 
@@ -160,8 +175,19 @@ static const NSTimeInterval kDefaultRetryInterval = 10;
         if ([newState isEqualToString:TJPConnectStateConnected]) {
             // 更新心跳管理器的 session 引用 并启动心跳
             [strongSelf.heartbeatManager updateSession:strongSelf];
+            
             // 如果有积压消息 发送积压消息
             [strongSelf flushPendingMessages];
+    
+            // 判断是否需要握手
+            if ([strongSelf shouldPerformHandshake]) {
+                [strongSelf performVersionHandshake];
+            } else {
+                TJPLOG_INFO(@"使用现有协商结果，跳过版本握手");
+            }
+        } else if ([newState isEqualToString:TJPConnectStateDisconnecting]) {
+            // 状态改为开始断开就更新时间
+            strongSelf.disconnectionTime = [NSDate date];
         } else if ([newState isEqualToString:TJPConnectStateDisconnected]) {
             // 断开连接，停止心跳
             [strongSelf.heartbeatManager stopMonitoring];
@@ -187,9 +213,6 @@ static const NSTimeInterval kDefaultRetryInterval = 10;
 #if DEBUG
         [TJPMetricsConsoleReporter start];
 #endif
-        
-        // 协议版本握手
-        [self performVersionHandshake];
     });
 }
 
@@ -507,7 +530,7 @@ static const NSTimeInterval kDefaultRetryInterval = 10;
     uint32_t seq = [self.seqManager nextSequenceForCategory:TJPMessageCategoryControl];
     header.sequence = htonl(seq);
 
-#warning //构建版本协商TLV数据 - 这里使用我构建的数据  实际环境需要替换成你的
+#warning //构建版本协商TLV数据 - 这里使用我构建的数据  实际环境需要替换成你需要的
     NSMutableData *tlvData = [NSMutableData data];
     //版本信息标签
     uint16_t versionTag = htons(0x0001);
@@ -538,6 +561,20 @@ static const NSTimeInterval kDefaultRetryInterval = 10;
     // 构建完整的握手数据包
     NSMutableData *handshakeData = [NSMutableData dataWithBytes:&header length:sizeof(TJPFinalAdavancedHeader)];
     [handshakeData appendData:tlvData];
+    
+    // 创建上下文并加入待确认队列
+    TJPMessageContext *context = [TJPMessageContext contextWithData:tlvData
+                                                                seq:seq
+                                                        messageType:TJPMessageTypeControl
+                                                        encryptType:TJPEncryptTypeNone
+                                                       compressType:TJPCompressTypeNone
+                                                          sessionId:self.sessionId];
+    // 控制消息通常不需要重传
+    context.maxRetryCount = 0;
+    
+    // 存储待确认消息
+    self.pendingMessages[@(seq)] = context;
+    
     
     // 发送握手数据包
     [self.connectionManager sendData:handshakeData withTimeout:10.0 tag:header.sequence];
@@ -733,6 +770,29 @@ static const NSTimeInterval kDefaultRetryInterval = 10;
    });
 }
 
+- (BOOL)shouldPerformHandshake {
+    // 首次连接或未完成握手
+    if (!self.hasCompletedHandshake) {
+        return YES;
+    }
+    
+    // 长时间未握手（超过24小时）
+    NSTimeInterval timeSinceLastHandshake = [[NSDate date] timeIntervalSinceDate:self.lastHandshakeTime];
+    if (timeSinceLastHandshake > 24 * 3600) { // 24小时
+        return YES;
+    }
+    
+    // 长时间断线后重连（超过5分钟）
+    if (self.disconnectionTime) {
+        NSTimeInterval disconnectionDuration = [[NSDate date] timeIntervalSinceDate:self.disconnectionTime];
+        if (disconnectionDuration > 300) { // 5分钟
+            return YES;
+        }
+    }
+    
+    return NO;
+}
+
 
 
 - (void)resetConnection {
@@ -817,59 +877,155 @@ static const NSTimeInterval kDefaultRetryInterval = 10;
    }
    
    // 发送ACK确认 - 确认接收到的数据包
-   [self sendAckForPacket:packet];
+    [self sendAckForPacket:packet messageCategory:TJPMessageCategoryNormal];
 }
 
 - (void)handleControlPacket:(TJPParsedPacket *)packet {
    // 解析控制包数据，处理版本协商等控制消息
-   // 这里需要根据你的TLV协议来实现
    TJPLOG_INFO(@"收到控制包，长度: %lu", (unsigned long)packet.payload.length);
    
+    // 确保数据包长度足够
+    if (packet.payload.length >= 12) { // 至少包含 Tag(2) + Length(4) + Value(2) + Flags(2)
+        const void *bytes = packet.payload.bytes;
+        uint16_t tag = 0;
+        uint32_t length = 0;
+        uint16_t value = 0;
+        uint16_t flags = 0;
+        
+        // 提取 TLV 字段
+        memcpy(&tag, bytes, sizeof(uint16_t));
+        memcpy(&length, bytes + 2, sizeof(uint32_t));
+        memcpy(&value, bytes + 6, sizeof(uint16_t));
+        memcpy(&flags, bytes + 8, sizeof(uint16_t));
+        
+        // 转换网络字节序到主机字节序
+        tag = ntohs(tag);
+        length = ntohl(length);
+        value = ntohs(value);
+        flags = ntohs(flags);
+        
+        // 检查是否是版本协商响应
+        if (tag == 0x0001) { // 版本标签
+            // 提取版本信息
+            uint8_t majorVersion = (value >> 8) & 0xFF;
+            uint8_t minorVersion = value & 0xFF;
+            
+            TJPLOG_INFO(@"收到版本协商响应: 版本=%d.%d, 特性=0x%04X",
+                        majorVersion, minorVersion, flags);
+            
+            // 保存协商结果到会话属性中
+            self.negotiatedVersion = value;
+            self.negotiatedFeatures = flags;
+            self.lastHandshakeTime = [NSDate date];
+            self.hasCompletedHandshake = YES;
+
+            
+            // 根据协商结果配置会话
+            [self configureSessionWithFeatures:flags];
+            
+            // 通知代理版本协商完成
+            if (self.delegate && [self.delegate respondsToSelector:@selector(session:didCompleteVersionNegotiation:features:)]) {
+                dispatch_async(dispatch_get_main_queue(), ^{
+                    [self.delegate session:self didCompleteVersionNegotiation:self.negotiatedVersion features:self.negotiatedFeatures];
+                });
+            }
+        } else {
+            TJPLOG_INFO(@"收到未知控制消息，标签: 0x%04X", tag);
+        }
+    } else {
+        TJPLOG_WARN(@"控制包数据长度不足，无法解析");
+    }
+    
    // 发送ACK确认
-   [self sendAckForPacket:packet];
+    [self sendAckForPacket:packet messageCategory:TJPMessageCategoryControl];
 }
 
-- (void)sendAckForPacket:(TJPParsedPacket *)packet {
-   // 创建ACK消息
-   uint32_t ackSeq = [self.seqManager nextSequenceForCategory:TJPMessageCategoryControl];
-   
-   TJPFinalAdavancedHeader header;
-   memset(&header, 0, sizeof(TJPFinalAdavancedHeader));
-   
-   header.magic = kProtocolMagic;
-   header.version_major = kProtocolVersionMajor;
-   header.version_minor = kProtocolVersionMinor;
-   header.msgType = TJPMessageTypeACK;
-   header.sequence = ackSeq;
-   header.timestamp = (uint32_t)[[NSDate date] timeIntervalSince1970];
-   header.encrypt_type = TJPEncryptTypeNone;
-   header.compress_type = TJPCompressTypeNone;
-    header.session_id = [TJPMessageBuilder sessionIDFromUUID:self.sessionId];
-   
-   // ACK消息体 - 包含被确认的序列号
-   NSMutableData *ackData = [NSMutableData data];
-   uint32_t originalSeq = packet.sequence;
-   [ackData appendBytes:&originalSeq length:sizeof(uint32_t)];
-   
-   header.bodyLength = (uint32_t)ackData.length;
-   
-   // 计算校验和 (这里只是示例，实际需要实现CRC32计算)
-   header.checksum = 0;  // 简化处理，实际需要计算
-   
-   // 构建完整的ACK数据包
-   NSMutableData *ackPacket = [NSMutableData dataWithBytes:&header length:sizeof(TJPFinalAdavancedHeader)];
-   [ackPacket appendData:ackData];
-   
-   // 发送ACK数据包
-   [self.connectionManager sendData:ackPacket withTimeout:-1 tag:ackSeq];
-   
-   TJPLOG_INFO(@"已发送ACK确认包，确认序列号: %u", originalSeq);
+- (void)configureSessionWithFeatures:(uint16_t)features {
+    TJPLOG_INFO(@"根据协商特性配置会话: 0x%04X", features);
+    
+    // 检查各个特性位并配置相应功能
+    // 是否支持加密
+    if (features & TJP_FEATURE_ENCRYPTION) {
+        TJPLOG_INFO(@"启用加密功能");
+        // 配置加密
+    } else {
+        TJPLOG_INFO(@"禁用加密功能");
+        // 禁用加密
+    }
+    
+    // 示例：判断是否支持压缩
+    if (features & TJP_FEATURE_COMPRESSION) {
+        TJPLOG_INFO(@"启用压缩功能");
+        // 配置压缩
+    } else {
+        TJPLOG_INFO(@"禁用压缩功能");
+        // 禁用压缩
+    }
+    
+    // 配置其他功能
+}
+
+
+- (void)sendAckForPacket:(TJPParsedPacket *)packet messageCategory:(TJPMessageCategory)messageCategory {
+    // 创建ACK消息
+    uint32_t ackSeq = [self.seqManager nextSequenceForCategory:messageCategory];
+    
+    TJPFinalAdavancedHeader header;
+    memset(&header, 0, sizeof(TJPFinalAdavancedHeader));
+    
+    // 注意：需要转换为网络字节序
+    header.magic = htonl(kProtocolMagic);
+    header.version_major = kProtocolVersionMajor;
+    header.version_minor = kProtocolVersionMinor;
+    header.msgType = htons(TJPMessageTypeACK);
+    header.sequence = htonl(ackSeq);
+    header.timestamp = htonl((uint32_t)[[NSDate date] timeIntervalSince1970]);
+    header.encrypt_type = TJPEncryptTypeNone;
+    header.compress_type = TJPCompressTypeNone;
+    header.session_id = htons([TJPMessageBuilder sessionIDFromUUID:self.sessionId]);
+    
+    
+    // ACK消息体 - 包含被确认的序列号
+    NSMutableData *ackData = [NSMutableData data];
+    uint32_t originalSeq = htonl(packet.sequence);
+    [ackData appendBytes:&originalSeq length:sizeof(uint32_t)];
+    
+    header.bodyLength = htonl((uint32_t)ackData.length);
+    
+    // 计算校验和
+    uint32_t checksum = [TJPNetworkUtil crc32ForData:ackData];
+    header.checksum = htonl(checksum);
+    
+    TJPLOG_INFO(@"sendAckForPacket方法中计算的校验和 CRC32: %u", checksum);
+    
+    
+    // 构建完整的ACK数据包
+    NSMutableData *ackPacket = [NSMutableData dataWithBytes:&header length:sizeof(TJPFinalAdavancedHeader)];
+    [ackPacket appendData:ackData];
+    
+    // 发送ACK数据包
+    [self.connectionManager sendData:ackPacket withTimeout:-1 tag:ackSeq];
+    
+    TJPLOG_INFO(@"已发送 %@ ACK确认包，确认序列号: %u", [self messageTypeToString:packet.messageType], packet.sequence);
 }
 
 - (void)handleACKForSequence:(uint32_t)sequence {
    dispatch_async(self.sessionQueue, ^{
-       // 从待确认消息列表中移除
-       if ([self.pendingMessages objectForKey:@(sequence)]) {
+       TJPMessageContext *context = self.pendingMessages[@(sequence)];
+
+       if (context) {
+           switch (context.messageType) {
+               case TJPMessageTypeNormalData:
+                   TJPLOG_INFO(@"普通消息 %u 已被确认", sequence);
+                   break;
+               case TJPMessageTypeControl:
+                   TJPLOG_INFO(@"控制消息 %u 已被确认", sequence);
+                   break;
+               default:
+                   TJPLOG_INFO(@"消息 %u 已被确认", sequence);
+                   break;
+           }
+           // 从待确认消息列表中移除
            [self.pendingMessages removeObjectForKey:@(sequence)];
            
            // 取消对应的重传计时器
@@ -880,7 +1036,6 @@ static const NSTimeInterval kDefaultRetryInterval = 10;
                [self.retransmissionTimers removeObjectForKey:timerKey];
            }
            
-           TJPLOG_INFO(@"消息 %u 已被确认", sequence);
        } else if ([self.heartbeatManager isHeartbeatSequence:sequence]) {
            // 处理心跳ACK
            [self.heartbeatManager heartbeatACKNowledgedForSequence:sequence];
@@ -938,6 +1093,21 @@ static const NSTimeInterval kDefaultRetryInterval = 10;
        default:
            return @"未知原因";
    }
+}
+
+- (NSString *)messageTypeToString:(uint16_t)messageType {
+    switch (messageType) {
+        case TJPMessageTypeNormalData:
+            return @"普通消息";
+        case TJPMessageTypeHeartbeat:
+            return @"心跳";
+        case TJPMessageTypeACK:
+            return @"确认";
+        case TJPMessageTypeControl:
+            return @"控制消息";
+        default:
+            return @"未知类型";
+    }
 }
 
 

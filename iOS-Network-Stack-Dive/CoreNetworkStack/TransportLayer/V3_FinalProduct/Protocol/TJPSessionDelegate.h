@@ -46,6 +46,15 @@ NS_ASSUME_NONNULL_BEGIN
 // 发送消息失败
 - (void)session:(id<TJPSessionProtocol>)session didFailToSendMessageWithSequence:(uint32_t)sequence error:(NSError *)error;
 
+
+/**
+ * 版本协商完成时调用
+ * @param session 会话实例
+ * @param version 协商后的版本号
+ * @param features 协商后的特性标志
+ */
+- (void)session:(id<TJPSessionProtocol>)session didCompleteVersionNegotiation:(uint16_t)version features:(uint16_t)features;
+
 // === 原始数据回调（高级用户） ===
 // 接收原始数据
 - (void)session:(id<TJPSessionProtocol>)session didReceiveRawData:(NSData *)data;
