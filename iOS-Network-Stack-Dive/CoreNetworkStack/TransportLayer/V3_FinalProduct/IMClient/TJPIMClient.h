@@ -6,7 +6,7 @@
 //
 
 #import <Foundation/Foundation.h>
-#import "TJPMessage.h"
+#import "TJPMessageProtocol.h"
 
 NS_ASSUME_NONNULL_BEGIN
 
@@ -19,7 +19,7 @@ NS_ASSUME_NONNULL_BEGIN
 - (void)connectToHost:(NSString *)host port:(uint16_t)port;
 
 /// 发送消息  消息类型详见 TJPCoreTypes 头文件定义的 TJPContentType
-- (void)sendMessage:(id<TJPMessage>)message;
+- (void)sendMessage:(id<TJPMessageProtocol>)message;
 
 /// 断开连接
 - (void)disconnect;

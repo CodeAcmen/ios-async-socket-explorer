@@ -32,6 +32,9 @@ NS_ASSUME_NONNULL_BEGIN
 /// 是否在应用进入后台后重连
 @property (nonatomic, assign) BOOL shouldReconnectAfterBackground;
 
+/// 是否使用TLS
+@property (nonatomic, assign) BOOL useTLS;
+
 
 /// 初始化方法
 + (instancetype)configWithHost:(NSString *)host port:(uint16_t)port maxRetry:(NSUInteger)maxRetry heartbeat:(CGFloat)heartbeat;

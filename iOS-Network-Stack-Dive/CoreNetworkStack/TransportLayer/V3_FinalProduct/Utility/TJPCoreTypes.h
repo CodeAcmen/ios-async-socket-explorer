@@ -8,6 +8,28 @@
 #ifndef TJPCoreTypes_h
 #define TJPCoreTypes_h
 
+// 协议支持的特性定义
+typedef enum {
+    // 基本消息能力 (必须支持)
+    TJP_FEATURE_BASIC = 0x0001,        // 0000 0000 0000 0001
+    
+    // 加密能力
+    TJP_FEATURE_ENCRYPTION = 0x0002,   // 0000 0000 0000 0010
+    
+    // 压缩能力
+    TJP_FEATURE_COMPRESSION = 0x0004,  // 0000 0000 0000 0100
+    
+    // 已读回执能力
+    TJP_FEATURE_READ_RECEIPT = 0x0008, // 0000 0000 0000 1000
+    
+    // 群聊能力
+    TJP_FEATURE_GROUP_CHAT = 0x0010,   // 0000 0000 0001 0000
+} TJPFeatureFlag;
+
+// 当前客户端支持的特性组合
+// 这里表示支持: 基本消息 + 加密 + 压缩
+#define TJP_SUPPORTED_FEATURES (TJP_FEATURE_BASIC | TJP_FEATURE_ENCRYPTION | TJP_FEATURE_COMPRESSION)
+
 
 typedef NS_ENUM(NSUInteger, TJPTLVTagPolicy) {
     TJPTLVTagPolicyAllowDuplicates,         //允许重复Tag

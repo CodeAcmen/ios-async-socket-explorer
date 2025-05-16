@@ -13,11 +13,14 @@ NS_ASSUME_NONNULL_BEGIN
 @protocol TJPSessionProtocol;
 @interface TJPDynamicHeartbeat : NSObject
 
+//网络质量采集器
 @property (nonatomic, strong) TJPNetworkCondition *networkCondition;
-
+//序列号管理器
 @property (nonatomic, strong) TJPSequenceManager *sequenceManager;
 
+//基础心跳时间
 @property (nonatomic, assign) NSTimeInterval baseInterval;
+//当前心跳时间
 @property (nonatomic, assign) NSTimeInterval currentInterval;
 
 //改为声明在属性是为了单元测试
@@ -44,6 +47,8 @@ NS_ASSUME_NONNULL_BEGIN
 - (void)heartbeatACKNowledgedForSequence:(uint32_t)sequence;
 /// 心跳超时
 - (void)handleHeaderbeatTimeoutForSequence:(uint32_t)sequence;
+/// 是否属于心跳
+- (BOOL)isHeartbeatSequence:(uint32_t)sequence;
 
 @end
 

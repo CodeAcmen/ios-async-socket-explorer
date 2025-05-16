@@ -40,8 +40,11 @@
     header.bodyLength = htonl((uint32_t)payload.length);
     
     // 计算数据体的CRC32
-    uint32_t checksum = [TJPNetworkUtil crc32ForData:payload];
-    header.checksum = htonl(checksum);  // 注意要转换为网络字节序
+     uint32_t checksum = 0;
+     if (payload.length > 0) {
+         checksum = [TJPNetworkUtil crc32ForData:payload];
+     }
+     header.checksum = htonl(checksum);  // 注意要转换为网络字节序
     
     // 构建完整协议包
     NSMutableData *packet = [NSMutableData dataWithBytes:&header length:sizeof(header)];

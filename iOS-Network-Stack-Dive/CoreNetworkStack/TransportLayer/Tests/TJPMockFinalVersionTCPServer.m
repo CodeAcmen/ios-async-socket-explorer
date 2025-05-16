@@ -109,7 +109,7 @@ static const NSUInteger kHeaderLength = sizeof(TJPFinalAdavancedHeader);
     
     // 处理消息
     switch (msgType) {
-        case TJPMessageTypeNormalData: // TJPMessageTypeNormalData
+        case TJPMessageTypeNormalData: // 普通数据消息
         {
             if (self.didReceiveDataHandler) {
                 self.didReceiveDataHandler(payload, seq);
@@ -119,12 +119,60 @@ static const NSUInteger kHeaderLength = sizeof(TJPFinalAdavancedHeader);
             break;
             
             
-        case TJPMessageTypeHeartbeat: // TJPMessageTypeHeartbeat
+        case TJPMessageTypeHeartbeat: // 心跳消息
         {
             if (self.didReceiveDataHandler) {
                 self.didReceiveDataHandler(payload, seq);
             }
             [self sendHeartbeatACKForSequence:seq sessionId:sessionId toSocket:sock];
+        }
+            break;
+        case TJPMessageTypeControl: // 控制消息
+        {
+            if (self.didReceiveDataHandler) {
+                self.didReceiveDataHandler(payload, seq);
+            }
+            
+            //解析TLV数据,获取版本信息
+            if (payload.length >= 12) {
+                //Tag(2) + Length(4) + Value(2) + Flags(2)
+                uint16_t tag;
+                uint32_t length;
+                uint16_t value;
+                uint16_t flags;
+                
+                const void *bytes = payload.bytes;
+                memcpy(&tag, bytes, sizeof(uint16_t));
+                memcpy(&length, bytes + 2, sizeof(uint32_t));
+                memcpy(&value, bytes + 6, sizeof(uint16_t));
+                memcpy(&flags, bytes + 8, sizeof(uint16_t));
+                
+                // 转换网络字节序到主机字节序
+                tag = ntohs(tag);
+                length = ntohl(length);
+                value = ntohs(value);
+                flags = ntohs(flags);
+                
+                NSLog(@"[MOCK SERVER] 版本协商：Tag=%u, Length=%u, Value=0x%04X, Flags=0x%04X",
+                      tag, length, value, flags);
+                
+                if (tag == 0x0001) { // 版本标签
+                    uint8_t clientMajorVersion = (value >> 8) & 0xFF;
+                    uint8_t clientMinorVersion = value & 0xFF;
+                    
+                    NSLog(@"[MOCK SERVER] 客户端版本: %u.%u", clientMajorVersion, clientMinorVersion);
+                    
+                    NSLog(@"[MOCK SERVER] 客户端特性: %@", [self featureDescriptionWithFlags:flags]);
+
+                    
+                    // 发送版本协商响应
+                    [self sendVersionNegotiationResponseForSequence:seq sessionId:sessionId clientVersion:value
+                                                  supportedFeatures:flags toSocket:sock];
+                }
+            }
+            
+            //发送控制消息ACK
+            [self sendControlACKForSequence:seq sessionId:sessionId toSocket:sock];
         }
             
             break;
@@ -135,6 +183,18 @@ static const NSUInteger kHeaderLength = sizeof(TJPFinalAdavancedHeader);
     }
     
     [sock readDataWithTimeout:-1 tag:0];
+}
+
+- (NSString *)featureDescriptionWithFlags:(uint16_t)flags {
+    NSMutableString *desc = [NSMutableString string];
+    
+    if (flags & 0x0001) [desc appendString:@"基本消息 "];
+    if (flags & 0x0002) [desc appendString:@"加密 "];
+    if (flags & 0x0004) [desc appendString:@"压缩 "];
+    if (flags & 0x0008) [desc appendString:@"已读回执 "];
+    if (flags & 0x0010) [desc appendString:@"群聊 "];
+    
+    return desc.length > 0 ? desc : @"无特性";
 }
 
 - (void)socketDidDisconnect:(GCDAsyncSocket *)sock withError:(NSError *)err {
@@ -171,6 +231,33 @@ static const NSUInteger kHeaderLength = sizeof(TJPFinalAdavancedHeader);
     [socket writeData:ackData withTimeout:-1 tag:0];
 }
 
+- (void)sendControlACKForSequence:(uint32_t)seq sessionId:(uint16_t)sessionId toSocket:(GCDAsyncSocket *)socket {
+    NSLog(@"[MOCK SERVER] 收到控制消息，序列号: %u", seq);
+    
+    // 使用当前时间戳
+    uint32_t currentTime = (uint32_t)[[NSDate date] timeIntervalSince1970];
+
+    TJPFinalAdavancedHeader reply = {0};
+    reply.magic = htonl(kProtocolMagic);
+    reply.version_major = kProtocolVersionMajor;
+    reply.version_minor = kProtocolVersionMinor;
+    reply.msgType = htons(TJPMessageTypeACK);  // 仍然使用ACK类型，但可以考虑使用TJPMessageTypeControl
+    reply.sequence = htonl(seq);
+    reply.timestamp = htonl(currentTime);
+    reply.encrypt_type = TJPEncryptTypeNone;
+    reply.compress_type = TJPCompressTypeNone;
+    reply.session_id = htons(sessionId);
+    reply.bodyLength = 0;
+    
+    // 没有数据体，checksum设为0
+    reply.checksum = 0;
+    
+    NSData *ackData = [NSData dataWithBytes:&reply length:sizeof(reply)];
+    NSLog(@"[MOCK SERVER] 控制消息响应包字段：magic=0x%X, msgType=%hu, sequence=%u, timestamp=%u, sessionId=%hu",
+          ntohl(reply.magic), ntohs(reply.msgType), ntohl(reply.sequence), ntohl(reply.timestamp), ntohs(reply.session_id));
+    [socket writeData:ackData withTimeout:-1 tag:0];
+}
+
 
 - (void)sendHeartbeatACKForSequence:(uint32_t)seq sessionId:(uint16_t)sessionId toSocket:(GCDAsyncSocket *)socket {
     NSLog(@"[MOCK SERVER] 收到心跳包，序列号: %u", seq);
@@ -198,6 +285,61 @@ static const NSUInteger kHeaderLength = sizeof(TJPFinalAdavancedHeader);
     NSLog(@"[MOCK SERVER] 心跳响应包字段：magic=0x%X, msgType=%hu, sequence=%u, timestamp=%u, sessionId=%hu",
           ntohl(reply.magic), ntohs(reply.msgType), ntohl(reply.sequence), ntohl(reply.timestamp), ntohs(reply.session_id));
     [socket writeData:ackData withTimeout:-1 tag:0];
+}
+
+- (void)sendVersionNegotiationResponseForSequence:(uint32_t)seq sessionId:(uint16_t)sessionId clientVersion:(uint16_t)clientVersion supportedFeatures:(uint16_t)features toSocket:(GCDAsyncSocket *)socket {
+    NSLog(@"[MOCK SERVER] 收到控制消息，序列号: %u", seq);
+
+    // 使用当前时间戳
+    uint32_t currentTime = (uint32_t)[[NSDate date] timeIntervalSince1970];
+    
+    // 服务器选择的版本和功能
+    uint8_t serverMajorVersion = kProtocolVersionMajor;
+    uint8_t serverMinorVersion = kProtocolVersionMinor;
+    uint16_t serverVersion = (serverMajorVersion << 8) | serverMinorVersion;
+    uint16_t agreedFeatures = features & 0x0003; // 仅支持客户端请求的部分功能
+
+    // 构建TLV数据
+    NSMutableData *tlvData = [NSMutableData data];
+    
+    // 版本协商响应TLV
+    uint16_t versionResponseTag = htons(0x0002); // 响应标签
+    uint32_t versionResponseLength = htonl(4);
+    uint16_t versionResponseValue = htons(serverVersion);
+    uint16_t agreedFeaturesValue = htons(agreedFeatures);
+    
+    [tlvData appendBytes:&versionResponseTag length:sizeof(uint16_t)];
+    [tlvData appendBytes:&versionResponseLength length:sizeof(uint32_t)];
+    [tlvData appendBytes:&versionResponseValue length:sizeof(uint16_t)];
+    [tlvData appendBytes:&agreedFeaturesValue length:sizeof(uint16_t)];
+    
+    // 计算校验和
+    uint32_t checksum = [TJPNetworkUtil crc32ForData:tlvData];
+    
+    // 构建响应头
+    TJPFinalAdavancedHeader responseHeader = {0};
+    responseHeader.magic = htonl(kProtocolMagic);
+    responseHeader.version_major = serverMajorVersion;
+    responseHeader.version_minor = serverMinorVersion;
+    responseHeader.msgType = htons(TJPMessageTypeControl);
+    responseHeader.sequence = htonl(seq + 1); // 响应序列号+1
+    responseHeader.timestamp = htonl(currentTime);
+    responseHeader.encrypt_type = TJPEncryptTypeNone;
+    responseHeader.compress_type = TJPCompressTypeNone;
+    responseHeader.session_id = htons(sessionId);
+    responseHeader.bodyLength = htonl((uint32_t)tlvData.length);
+    responseHeader.checksum = htonl(checksum);
+    
+    // 构建完整响应
+    NSMutableData *responseData = [NSMutableData dataWithBytes:&responseHeader
+                                                        length:sizeof(responseHeader)];
+    [responseData appendData:tlvData];
+    
+    NSLog(@"[MOCK SERVER] 发送版本协商响应：服务器版本 %u.%u，协商功能 0x%04X",
+          serverMajorVersion, serverMinorVersion, agreedFeatures);
+    
+    [socket writeData:responseData withTimeout:-1 tag:0];
+
 }
 
 

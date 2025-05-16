@@ -42,6 +42,7 @@
         _baseDelay = 2.0;
         _shouldReconnectAfterBackground = YES;
         _shouldReconnectAfterServerClose = NO;
+        _useTLS = NO;
     }
     return self;
 }
