@@ -146,6 +146,15 @@ typedef NS_ENUM(NSUInteger, TJPNetworkHealthStatus) {
     TJPNetworkHealthStatusCritical      //心跳严重问题
 };
 
+//网络指标收集级别
+typedef NS_ENUM(NSInteger, TJPMetricsLevel) {
+    TJPMetricsLevelNone = 0,       // 禁用指标收集
+    TJPMetricsLevelBasic = 1,      // 基本指标（连接状态、成功率）
+    TJPMetricsLevelStandard = 2,   // 标准指标（包括流量统计、心跳检测）
+    TJPMetricsLevelDetailed = 3,   // 详细指标（包括每个消息的RTT、重试统计）
+    TJPMetricsLevelDebug = 4       // 调试级别（包括所有可能的指标和原始数据）
+};
+
 
 
 //基于V2的协议头扩充完善

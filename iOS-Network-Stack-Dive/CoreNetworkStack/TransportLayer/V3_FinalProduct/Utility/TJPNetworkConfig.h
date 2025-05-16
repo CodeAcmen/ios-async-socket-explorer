@@ -6,6 +6,7 @@
 //  配置类
 
 #import <Foundation/Foundation.h>
+#import "TJPCoreTypes.h"
 
 NS_ASSUME_NONNULL_BEGIN
 
@@ -34,6 +35,15 @@ NS_ASSUME_NONNULL_BEGIN
 
 /// 是否使用TLS
 @property (nonatomic, assign) BOOL useTLS;
+
+/// 指标收集级别，默认为基本级别
+@property (nonatomic, assign) TJPMetricsLevel metricsLevel;
+
+/// 指标上报间隔（秒），默认15秒
+@property (nonatomic, assign) NSTimeInterval metricsReportInterval;
+
+/// 是否将指标打印到控制台，默认为YES
+@property (nonatomic, assign) BOOL metricsConsoleEnabled;
 
 
 /// 初始化方法

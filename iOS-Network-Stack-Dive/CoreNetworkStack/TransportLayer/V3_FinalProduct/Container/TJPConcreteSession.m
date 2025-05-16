@@ -120,16 +120,16 @@ static const NSTimeInterval kDefaultRetryInterval = 10;
 }
 
 - (void)setupComponentWithConfig:(TJPNetworkConfig *)config {
-    //序列号管理
+    // 序列号管理
     _seqManager = [[TJPSequenceManager alloc] init];
     
-    //初始化协议解析器
+    // 初始化协议解析器
     _parser = [[TJPMessageParser alloc] init];
     
-    //初始化重连策略
+    // 初始化重连策略
     _reconnectPolicy = [[TJPReconnectPolicy alloc] initWithMaxAttempst:config.maxRetry baseDelay:config.baseDelay qos:TJPNetworkQoSDefault delegate:self];
     
-    //初始化心跳管理
+    // 初始化心跳管理
     _heartbeatManager = [[TJPDynamicHeartbeat alloc] initWithBaseInterval:config.heartbeat seqManager:_seqManager session:self];
 }
 
@@ -210,9 +210,7 @@ static const NSTimeInterval kDefaultRetryInterval = 10;
         [self.stateMachine sendEvent:TJPConnectEventConnectSuccess];
         
         // 开始网络指标监控
-#if DEBUG
-        [TJPMetricsConsoleReporter start];
-#endif
+        [TJPMetricsConsoleReporter startWithConfig:self.config];
     });
 }
 

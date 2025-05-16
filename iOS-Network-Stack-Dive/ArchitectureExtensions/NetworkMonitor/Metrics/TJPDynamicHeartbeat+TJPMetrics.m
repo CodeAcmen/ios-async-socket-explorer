@@ -26,16 +26,16 @@
     // 发送心跳埋点
     [self swizzleSelector:@selector(sendHeartbeat)
               withSelector:@selector(metrics_sendHeartbeat)];
-    
+    // 心跳发送失败买点
     [self swizzleSelector:@selector(sendHeartbeatFailed)
              withSelector:@selector(metrics_sendHeartbeatFailed)];
 
     
-    // ACK处理埋点
+    // 心跳ACK处理埋点
     [self swizzleSelector:@selector(heartbeatACKNowledgedForSequence:)
               withSelector:@selector(metrics_heartbeatACKNowledgedForSequence:)];
     
-    // 超时处理埋点
+    // 心跳超时处理埋点
     [self swizzleSelector:@selector(handleHeaderbeatTimeoutForSequence:)
               withSelector:@selector(metrics_handleHeaderbeatTimeoutForSequence:)];
 }

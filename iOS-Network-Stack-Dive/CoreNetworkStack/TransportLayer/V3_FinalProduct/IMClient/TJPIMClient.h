@@ -3,7 +3,7 @@
 //  iOS-Network-Stack-Dive
 //
 //  Created by 唐佳鹏 on 2025/5/13.
-//
+//  TCP框架入口 门面设计模式屏蔽底层实现
 
 #import <Foundation/Foundation.h>
 #import "TJPMessageProtocol.h"

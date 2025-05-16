@@ -11,7 +11,7 @@
 
 NS_ASSUME_NONNULL_BEGIN
 
-@class TJPNetworkConfig, TJPConnectStateMachine, TJPMessageContext, TJPReconnectPolicy;
+@class TJPNetworkConfig, TJPConnectStateMachine, TJPMessageContext, TJPReconnectPolicy, TJPConnectionManager;
 
 @interface TJPConcreteSession : NSObject <TJPSessionProtocol>
 
@@ -44,9 +44,18 @@ NS_ASSUME_NONNULL_BEGIN
 
 /// 初始化方法
 - (instancetype)initWithConfiguration:(TJPNetworkConfig *)config;
-- (void)disconnect;
-- (void)forceReconnect;
-- (void)prepareForRelease;
+//- (void)disconnect;
+//- (void)forceReconnect;
+//- (void)prepareForRelease;
+
+//*****************************************************
+//   埋点统计 具体实现看TJPConcreteSession+TJPMetrics.h 通过hook相关方法增加埋点
+- (void)handleACKForSequence:(uint32_t)sequence;
+- (void)disconnectWithReason:(TJPDisconnectReason)reason;
+- (void)connection:(TJPConnectionManager *)connection didDisconnectWithError:(NSError *)error reason:(TJPDisconnectReason)reason;
+- (void)handleRetransmissionForSequence:(uint32_t)sequence;
+- (void)performVersionHandshake;
+//*****************************************************
 
 @end
 

@@ -81,7 +81,7 @@
 }
 
 - (void)setupLogTextView {
-    self.logTextView = [[UITextView alloc] initWithFrame:CGRectMake(10, 100, self.view.frame.size.width - 20, 300)];
+    self.logTextView = [[UITextView alloc] initWithFrame:CGRectMake(10, 100, self.view.frame.size.width - 20, 450)];
     self.logTextView.editable = NO;
     self.logTextView.backgroundColor = [UIColor lightGrayColor];
     self.logTextView.font = [UIFont systemFontOfSize:14];

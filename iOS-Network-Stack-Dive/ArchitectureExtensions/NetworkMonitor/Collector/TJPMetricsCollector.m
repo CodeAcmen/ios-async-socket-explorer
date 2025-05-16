@@ -10,9 +10,9 @@
 
 NSString * const TJPMetricsKeyConnectionAttempts = @"connection_attempts";
 NSString * const TJPMetricsKeyConnectionSuccess = @"connection_success";
+
 NSString * const TJPMetricsKeyHeartbeatSend = @"heartbeat_send";
 NSString * const TJPMetricsKeyHeartbeatLoss = @"heartbeat_loss";
-
 NSString * const TJPMetricsKeyHeartbeatRTT = @"heartbeat_rtt";
 NSString * const TJPMetricsKeyHeartbeatInterval = @"heartbeat_interval";
 NSString * const TJPMetricsKeyHeartbeatTimeoutInterval = @"heartbeat_timeout_interval";
@@ -34,6 +34,21 @@ NSString * const TJPMetricsKeyPayloadBytes = @"payload_bytes_total";
 NSString * const TJPMetricsKeyParserResets = @"parser_forced_resets";
 
 
+NSString * const TJPMetricsKeyMessageSend = @"message_send_total";
+NSString * const TJPMetricsKeyMessageAcked = @"message_acked_total";
+NSString * const TJPMetricsKeyMessageTimeout = @"message_timeout_total";
+
+// 消息类型统计指标
+NSString * const TJPMetricsKeyControlMessageSend = @"control_message_send";
+NSString * const TJPMetricsKeyNormalMessageSend = @"normal_message_send";
+NSString * const TJPMetricsKeyMessageRetried = @"message_retried_total";
+
+
+NSString * const TJPMetricsKeyErrorCount = @"error_count";
+NSString * const TJPMetricsKeySessionReconnects = @"session_reconnects";
+NSString * const TJPMetricsKeySessionDisconnects = @"session_disconnects";
+
+
 @interface TJPMetricsCollector () {
     os_unfair_lock _lock;
     NSUInteger _bytesSend;
@@ -41,20 +56,14 @@ NSString * const TJPMetricsKeyParserResets = @"parser_forced_resets";
 }
 
 
-/*
-    监控指标如下:
-    connection_attempts:连接尝试次数
-    connection_success:成功次数
- 
-    heartbeat_send:心跳发送
-    heartbeat_loss:心跳丢失
-    
- */
+//指标数量监控
 @property (nonatomic, strong) NSMutableDictionary<NSString *, NSNumber *> *counts;
 
 //时间数据存储
 @property (nonatomic, strong)  NSMutableDictionary<NSString *, NSMutableArray<NSNumber *> *> *timeSeries;
 
+//错误存储
+@property (nonatomic, strong) NSMutableArray<NSDictionary *> *errors;
 
 @end
 
@@ -73,14 +82,38 @@ NSString * const TJPMetricsKeyParserResets = @"parser_forced_resets";
     if (self = [super init]) {
         _lock = OS_UNFAIR_LOCK_INIT;
         
-        // 初始化普通计数器
+        // 初始化计数器
         _counts = [NSMutableDictionary dictionaryWithDictionary:@{
+            // 连接相关
             TJPMetricsKeyConnectionAttempts: @0,
             TJPMetricsKeyConnectionSuccess: @0,
+            
+            // 心跳相关
             TJPMetricsKeyHeartbeatSend: @0,
             TJPMetricsKeyHeartbeatLoss: @0,
+            
+            // 流量统计
             TJPMetricsKeyBytesSend: @0,
-            TJPMetricsKeyBytesReceived: @0
+            TJPMetricsKeyBytesReceived: @0,
+            
+            // 数据包解析
+            TJPMetricsKeyParsedPackets: @0,
+            TJPMetricsKeyParsedPacketsTime: @0,
+            TJPMetricsKeyParsedBufferSize: @0,
+            TJPMetricsKeyParseErrors: @0,
+            TJPMetricsKeyParsedErrorsTime: @0,
+            TJPMetricsKeyPayloadBytes: @0,
+            TJPMetricsKeyParserResets: @0,
+            
+            // 消息统计
+            TJPMetricsKeyMessageSend: @0,
+            TJPMetricsKeyMessageAcked: @0,
+            TJPMetricsKeyMessageTimeout: @0,
+            
+            // 错误和会话状态
+            TJPMetricsKeyErrorCount: @0,
+            TJPMetricsKeySessionReconnects: @0,
+            TJPMetricsKeySessionDisconnects: @0
         }];
         
         // 初始化时间序列
@@ -124,6 +157,10 @@ NSString * const TJPMetricsKeyParserResets = @"parser_forced_resets";
             value = self->_bytesReceived;
         }
         else {
+            // 如果键不存在，添加一个默认值0
+            if (!self.counts[key]) {
+                self.counts[key] = @0;
+            }
             value = [self.counts[key] unsignedIntegerValue];
         }
     }];
@@ -206,6 +243,39 @@ NSString * const TJPMetricsKeyParserResets = @"parser_forced_resets";
 }
 
 
+#pragma mark - 错误记录
+- (void)recordError:(NSError *)error forKey:(NSString *)key {
+    [self performLocked:^{
+        if (!self.errors) {
+            self.errors = [NSMutableArray array];
+        }
+        
+        [self.errors addObject:@{
+            @"time": [NSDate date],
+            @"key": key ?: @"unknown",
+            @"code": @(error.code),
+            @"message": error.localizedDescription ?: @"No description"
+        }];
+        
+        // 只保留最近的30条错误
+        if (self.errors.count > 30) {
+            [self.errors removeObjectsInRange:NSMakeRange(0, self.errors.count - 30)];
+        }
+        
+        // 增加错误计数
+        [self incrementCounter:TJPMetricsKeyErrorCount];
+    }];
+}
+
+- (NSArray<NSDictionary *> *)recentErrors {
+    __block NSArray *result;
+    [self performLocked:^{
+        result = [self.errors copy];
+    }];
+    return result;
+}
+
+
 
 #pragma mark - 线程安全操作
 - (void)performLocked:(void (^)(void))block {
@@ -213,6 +283,8 @@ NSString * const TJPMetricsKeyParserResets = @"parser_forced_resets";
     block();
     os_unfair_lock_unlock(&_lock);
 }
+
+
 
 
 @end
