@@ -131,6 +131,12 @@ static const NSTimeInterval kDefaultRetryInterval = 10;
     
     // 初始化心跳管理
     _heartbeatManager = [[TJPDynamicHeartbeat alloc] initWithBaseInterval:config.heartbeat seqManager:_seqManager session:self];
+    
+    // 自定义前台模式参数
+    [_heartbeatManager configureWithBaseInterval:30.0 minInterval:15.0 maxInterval:300.0 forMode:TJPHeartbeatModeForeground];
+                                      
+    // 自定义后台模式参数
+    [_heartbeatManager configureWithBaseInterval:90.0 minInterval:45.0 maxInterval:600.0 forMode:TJPHeartbeatModeBackground];
 }
 
 //制定转换规则
@@ -173,8 +179,9 @@ static const NSTimeInterval kDefaultRetryInterval = 10;
         
         // 根据新状态执行相应操作
         if ([newState isEqualToString:TJPConnectStateConnected]) {
-            // 更新心跳管理器的 session 引用 并启动心跳
+            // 更新心跳管理器的 session 引用 并启动心跳 updateSession中包含启动心跳方法
             [strongSelf.heartbeatManager updateSession:strongSelf];
+            TJPLOG_INFO(@"连接成功，心跳已启动，当前间隔 %.1f 秒", strongSelf.heartbeatManager.currentInterval);
             
             // 如果有积压消息 发送积压消息
             [strongSelf flushPendingMessages];

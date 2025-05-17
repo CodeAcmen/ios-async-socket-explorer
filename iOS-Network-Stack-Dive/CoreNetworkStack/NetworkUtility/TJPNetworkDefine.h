@@ -44,6 +44,8 @@
 #define kSessionDataReceiveNotification @"kSessionDataReceiveNotification"
 #define kNetworkStatusChangedNotification @"kNetworkStatusChangedNotification"
 #define kHeartbeatTimeoutNotification @"kHeartbeatTimeoutNotification"
+#define kHeartbeatModeChangedNotification @"kHeartbeatModeChangedNotification"
+
 
 
 #define TJPMAX_BODY_SIZE (10 * 1024 * 1024)  // 10MB 最大消息体大小
@@ -61,6 +63,38 @@
 #define TJPSEQUENCE_WARNING_THRESHOLD 0xFFFFF0  // 接近最大值的警告阈值
 #define TJPSEQUENCE_MAX_MASK 0xFFFFFF
 
+
+
+//***************************************
+// 心跳相关定义
+
+// 前台心跳参数（秒）
+static const NSTimeInterval kTJPHeartbeatForegroundBase = 30.0;  // 基础间隔
+static const NSTimeInterval kTJPHeartbeatForegroundMin = 15.0;   // 最小间隔
+static const NSTimeInterval kTJPHeartbeatForegroundMax = 300.0;  // 最大间隔
+
+// 后台心跳参数（秒）
+static const NSTimeInterval kTJPHeartbeatBackgroundBase = 90.0;  // 基础间隔
+static const NSTimeInterval kTJPHeartbeatBackgroundMin = 45.0;   // 最小间隔
+static const NSTimeInterval kTJPHeartbeatBackgroundMax = 600.0;  // 最大间隔
+
+// 低电量模式心跳参数（秒）
+static const NSTimeInterval kTJPHeartbeatLowPowerBase = 120.0;   // 基础间隔
+static const NSTimeInterval kTJPHeartbeatLowPowerMin = 60.0;     // 最小间隔
+static const NSTimeInterval kTJPHeartbeatLowPowerMax = 900.0;    // 最大间隔
+
+// 调整因子
+static const CGFloat kTJPHeartbeatNetworkPoorFactor = 2.5;       // 恶劣网络调整因子
+static const CGFloat kTJPHeartbeatNetworkFairFactor = 1.5;       // 一般网络调整因子
+static const CGFloat kTJPHeartbeatRTTRefValue = 200.0;           // RTT参考值(ms)
+static const CGFloat kTJPHeartbeatRandomFactorMin = 0.9;         // 随机因子最小值
+static const CGFloat kTJPHeartbeatRandomFactorMax = 1.1;         // 随机因子最大值
+
+// 重试相关
+static const NSUInteger kTJPHeartbeatMaxRetryCount = 3;          // 最大重试次数
+static const NSTimeInterval kTJPHeartbeatMinTimeout = 15.0;      // 最小超时时间(秒)
+
+//***************************************
 
 
 #endif /* TJPNetworkDefine_h */

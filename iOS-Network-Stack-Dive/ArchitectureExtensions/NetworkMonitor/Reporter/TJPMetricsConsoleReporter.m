@@ -179,7 +179,7 @@ static NSTimeInterval _reportInterval = 15.0;
     // 消息统计  详细级别以上
     if (_currentLevel >= TJPMetricsLevelStandard) {
         [report appendFormat:@"\n[消息统计]\n  发送消息: %lu 条\n  确认消息: %lu 条\n",
-         (unsigned long)[collector counterValue:TJPMetricsKeyMessageSent],
+         (unsigned long)[collector counterValue:TJPMetricsKeyMessageSend],
          (unsigned long)[collector counterValue:TJPMetricsKeyMessageAcked]];
     }
     
