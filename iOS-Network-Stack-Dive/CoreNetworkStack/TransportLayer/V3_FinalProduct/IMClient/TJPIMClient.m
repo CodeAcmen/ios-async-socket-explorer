@@ -9,10 +9,17 @@
 #import "TJPNetworkCoordinator.h"
 #import "TJPConcreteSession.h"
 #import "TJPNetworkConfig.h"
+#import "TJPNetworkDefine.h"
 
 
 @interface TJPIMClient ()
-@property (nonatomic, strong) TJPConcreteSession *session;
+
+// 单一会话移除
+//@property (nonatomic, strong) TJPConcreteSession *session;
+
+
+// 添加通道字典
+@property (nonatomic, strong) NSMutableDictionary<NSNumber *, id<TJPSessionProtocol>> *channels;
 
 
 @end
@@ -25,18 +32,71 @@
     return instance;
 }
 
+- (instancetype)init {
+    if (self = [super init]) {
+        _channels = [NSMutableDictionary dictionary];
+    }
+    return self;
+}
+
+//连接指定类型会话
+- (void)connectToHost:(NSString *)host port:(uint16_t)port forType:(TJPSessionType)type {
+    TJPNetworkConfig *confit = [TJPNetworkConfig configWithHost:host port:port maxRetry:5 heartbeat:15.0];
+    
+    // 获取会话
+    id<TJPSessionProtocol> session = [[TJPNetworkCoordinator shared] createSessionWithConfiguration:confit type:type];
+    
+    // 保存到通道字典
+    self.channels[@(type)] = session;
+    
+    [session connectToHost:host port:port];
+}
+
+// 兼容原有方法（使用默认会话类型）
 - (void)connectToHost:(NSString *)host port:(uint16_t)port {
-    TJPNetworkConfig *config = [TJPNetworkConfig configWithHost:host port:port maxRetry:5 heartbeat:15.0];
-    self.session = (TJPConcreteSession *)[[TJPNetworkCoordinator shared] createSessionWithConfiguration:config];
-    [self.session connectToHost:host port:port];
+    [self connectToHost:host port:port forType:TJPSessionTypeDefault];
 }
 
-- (void)sendMessage:(id<TJPMessageProtocol>)message {
+// 通过指定通道的session发送消息
+- (void)sendMessage:(id<TJPMessageProtocol>)message throughType:(TJPSessionType)type {
+    id<TJPSessionProtocol> session = self.channels[@(type)];
+    
+    if (!session) {
+        TJPLOG_INFO(@"未找到类型为 %lu 的会话通道", (unsigned long)type);
+        return;
+    }
+    
     NSData *tlvData = [message tlvData];
-    [self.session sendData:tlvData];
+    [session sendData:tlvData];
 }
 
-- (void)disconnect {
-    [self.session disconnectWithReason:TJPDisconnectReasonUserInitiated];
+
+// 兼容原有方法（使用默认会话类型）
+- (void)sendMessage:(id<TJPMessageProtocol>)message {
+    [self sendMessage:message throughType:TJPSessionTypeDefault];
 }
+
+- (void)disconnectSessionType:(TJPSessionType)type {
+    id<TJPSessionProtocol> session = self.channels[@(type)];
+    if (session) {
+        [session disconnectWithReason:TJPDisconnectReasonUserInitiated];
+        [self.channels removeObjectForKey:@(type)];
+    }
+
+}
+
+// 兼容原有方法（断开默认会话）
+- (void)disconnect {
+    [self disconnectSessionType:TJPSessionTypeDefault];
+}
+
+- (void)disconnectAll {
+    for (NSNumber *key in [self.channels allKeys]) {
+        id<TJPSessionProtocol> session = self.channels[key];
+        [session disconnectWithReason:TJPDisconnectReasonUserInitiated];
+    }
+    [self.channels removeAllObjects];
+}
+
+
 @end

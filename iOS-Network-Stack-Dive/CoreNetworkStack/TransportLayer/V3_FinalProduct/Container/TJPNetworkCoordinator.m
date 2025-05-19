@@ -46,7 +46,11 @@
     if (self = [super init]) {
         _networkChangeDebounceInterval = 2;
         _sessionMap = [NSMapTable strongToStrongObjectsMapTable];
+        _sessionTypeMap = [NSMutableDictionary dictionary];
+        
+        // 初始化队列
         [self setupQueues];
+        // 初始化网络监控
         [self setupNetworkMonitoring];
     }
     return self;
@@ -54,12 +58,12 @@
 
 #pragma mark - Private Method
 - (void)setupQueues {
-    //串行队列,只处理会话
+    // 串行队列,只处理会话
     _sessionQueue = dispatch_queue_create("com.networkCoordinator.tjp.sessionQueue", DISPATCH_QUEUE_SERIAL);
-    //专用数据解析队列 并发高优先级
+    // 专用数据解析队列 并发高优先级
     _parseQueue = dispatch_queue_create("com.networkCoordinator.tjp.parseQueue", DISPATCH_QUEUE_CONCURRENT);
     dispatch_set_target_queue(_parseQueue, dispatch_get_global_queue(QOS_CLASS_USER_INITIATED, 0));
-    //串行监控队列
+    // 串行监控队列
     _monitorQueue = dispatch_queue_create("com.networkCoordinator.tjp.monitorQueue", DISPATCH_QUEUE_SERIAL);
     dispatch_set_target_queue(_monitorQueue, dispatch_get_global_queue(QOS_CLASS_UTILITY, 0));
 }
@@ -313,13 +317,34 @@
 
 #pragma mark - Public Method
 - (id<TJPSessionProtocol>)createSessionWithConfiguration:(TJPNetworkConfig *)config {
+    return [self createSessionWithConfiguration:config type:TJPSessionTypeDefault];
+}
+
+- (id<TJPSessionProtocol>)createSessionWithConfiguration:(TJPNetworkConfig *)config type:(TJPSessionType)type {
     _currConfig = config;
     TJPConcreteSession *session = [[TJPConcreteSession alloc] initWithConfiguration:config];
+    session.sessionType = type;
     session.delegate = self;
+    
     dispatch_barrier_async(self->_sessionQueue, ^{
         [self.sessionMap setObject:session forKey:session.sessionId];
         
+        // 记录会话类型映射
+        self.sessionTypeMap[@(type)] = session.sessionId;
+        
         TJPLOG_INFO(@"Session created: %@, total: %lu", session.sessionId, (unsigned long)self.sessionMap.count);
+    });
+    return session;
+}
+
+// 根据类型获取会话
+- (id<TJPSessionProtocol>)sessionForType:(TJPSessionType)type {
+    __block id<TJPSessionProtocol> session = nil;
+    dispatch_sync(self->_sessionQueue, ^{
+        NSString *sessionId = self.sessionTypeMap[@(type)];
+        if (sessionId) {
+            session = [self.sessionMap objectForKey:sessionId];
+        }
     });
     return session;
 }
@@ -338,6 +363,8 @@
         }
     });
 }
+
+
 
 - (void)removeSession:(id<TJPSessionProtocol>)session {
     dispatch_barrier_async(self->_sessionQueue, ^{
