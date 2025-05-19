@@ -54,7 +54,7 @@
 #### v1.0.0 核心能力：**生产级网络通信架构** | **企业级 VIPER 架构** 
 #### v1.1.0 核心能力：**多维度指标监控、全链路追踪**
 #### v1.2.0 核心能力：TLV协议扩展性增强 
-#### v1.2.0 核心能力：根据当前App状态+网络状态，动态调整心跳频率
+#### v1.3.0 核心能力：根据当前App状态+网络状态，动态调整心跳频率
 
 
 ---
@@ -82,21 +82,23 @@
 ```Objc
 // 0. 在AppDelegate中添加
 [TJPMessageFactory load];
+
 // 1. 初始化客户端
 TJPIMClient *client = [TJPIMClient shared];
+//可以进行相关client设置 client最好为成员变量 防止提前释放问题
 
-// 2. 连接服务器（自动处理重连和心跳）
-[client connectToHost:@"im.example.com" port:8080];
+// 2. 建立不同类型的连接
+[client connectToHost:@"media.example.com" port:8080 forType:TJPSessionTypeChat];
+[client connectToHost:@"media.example.com" port:8081 forType:TJPSessionTypeMedia]
 
-// 3. 创建文本消息（自动处理TLV序列化）
-TJPTextMessage *textMsg = [TJPTextMessage messageWithText:@"Hello World"];
+// 3. 创建不同类型消息
+TJPTextMessage *textMsg = [[TJPTextMessage alloc] initWithText:@"Hello World!!!!!"];
+// 4.1 发送消息 - 手动指定会话
+[client sendMessage:textMsg throughType:TJPSessionTypeChat];
 
-// 4. 发送消息（自动路由到最佳会话）
-[client sendMessage:textMsg completion:^(NSError *error) {
-    if (!error) {
-        NSLog(@"消息已成功送达");
-    }
-}];
+// 4.2 发送消息 - 自动路由
+TJPMediaMessage *mediaMsg = [[TJPMediaMessage alloc] initWithMediaId:@"12345"];
+[client sendMessageWithAutoRoute:mediaMsg]; // 自动路由到媒体会话
 ```
 
 **Swift 接入示例**
@@ -104,21 +106,23 @@ TJPTextMessage *textMsg = [TJPTextMessage messageWithText:@"Hello World"];
 ```Swift
 // 0. 在AppDelegate中添加
 TJPMessageFactory.load
-// 1. 获取客户端实例
+
+// 1. 初始化客户端
 let client = TJPIMClient.shared
+// 可以进行相关client设置 client最好为成员变量 防止提前释放问题
 
-// 2. 连接服务器（自动处理网络切换）
-client.connect(host: "im.example.com", port: 8080)
+// 2. 建立不同类型的连接
+client.connect(toHost: "media.example.com", port: 8080, for: .chat)
+client.connect(toHost: "media.example.com", port: 8081, for: .media)
 
-// 3. 构造多媒体消息（自动压缩和格式转换）
-let imageMessage = TJPImageMessage(image: UIImage(named: "avatar")!, 
-                                  quality: .high)
+// 3. 创建不同类型消息
+let textMsg = TJPTextMessage(text: "Hello World!!!!!")
+// 4.1 发送消息 - 手动指定会话
+client.sendMessage(textMsg, through: .chat)
 
-// 4. 发送消息（自动重试和QoS保证）
-client.send(message: imageMessage) { error in
-    guard error == nil else { return }
-    print("图片消息已确认接收")
-}
+// 4.2 发送消息 - 自动路由
+let mediaMsg = TJPMediaMessage(mediaId: "12345")
+client.sendMessageWithAutoRoute(mediaMsg) // 自动路由到媒体会话
 ```
 ##### 企业级 VIPER 架构体系
 **中大型应用分层解耦设计解决方案**
