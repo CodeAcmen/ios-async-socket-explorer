@@ -68,16 +68,14 @@
     NSString *host = @"127.0.0.1";
     uint16_t port = 12345;
     
-//    TJPNetworkConfig *config = [TJPNetworkConfig configWithHost:host port:port maxRetry:5 heartbeat:15.0];
-//
-//    // 2. 创建会话（中心协调器自动管理）
-//    self.session = [[TJPNetworkCoordinator shared] createSessionWithConfiguration:config];
-//
-//    // 3. 连接服务器
-//    [self.session connectToHost:host port:port];
-    
+    // 2. 创建TJPIMClient
     self.client = [TJPIMClient shared];
-    [self.client connectToHost:host port:port];
+    //可以进行相关client设置
+    
+    // 3. 建立不同类型的连接
+    [self.client connectToHost:host port:port forType:TJPSessionTypeChat];
+//    [client connectToHost:@"media.example.com" port:8081 forType:TJPSessionTypeMedia];
+
 }
 
 - (void)setupLogTextView {
@@ -99,14 +97,16 @@
 
 // 发送消息按钮点击事件
 - (void)sendMessageButtonTapped {
-    // 4. 发送消息
-//    NSData *messageData = [@"Hello World" dataUsingEncoding:NSUTF8StringEncoding];
-//    [self.session sendData:messageData];
-//    NSLog(@"发送消息: %@", [[NSString alloc] initWithData:messageData encoding:NSUTF8StringEncoding]);
-    
+    // 4. 发送不同类型消息
     TJPTextMessage *textMsg = [[TJPTextMessage alloc] initWithText:@"Hello World!!!!!111112223333"];
     [self.client sendMessage:textMsg];
     NSLog(@"发送消息: %@", textMsg.text);
+    // 发送消息 - 手动指定会话
+    [self.client sendMessage:textMsg throughType:TJPSessionTypeChat];
+
+    // 发送消息 - 自动路由
+//    TJPMediaMessage *mediaMsg = [[TJPMediaMessage alloc] initWithMediaId:@"12345"];
+//    [self.client sendMessageWithAutoRoute:mediaMsg]; // 自动路由到媒体会话
 }
 
 

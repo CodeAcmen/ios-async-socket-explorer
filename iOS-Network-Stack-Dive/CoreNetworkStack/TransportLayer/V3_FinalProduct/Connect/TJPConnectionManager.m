@@ -176,7 +176,6 @@
 }
 
 #pragma mark - Private Methods
-
 - (void)handleError:(NSError *)error withReason:(TJPDisconnectReason)reason {
     self.disconnectReason = reason;
     [self setInternalState:TJPConnectionStateDisconnected];

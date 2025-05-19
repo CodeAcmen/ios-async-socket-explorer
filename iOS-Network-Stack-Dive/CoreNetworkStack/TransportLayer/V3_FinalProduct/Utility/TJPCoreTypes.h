@@ -8,6 +8,13 @@
 #ifndef TJPCoreTypes_h
 #define TJPCoreTypes_h
 
+typedef NS_ENUM(NSUInteger, TJPSessionType) {
+    TJPSessionTypeDefault = 0,       // 默认通用会话
+    TJPSessionTypeChat = 1,          // 聊天会话
+    TJPSessionTypeMedia = 2,         // 媒体传输会话
+    TJPSessionTypeSignaling = 3      // 信令会话
+};
+
 // 协议支持的特性定义
 typedef enum {
     // 基本消息能力 (必须支持)

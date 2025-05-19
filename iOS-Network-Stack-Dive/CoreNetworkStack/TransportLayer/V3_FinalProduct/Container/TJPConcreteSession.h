@@ -20,6 +20,8 @@ NS_ASSUME_NONNULL_BEGIN
 /// 独立的sessionId
 @property (nonatomic, copy) NSString *sessionId;
 
+@property (nonatomic, assign) TJPSessionType sessionType;
+
 /// 配置
 @property (nonatomic, strong) TJPNetworkConfig *config;
 

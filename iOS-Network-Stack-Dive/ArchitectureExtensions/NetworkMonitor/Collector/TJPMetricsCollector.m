@@ -140,6 +140,8 @@ NSString * const TJPMetricsKeySessionDisconnects = @"session_disconnects";
 }
 
 - (void)incrementCounter:(NSString *)key by:(NSUInteger)value {
+    if (!key) return;
+
     [self performLocked:^{
         // 特殊处理字节计数器
         if ([key isEqualToString:TJPMetricsKeyBytesSend]) {
@@ -268,10 +270,10 @@ NSString * const TJPMetricsKeySessionDisconnects = @"session_disconnects";
         if (self.errors.count > 30) {
             [self.errors removeObjectsInRange:NSMakeRange(0, self.errors.count - 30)];
         }
-        
-        // 增加错误计数
-        [self incrementCounter:TJPMetricsKeyErrorCount];
     }];
+    
+    // 增加错误计数
+    [self incrementCounter:TJPMetricsKeyErrorCount];
 }
 
 - (NSArray<NSDictionary *> *)recentErrors {
@@ -323,9 +325,14 @@ NSString * const TJPMetricsKeySessionDisconnects = @"session_disconnects";
 
 #pragma mark - 线程安全操作
 - (void)performLocked:(void (^)(void))block {
+    NSLog(@"准备获取锁 - 线程: %@", [NSThread currentThread]);
     os_unfair_lock_lock(&_lock);
+    NSLog(@"已获取锁 - 线程: %@", [NSThread currentThread]);
     block();
+    NSLog(@"准备释放锁 - 线程: %@", [NSThread currentThread]);
     os_unfair_lock_unlock(&_lock);
+    NSLog(@"已释放锁 - 线程: %@", [NSThread currentThread]);
+
 }
 
 

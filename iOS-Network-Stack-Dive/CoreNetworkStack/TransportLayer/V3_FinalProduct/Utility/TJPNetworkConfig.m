@@ -36,6 +36,7 @@
         _shouldReconnectAfterBackground = YES;
         _shouldReconnectAfterServerClose = NO;
         _useTLS = NO;
+        _connectTimeout = 15.0;
         
         
         // 默认指标设置

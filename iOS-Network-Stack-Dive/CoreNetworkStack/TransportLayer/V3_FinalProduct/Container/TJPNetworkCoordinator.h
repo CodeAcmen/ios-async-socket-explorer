@@ -19,9 +19,8 @@ NS_ASSUME_NONNULL_BEGIN
 
 @property (nonatomic, strong, readonly) NSMapTable<NSString *, id<TJPSessionProtocol>> *sessionMap;
 
-
+/// 网络状态
 @property (nonatomic, strong) Reachability *reachability;
-
 
 /// session专用队列 串行:增删改查操作
 @property (nonatomic, strong) dispatch_queue_t sessionQueue;
@@ -30,6 +29,9 @@ NS_ASSUME_NONNULL_BEGIN
 /// 监控专用队列  串行：网络监控相关
 @property (nonatomic, strong) dispatch_queue_t monitorQueue;
 
+/// 新增Session类型 为多路复用做支撑
+@property (nonatomic, strong) NSMutableDictionary<NSNumber *, NSString *> *sessionTypeMap;
+
 
 
 /// 单例
@@ -37,6 +39,12 @@ NS_ASSUME_NONNULL_BEGIN
 
 /// 创建会话方法
 - (id<TJPSessionProtocol>)createSessionWithConfiguration:(TJPNetworkConfig *)config;
+/// 通过类型创建会话方法 多路复用必须使用此方法
+- (id<TJPSessionProtocol>)createSessionWithConfiguration:(TJPNetworkConfig *)config type:(TJPSessionType)type;
+
+/// 新增默认session配置方法
+- (TJPNetworkConfig *)defaultConfigForSessionType:(TJPSessionType)type;
+
 /// 统一更新所有会话状态
 - (void)updateAllSessionsState:(TJPConnectState)state;
 /// 统一管理重连
