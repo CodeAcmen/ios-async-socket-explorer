@@ -8,6 +8,7 @@
 #import "TJPConnectionManager+TJPMetrics.h"
 #import <GCDAsyncSocket.h>
 #import <objc/runtime.h>
+#import "TJPMetricsKeys.h"
 
 #import "TJPMetricsCollector.h"
 

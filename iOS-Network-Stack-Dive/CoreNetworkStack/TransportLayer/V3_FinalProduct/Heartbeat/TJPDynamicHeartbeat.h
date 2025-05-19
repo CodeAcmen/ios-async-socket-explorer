@@ -53,6 +53,9 @@ NS_ASSUME_NONNULL_BEGIN
 @property (nonatomic, assign) UIBackgroundTaskIdentifier backgroundTaskIdentifier;
 
 
+
+/// 修改心跳模式
+- (void)changeToHeartbeatMode:(TJPHeartbeatMode)newMode;
 /**
  * 配置指定心跳模式的参数
  *

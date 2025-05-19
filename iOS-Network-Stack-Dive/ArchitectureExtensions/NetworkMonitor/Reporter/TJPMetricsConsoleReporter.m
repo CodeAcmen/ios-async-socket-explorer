@@ -11,6 +11,7 @@
 #import "TJPMetricsCollector.h"
 #import "TJPNetworkConfig.h"
 #import "TJPNetworkDefine.h"
+#import "TJPMetricsKeys.h"
 
 
 // 静态变量
@@ -168,6 +169,17 @@ static NSTimeInterval _reportInterval = 15.0;
          [collector packetLossRate] * 100,
          [collector averageRTT] * 1000];
         
+        
+        // 添加最近事件摘要
+        NSArray *modeChanges = [collector recentEventsForName:TJPHeartbeatEventModeChanged limit:1];
+        if (modeChanges.count > 0) {
+            NSDictionary *lastChange = modeChanges.firstObject;
+            NSNumber *oldMode = lastChange[TJPHeartbeatParamOldMode];
+            NSNumber *newMode = lastChange[TJPHeartbeatParamNewMode];
+            [report appendFormat:@"\n[最近模式变更]: %@ -> %@\n",
+             [self heartbeatModeString:[oldMode integerValue]],
+             [self heartbeatModeString:[newMode integerValue]]];
+        }
     }
     
     
@@ -237,6 +249,16 @@ static NSTimeInterval _reportInterval = 15.0;
             return @"调试";
         default:
             return @"未知";
+    }
+}
+
++ (NSString *)heartbeatModeString:(NSInteger)mode {
+    switch (mode) {
+        case 0: return @"前台";
+        case 1: return @"后台";
+        case 2: return @"暂停";
+        case 3: return @"省电";
+        default: return @"未知";
     }
 }
 

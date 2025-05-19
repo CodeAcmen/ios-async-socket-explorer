@@ -6,19 +6,20 @@
 //
 
 #import "TJPMetricsCollector.h"
+#import "TJPMetricsKeys.h"
 #import <os/lock.h>
 
-NSString * const TJPMetricsKeyConnectionAttempts = @"connection_attempts";
-NSString * const TJPMetricsKeyConnectionSuccess = @"connection_success";
+//NSString * const TJPMetricsKeyConnectionAttempts = @"connection_attempts";
+//NSString * const TJPMetricsKeyConnectionSuccess = @"connection_success";
 
-NSString * const TJPMetricsKeyHeartbeatSend = @"heartbeat_send";
-NSString * const TJPMetricsKeyHeartbeatLoss = @"heartbeat_loss";
-NSString * const TJPMetricsKeyHeartbeatRTT = @"heartbeat_rtt";
-NSString * const TJPMetricsKeyHeartbeatInterval = @"heartbeat_interval";
-NSString * const TJPMetricsKeyHeartbeatTimeoutInterval = @"heartbeat_timeout_interval";
+//NSString * const TJPMetricsKeyHeartbeatSend = @"heartbeat_send";
+//NSString * const TJPMetricsKeyHeartbeatLoss = @"heartbeat_loss";
+//NSString * const TJPMetricsKeyHeartbeatRTT = @"heartbeat_rtt";
+//NSString * const TJPMetricsKeyHeartbeatInterval = @"heartbeat_interval";
+//NSString * const TJPMetricsKeyHeartbeatTimeoutInterval = @"heartbeat_timeout_interval";
 
 
-NSString * const TJPMetricsKeyRTT = @"rtt";
+//NSString * const TJPMetricsKeyRTT = @"rtt";
 
 NSString * const TJPMetricsKeyBytesSend = @"bytes_send";
 NSString * const TJPMetricsKeyBytesReceived = @"bytes_received";
@@ -64,6 +65,10 @@ NSString * const TJPMetricsKeySessionDisconnects = @"session_disconnects";
 
 //错误存储
 @property (nonatomic, strong) NSMutableArray<NSDictionary *> *errors;
+
+//事件
+@property (nonatomic, strong) NSMutableDictionary<NSString *, NSMutableArray<NSDictionary *> *> *events;
+
 
 @end
 
@@ -122,6 +127,8 @@ NSString * const TJPMetricsKeySessionDisconnects = @"session_disconnects";
         // 初始化字节计数器
         _bytesSend = 0;
         _bytesReceived = 0;
+        
+        _events = [NSMutableDictionary dictionary];
     }
     return self;
 }
@@ -271,6 +278,43 @@ NSString * const TJPMetricsKeySessionDisconnects = @"session_disconnects";
     __block NSArray *result;
     [self performLocked:^{
         result = [self.errors copy];
+    }];
+    return result;
+}
+
+- (void)recordEvent:(NSString *)eventName withParameters:(NSDictionary *)params {
+    [self performLocked:^{
+        // 确保事件数组存在
+        NSMutableArray *eventArray = self.events[eventName];
+        if (!eventArray) {
+            eventArray = [NSMutableArray array];
+            self.events[eventName] = eventArray;
+        }
+        
+        // 创建事件记录
+        NSMutableDictionary *eventRecord = [NSMutableDictionary dictionaryWithDictionary:params ?: @{}];
+        eventRecord[@"timestamp"] = [NSDate date];
+        
+        // 添加事件
+        [eventArray addObject:eventRecord];
+        
+        // 限制每种事件最多存储100条记录
+        if (eventArray.count > 100) {
+            [eventArray removeObjectsInRange:NSMakeRange(0, eventArray.count - 100)];
+        }
+    }];
+}
+
+- (NSArray<NSDictionary *> *)recentEventsForName:(NSString *)eventName limit:(NSUInteger)limit {
+    __block NSArray *result;
+    [self performLocked:^{
+        NSArray *events = self.events[eventName] ?: @[];
+        NSUInteger count = MIN(limit, events.count);
+        if (count == 0) {
+            result = @[];
+            return;
+        }
+        result = [events subarrayWithRange:NSMakeRange(events.count - count, count)];
     }];
     return result;
 }

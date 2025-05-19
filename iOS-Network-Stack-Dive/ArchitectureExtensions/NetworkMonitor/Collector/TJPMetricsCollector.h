@@ -9,19 +9,21 @@
 #import "TJPCoreTypes.h"
 
 NS_ASSUME_NONNULL_BEGIN
+// 以下定义渐进式迁移至 TJPMetricsKeys中统一管理
+
 // 连接相关指标
-extern NSString * const TJPMetricsKeyConnectionAttempts;
-extern NSString * const TJPMetricsKeyConnectionSuccess;
+//extern NSString * const TJPMetricsKeyConnectionAttempts;
+//extern NSString * const TJPMetricsKeyConnectionSuccess;
 
 // 心跳相关指标
-extern NSString * const TJPMetricsKeyHeartbeatSend; //心跳消息发送书
-extern NSString * const TJPMetricsKeyHeartbeatLoss;
-extern NSString * const TJPMetricsKeyHeartbeatRTT;
-extern NSString * const TJPMetricsKeyHeartbeatInterval;
-extern NSString * const TJPMetricsKeyHeartbeatTimeoutInterval;
+//extern NSString * const TJPMetricsKeyHeartbeatSend;
+//extern NSString * const TJPMetricsKeyHeartbeatLoss;
+//extern NSString * const TJPMetricsKeyHeartbeatRTT;
+//extern NSString * const TJPMetricsKeyHeartbeatInterval;
+//extern NSString * const TJPMetricsKeyHeartbeatTimeoutInterval;
 
 // 网络性能指标
-extern NSString * const TJPMetricsKeyRTT;
+//extern NSString * const TJPMetricsKeyRTT;
 
 
 // 流量统计指标
@@ -98,6 +100,11 @@ extern NSString * const TJPMetricsKeySessionDisconnects;  // 会话断开次数
 - (void)recordError:(NSError *)error forKey:(NSString *)key;
 /// 重连错误
 - (NSArray<NSDictionary *> *)recentErrors;
+
+/// 记录事件
+- (void)recordEvent:(NSString *)eventName withParameters:(NSDictionary *)params;
+- (NSArray<NSDictionary *> *)recentEventsForName:(NSString *)eventName limit:(NSUInteger)limit;
+
 
 
 @end
