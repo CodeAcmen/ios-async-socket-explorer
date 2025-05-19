@@ -74,7 +74,7 @@
     
     // 3. 建立不同类型的连接
     [self.client connectToHost:host port:port forType:TJPSessionTypeChat];
-//    [client connectToHost:@"media.example.com" port:8081 forType:TJPSessionTypeMedia];
+//    [self.client connectToHost:@"media.example.com" port:8081 forType:TJPSessionTypeMedia];
 
 }
 
@@ -99,7 +99,6 @@
 - (void)sendMessageButtonTapped {
     // 4. 发送不同类型消息
     TJPTextMessage *textMsg = [[TJPTextMessage alloc] initWithText:@"Hello World!!!!!111112223333"];
-    [self.client sendMessage:textMsg];
     NSLog(@"发送消息: %@", textMsg.text);
     // 发送消息 - 手动指定会话
     [self.client sendMessage:textMsg throughType:TJPSessionTypeChat];
