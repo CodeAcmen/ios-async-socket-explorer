@@ -390,6 +390,45 @@
     });
 }
 
+- (TJPNetworkConfig *)defaultConfigForSessionType:(TJPSessionType)type {
+    TJPNetworkConfig *config = [TJPNetworkConfig new];
+    
+    switch (type) {
+        case TJPSessionTypeChat:
+            // 聊天会话配置 - 重视低延迟
+            config.maxRetry = 5;
+            config.heartbeat = 15.0;
+            config.connectTimeout = 10.0;
+            break;
+            
+        case TJPSessionTypeMedia:
+            // 媒体会话配置 - 重视吞吐量
+            config.maxRetry = 3;
+            config.heartbeat = 30.0;
+            config.connectTimeout = 20.0;
+            // 媒体会话可能需要更大的缓冲区
+//            config.readBufferSize = 65536;
+            break;
+            
+        case TJPSessionTypeSignaling:
+            // 信令会话配置 - 极致低延迟
+            config.maxRetry = 8;
+            config.heartbeat = 5.0;
+            config.connectTimeout = 5.0;
+            break;
+            
+        default:
+            // 默认配置
+            config.maxRetry = 5;
+            config.heartbeat = 15.0;
+            config.connectTimeout = 15.0;
+            break;
+    }
+    
+    return config;
+}
+
+
 
 
 #pragma mark - TJPSessionDelegate

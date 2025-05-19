@@ -27,6 +27,9 @@ NS_ASSUME_NONNULL_BEGIN
 /// 基础延迟默认 2秒
 @property (nonatomic, assign) NSTimeInterval baseDelay;
 
+/// 连接超时  默认15秒
+@property (nonatomic, assign) NSTimeInterval connectTimeout;
+
 /// 是否在服务器关闭连接后重连
 @property (nonatomic, assign) BOOL shouldReconnectAfterServerClose;
 

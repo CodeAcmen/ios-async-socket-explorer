@@ -42,6 +42,9 @@ NS_ASSUME_NONNULL_BEGIN
 /// 通过类型创建会话方法 多路复用必须使用此方法
 - (id<TJPSessionProtocol>)createSessionWithConfiguration:(TJPNetworkConfig *)config type:(TJPSessionType)type;
 
+/// 新增默认session配置方法
+- (TJPNetworkConfig *)defaultConfigForSessionType:(TJPSessionType)type;
+
 /// 统一更新所有会话状态
 - (void)updateAllSessionsState:(TJPConnectState)state;
 /// 统一管理重连
