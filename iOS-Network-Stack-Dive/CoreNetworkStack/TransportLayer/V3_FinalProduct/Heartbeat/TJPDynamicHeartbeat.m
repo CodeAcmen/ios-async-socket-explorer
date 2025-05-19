@@ -27,13 +27,16 @@
 @implementation TJPDynamicHeartbeat {
     dispatch_source_t _heartbeatTimer;
     __weak id<TJPSessionProtocol> _session;
-
 }
 
+#pragma mark - Initialization
 - (instancetype)initWithBaseInterval:(NSTimeInterval)baseInterval seqManager:(nonnull TJPSequenceManager *)seqManager session:(id<TJPSessionProtocol>)session {
     if (self = [super init]) {
+        // 初始化网络指标收集器
         _networkCondition = [[TJPNetworkCondition alloc] init];
+        // 序列号管理器
         _sequenceManager = seqManager;
+        
         _baseInterval = baseInterval;
         
         _session = session;
@@ -44,14 +47,87 @@
         // 专用串行队列，低优先级
         _heartbeatQueue = dispatch_queue_create("com.tjp.dynamicHeartbeat.serialQueue", DISPATCH_QUEUE_SERIAL);
         dispatch_set_target_queue(_heartbeatQueue, dispatch_get_global_queue(QOS_CLASS_UTILITY, 0));
-       
         
+        // 最大重试次数
         _maxRetryCount = 3;
+        
+        // 初始化心跳模式配置
+        [self initializeHeartbeatConfiguration];
+        
+        // 注册应用生命周期通知
+        [self registerForAppLifecycleNotifications];
+
+        // 初始为前台模式
+        _heartbeatMode = TJPHeartbeatModeForeground;
+        // 当前app状态为活跃
+        _currentAppState = TJPAppStateActive;
+        // 默认平衡策略
+        _heartbeatStrategy = TJPHeartbeatStrategyBalanced;
+        // 后台任务标志符
+        _backgroundTaskIdentifier = UIBackgroundTaskInvalid;
+        
+        TJPLOG_INFO(@"心跳管理器已初始化，等待连接成功后自动启动");
     }
     return self;
 }
 
+- (void)dealloc {
+    [[NSNotificationCenter defaultCenter] removeObserver:self];
+    [self endBackgroundTask];
+}
 
+
+#pragma mark - Configuration
+- (void)initializeHeartbeatConfiguration {
+    // 初始化各模式下的基础间隔（秒）
+    _modeBaseIntervals = [NSMutableDictionary dictionary];
+    [_modeBaseIntervals setObject:@(_baseInterval) forKey:@(TJPHeartbeatModeForeground)];
+    [_modeBaseIntervals setObject:@(_baseInterval * 2.5) forKey:@(TJPHeartbeatModeBackground)];
+    [_modeBaseIntervals setObject:@(_baseInterval * 4.0) forKey:@(TJPHeartbeatModeLowPower)];
+    
+    // 初始化各模式下的最小间隔（秒）
+    _modeMinIntervals = [NSMutableDictionary dictionary];
+    [_modeMinIntervals setObject:@(15.0) forKey:@(TJPHeartbeatModeForeground)];
+    [_modeMinIntervals setObject:@(30.0) forKey:@(TJPHeartbeatModeBackground)];
+    [_modeMinIntervals setObject:@(45.0) forKey:@(TJPHeartbeatModeLowPower)];
+    
+    // 初始化各模式下的最大间隔（秒）
+    _modeMaxIntervals = [NSMutableDictionary dictionary];
+    [_modeMaxIntervals setObject:@(300.0) forKey:@(TJPHeartbeatModeForeground)];   // 前台最大5分钟
+    [_modeMaxIntervals setObject:@(600.0) forKey:@(TJPHeartbeatModeBackground)];   // 后台最大10分钟
+    [_modeMaxIntervals setObject:@(900.0) forKey:@(TJPHeartbeatModeLowPower)];     // 低电量最大15分钟
+}
+
+- (void)registerForAppLifecycleNotifications {
+    NSNotificationCenter *center = [NSNotificationCenter defaultCenter];
+    
+    // 应用进入前台
+    [center addObserver:self selector:@selector(handleAppWillEnterForeground:) name:UIApplicationWillEnterForegroundNotification object:nil];
+    
+    // 应用变为活跃
+    [center addObserver:self selector:@selector(handleAppDidBecomeActive:) name:UIApplicationDidBecomeActiveNotification object:nil];
+    
+    // 应用将变为非活跃
+    [center addObserver:self selector:@selector(handleAppWillResignActive:) name:UIApplicationWillResignActiveNotification object:nil];
+    
+    // 应用进入后台
+    [center addObserver:self selector:@selector(handleAppDidEnterBackground:) name:UIApplicationDidEnterBackgroundNotification object:nil];
+    
+    // 应用将被终止
+    [center addObserver:self selector:@selector(handleAppWillTerminate:) name:UIApplicationWillTerminateNotification object:nil];
+    
+    // 低电量模式变化通知
+    if (@available(iOS 9.0, *)) {
+        [center addObserver:self selector:@selector(handleLowPowerModeChanged:) name:NSProcessInfoPowerStateDidChangeNotification object:nil];
+    }
+    
+    // 内存警告通知
+    [center addObserver:self selector:@selector(handleMemoryWarning:) name:UIApplicationDidReceiveMemoryWarningNotification object:nil];
+}
+
+
+
+#pragma mark - Public Method
 - (void)startMonitoring {
     dispatch_async(self.heartbeatQueue, ^{
         // 如果定时器已存在，先停止当前的监控
@@ -63,7 +139,7 @@
         //重置状态
         self.currentInterval = self.baseInterval;
         
-        // 清空 pendingHeartbeats 字典
+        //清空 pendingHeartbeats 字典
         [self.pendingHeartbeats removeAllObjects];
         
         TJPLOG_INFO(@"heartbeat 准备开始发送心跳");
@@ -88,6 +164,7 @@
         //启动定时器
         dispatch_resume(self->_heartbeatTimer);
         
+        TJPLOG_INFO(@"心跳监控已启动，基础间隔: %.1f秒", self.baseInterval);
     });
 }
 
@@ -121,6 +198,7 @@
                                 dispatch_time(DISPATCH_TIME_NOW, interval),
                                 interval,
                                 1 * NSEC_PER_SEC);
+        TJPLOG_INFO(@"心跳定时器间隔已更新为 %.1f 秒", _currentInterval);
     }
 }
 
@@ -148,27 +226,6 @@
         // 根据网络状态设置新间隔
         [self _updateTimerInterval];
     });
-}
-
-- (void)_calculateQualityLevel:(TJPNetworkCondition *)condition {
-    if (condition.qualityLevel == TJPNetworkQualityPoor) {
-        //恶劣网络大幅降低
-        _currentInterval = _baseInterval * 2.5;
-    }else if (condition.qualityLevel == TJPNetworkQualityFair || condition.qualityLevel == TJPNetworkQualityUnknown) {
-        //未知网络&&网络不佳时降低频率
-        _currentInterval = _baseInterval * 1.5;
-    }else {
-        //基于滑动窗口动态调整
-        CGFloat rttFactor = condition.roundTripTime / 200.0;
-        _currentInterval = _baseInterval * MAX(rttFactor, 1.0);
-    }
-    
-    //增加随机扰动 抗抖动设计  单元测试时需要注释
-    CGFloat randomFactor = 0.9 + (arc4random_uniform(200) / 1000.0); //0.9 - 1.1
-    _currentInterval *= randomFactor;
-    
-    //再设置硬性限制 防止出现夸张边界问题  15-300s
-    _currentInterval = MIN(MAX(_currentInterval, 15), 300);
 }
 
 - (void)sendHeartbeat {
@@ -314,6 +371,207 @@
     });
 }
 
+- (BOOL)isHeartbeatSequence:(uint32_t)sequence {
+    // 判断序列号是否属于心跳类别
+    return [self.sequenceManager isSequenceForCategory:sequence category:TJPMessageCategoryHeartbeat];
+}
+
+
+
+- (void)configureWithBaseInterval:(NSTimeInterval)baseInterval  minInterval:(NSTimeInterval)minInterval maxInterval:(NSTimeInterval)maxInterval forMode:(TJPHeartbeatMode)mode {
+    dispatch_async(self.heartbeatQueue, ^{
+        self.modeBaseIntervals[@(mode)] = @(baseInterval);
+        self.modeMinIntervals[@(mode)] = @(minInterval);
+        self.modeMaxIntervals[@(mode)] = @(maxInterval);
+        
+        TJPLOG_INFO(@"已配置模式 %lu：base=%.1fs, min=%.1fs, max=%.1fs", (unsigned long)mode, baseInterval, minInterval, maxInterval);
+        
+        // 如果是当前模式，立即应用新配置
+        if (self.heartbeatMode == mode) {
+            self.baseInterval = baseInterval;
+            [self adjustIntervalWithNetworkCondition:self.networkCondition];
+        }
+    });
+}
+
+
+- (void)setHeartbeatMode:(TJPHeartbeatMode)mode force:(BOOL)force {
+    dispatch_async(self.heartbeatQueue, ^{
+        if (force || [self canSwitchToMode:mode]) {
+            [self changeToHeartbeatMode:mode];
+        } else {
+            TJPLOG_WARN(@"当前应用状态不适合切换至模式: %lu", (unsigned long)mode);
+        }
+    });
+}
+
+#pragma mark - Notification Method
+- (void)handleAppWillEnterForeground:(NSNotification *)notifacation {
+    dispatch_async(self.heartbeatQueue, ^{
+        TJPLOG_INFO(@"应用即将进入前台，准备心跳模式转换");
+        
+        self.currentAppState = TJPAppStateActive;
+        self.isTransitioning = YES;
+        self.lastModeChangeTime = [[NSDate date] timeIntervalSince1970];
+        
+        // 立即发送一次心跳确认当前状态
+        [self sendHeartbeat];
+        
+        TJPLOG_INFO(@"已发送立即心跳以检测连接状态");
+    });
+}
+
+- (void)handleAppDidBecomeActive:(NSNotification *)notification {
+    dispatch_async(self.heartbeatQueue, ^{
+        TJPLOG_INFO(@"应用已变为活跃状态，切换到前台心跳模式");
+        // 改变心跳模式
+        [self changeToHeartbeatMode:TJPHeartbeatModeForeground];
+        
+        // 结束后台任务
+        [self endBackgroundTask];
+
+        // 延迟解除过渡状态
+        dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(1.0 * NSEC_PER_SEC)), self.heartbeatQueue, ^{
+            self.isTransitioning = NO;
+        });
+        
+        TJPLOG_INFO(@"已切换到前台心跳模式，当前间隔为 %.1f 秒", self.currentInterval);
+    });
+}
+
+- (void)handleAppWillResignActive:(NSNotification *)notification {
+    dispatch_async(self.heartbeatQueue, ^{
+        TJPLOG_INFO(@"应用即将变为非活跃状态");
+        // 此阶段通常无需调整心跳，等待可能的后台状态
+        self.currentAppState = TJPAppStateInactive;
+    });
+}
+
+- (void)handleAppDidEnterBackground:(NSNotification *)notification {
+    dispatch_async(self.heartbeatQueue, ^{
+        TJPLOG_INFO(@"应用已进入后台状态，切换到后台心跳模式");
+        
+        self.currentAppState = TJPAppStateBackground;
+        self.backgroundTransitionCounter++;
+        self.lastModeChangeTime = [[NSDate date] timeIntervalSince1970];
+        
+        // 开始后台任务以确保有足够时间完成心跳调整
+        [self beginBackgroundTask];
+        
+        // 切换到后台模式
+        [self changeToHeartbeatMode:TJPHeartbeatModeBackground];
+        
+        // 此时心跳间隔已经调整为后台模式的间隔，约为90秒左右
+        TJPLOG_INFO(@"已切换到后台心跳模式，当前间隔为 %.1f 秒", self.currentInterval);
+    });
+}
+
+- (void)handleAppWillTerminate:(NSNotification *)notification {
+    dispatch_async(self.heartbeatQueue, ^{
+        TJPLOG_INFO(@"应用即将终止");
+        
+        self.currentAppState = TJPAppStateTerminated;
+        
+        // 应用将被杀死，停止心跳
+        [self stopMonitoring];
+        
+        // 结束后台任务
+        [self endBackgroundTask];
+    });
+}
+
+- (void)handleLowPowerModeChanged:(NSNotification *)notification {
+    if (@available(iOS 9.0, *)) {
+        dispatch_async(self.heartbeatQueue, ^{
+            BOOL isLowPowerModeEnabled = [NSProcessInfo processInfo].lowPowerModeEnabled;
+            
+            if (isLowPowerModeEnabled) {
+                TJPLOG_INFO(@"设备进入低电量模式，调整心跳策略");
+                [self changeToHeartbeatMode:TJPHeartbeatModeLowPower];
+            } else {
+                TJPLOG_INFO(@"设备退出低电量模式，恢复正常心跳策略");
+                
+                // 根据应用当前状态决定心跳模式
+                TJPHeartbeatMode newMode = (self.currentAppState == TJPAppStateBackground) ? TJPHeartbeatModeBackground : TJPHeartbeatModeForeground;
+                
+                [self changeToHeartbeatMode:newMode];
+            }
+        });
+    }
+}
+
+- (void)handleMemoryWarning:(NSNotification *)notification {
+    dispatch_async(self.heartbeatQueue, ^{
+        TJPLOG_WARN(@"收到内存警告，临时调整心跳策略");
+        
+        // 暂时提高心跳间隔以减少资源消耗
+        self.currentInterval = MIN(self.currentInterval * 1.5, [self.modeMaxIntervals[@(self.heartbeatMode)] doubleValue]);
+        
+        if (self->_heartbeatTimer) {
+            [self _updateTimerInterval];
+        }
+        
+        // 30秒后恢复正常策略
+        dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(30 * NSEC_PER_SEC)), self.heartbeatQueue, ^{
+            // 重新计算心跳间隔
+            [self adjustIntervalWithNetworkCondition:self.networkCondition];
+        });
+    });
+}
+
+
+
+#pragma mark - Private Method
+- (void)_calculateQualityLevel:(TJPNetworkCondition *)condition {
+    if (condition.qualityLevel == TJPNetworkQualityPoor) {
+        //恶劣网络大幅降低
+        _currentInterval = _baseInterval * 2.5;
+    }else if (condition.qualityLevel == TJPNetworkQualityFair || condition.qualityLevel == TJPNetworkQualityUnknown) {
+        //未知网络&&网络不佳时降低频率
+        _currentInterval = _baseInterval * 1.5;
+    }else {
+        //基于滑动窗口动态调整
+        CGFloat rttFactor = condition.roundTripTime / 200.0;
+        _currentInterval = _baseInterval * MAX(rttFactor, 1.0);
+    }
+    
+    //基于心跳模式应用策略调整
+    switch (self.heartbeatStrategy) {
+        case TJPHeartbeatStrategyAggressive:
+            // 激进策略，更频繁的心跳
+            _currentInterval *= 0.8;
+            break;
+        case TJPHeartbeatStrategyConservative:
+            // 保守策略，更节省的心跳
+            _currentInterval *= 1.2;
+            break;
+        case TJPHeartbeatStrategyBalanced:
+        default:
+            // 平衡策略，不做额外调整
+            break;
+    }
+    
+    //处于过渡状态时 适当减小间隔
+    if (self.isTransitioning) {
+        _currentInterval = MIN(_currentInterval, [self.modeMinIntervals[@(self.heartbeatMode)] doubleValue] * 1.5);
+    }
+    
+    //增加随机扰动 抗抖动设计  单元测试时需要注释
+    CGFloat randomFactor = 0.9 + (arc4random_uniform(200) / 1000.0); //0.9 - 1.1
+    _currentInterval *= randomFactor;
+    
+    // 应用模式特定的限制
+    NSNumber *minIntervalObj = self.modeMinIntervals[@(self.heartbeatMode)];
+    NSNumber *maxIntervalObj = self.modeMaxIntervals[@(self.heartbeatMode)];
+    
+    NSTimeInterval minInterval = minIntervalObj ? [minIntervalObj doubleValue] : 15.0;
+    NSTimeInterval maxInterval = maxIntervalObj ? [maxIntervalObj doubleValue] : 300.0;
+        
+    
+    //再设置硬性限制 防止出现夸张边界问题  15-300s
+    _currentInterval = MIN(MAX(_currentInterval, minInterval), maxInterval);
+}
+
 - (void)_removeHeartbeatsForSequence:(uint32_t)sequence {
     dispatch_barrier_async(self.heartbeatQueue, ^{
         if (!sequence) return;
@@ -344,10 +602,170 @@
 }
 
 
-- (BOOL)isHeartbeatSequence:(uint32_t)sequence {
-    // 判断序列号是否属于心跳类别
-    return [self.sequenceManager isSequenceForCategory:sequence category:TJPMessageCategoryHeartbeat];
+- (void)changeToHeartbeatMode:(TJPHeartbeatMode)newMode {
+    dispatch_async(self.heartbeatQueue, ^{
+        if (newMode == self.heartbeatMode) {
+            return;
+        }
+        
+        TJPLOG_INFO(@"心跳模式切换: %lu -> %lu", (unsigned long)self.heartbeatMode, (unsigned long)newMode);
+
+        // 分别记录旧模式和新模式
+        TJPHeartbeatMode oldMode = self.heartbeatMode;
+        self.heartbeatMode = newMode;
+        
+        // 记录模式变更事件
+        self.lastModeChangeTime = [[NSDate date] timeIntervalSince1970];
+        
+        // 如果新模式为暂停,需要停止定时器
+        if (newMode == TJPHeartbeatModeSuspended) {
+            if (self->_heartbeatTimer) {
+                dispatch_source_cancel(self->_heartbeatTimer);
+                self->_heartbeatTimer = nil;
+                
+                TJPLOG_INFO(@"心跳已暂停");
+            }
+            return;
+        }
+        
+        //读取配置中新模式的基础心跳频率
+        NSNumber *intervalObj = self.modeBaseIntervals[@(newMode)];
+        if (!intervalObj) {
+            TJPLOG_ERROR(@"未找到模式 %lu 的基础间隔配置，使用默认值", (unsigned long)newMode);
+            intervalObj = @(self.baseInterval);
+        }
+        
+        //更新基础间隔
+        self.baseInterval = [intervalObj doubleValue];
+        TJPLOG_INFO(@"心跳基础间隔更新: %.1f -> %.1f 秒", self.baseInterval, [intervalObj doubleValue]);
+        
+        // 发送模式变更通知
+        [[NSNotificationCenter defaultCenter] postNotificationName:kHeartbeatModeChangedNotification object:self userInfo:@{
+            @"oldMode": @(oldMode),
+            @"newMode": @(newMode)
+        }];
+        
+        
+        // 记录埋点事件
+//        [[TJPMetricsCollector sharedInstance] addEvent:TJPMetricsEventHeartbeatModeChanged
+//                                           parameters:@{@"oldMode": @(oldMode), @"newMode": @(newMode)}];
+
+        //更新当前模式下心跳频率
+        [self adjustIntervalWithNetworkCondition:self.networkCondition];
+        
+        // 如果心跳定时器未启动但需要启动，则启动
+        if (!self->_heartbeatTimer && newMode != TJPHeartbeatModeSuspended) {
+            TJPLOG_INFO(@"启动心跳定时器");
+            [self startMonitoring];
+        }
+    });
 }
+
+- (void)setHeartbeatStrategy:(TJPHeartbeatStrategy)heartbeatStrategy {
+    dispatch_async(self.heartbeatQueue, ^{
+        if (self.heartbeatStrategy == heartbeatStrategy) {
+            return;
+        }
+        
+        TJPLOG_INFO(@"心跳策略变更: %lu -> %lu", (unsigned long)self.heartbeatStrategy, (unsigned long)heartbeatStrategy);
+        
+        self.heartbeatStrategy = heartbeatStrategy;
+        
+        // 立即应用新策略
+        [self adjustIntervalWithNetworkCondition:self.networkCondition];
+
+    });
+}
+
+
+
+- (BOOL)canSwitchToMode:(TJPHeartbeatMode)mode {
+    switch (mode) {
+        case TJPHeartbeatModeForeground:
+            return self.currentAppState == TJPAppStateActive;
+            
+        case TJPHeartbeatModeBackground:
+            return self.currentAppState == TJPAppStateBackground || self.currentAppState == TJPAppStateInactive;
+            
+        case TJPHeartbeatModeLowPower:
+            if (@available(iOS 9.0, *)) {
+                return [NSProcessInfo processInfo].lowPowerModeEnabled;
+            }
+            return NO;
+            
+        case TJPHeartbeatModeSuspended:
+            // 暂停模式随时可切换
+            return YES;
+            
+        default:
+            return NO;
+    }
+}
+
+- (NSDictionary *)getHeartbeatStatus {
+    __block NSDictionary *status;
+    
+    dispatch_sync(self.heartbeatQueue, ^{
+        status = @{
+            @"currentMode": @(self.heartbeatMode),
+            @"currentStrategy": @(self.heartbeatStrategy),
+            @"appState": @(self.currentAppState),
+            @"baseInterval": @(self.baseInterval),
+            @"currentInterval": @(self.currentInterval),
+            @"pendingHeartbeats": @(self.pendingHeartbeats.count),
+            @"networkQuality": @(self.networkCondition.qualityLevel),
+            @"roundTripTime": @(self.networkCondition.roundTripTime),
+            @"packetLossRate": @(self.networkCondition.packetLossRate),
+            @"lastModeChangeTime": @(self.lastModeChangeTime),
+            @"isTransitioning": @(self.isTransitioning),
+            @"backgroundTransitions": @(self.backgroundTransitionCounter)
+        };
+    });
+    
+    return status;
+}
+
+#pragma mark - Background Task
+- (void)beginBackgroundTask {
+    if (self.backgroundTaskIdentifier != UIBackgroundTaskInvalid) {
+        //当前应用进入后台任务模式
+        [[UIApplication sharedApplication] endBackgroundTask:self.backgroundTaskIdentifier];
+    }
+    
+    self.backgroundTaskIdentifier = [[UIApplication sharedApplication] beginBackgroundTaskWithExpirationHandler:^{
+        dispatch_async(self.heartbeatQueue, ^{
+            TJPLOG_WARN(@"后台执行时间即将耗尽，调整心跳策略");
+            
+            // 记录埋点事件
+//            [[TJPMetricsCollector sharedInstance] addEvent:@"heartbeat_background_expiring" parameters:nil];
+
+            // 获取当前模式的最大间隔
+            NSNumber *maxIntervalObj = self.modeMaxIntervals[@(self.heartbeatMode)];
+            NSTimeInterval maxInterval = maxIntervalObj ? [maxIntervalObj doubleValue] : 600.0;
+
+            
+            // 设置为最大间隔以最大程度节约资源
+            self.currentInterval = maxInterval;
+            if (self->_heartbeatTimer) {
+                [self _updateTimerInterval];
+            }
+            
+            // 结束后台任务
+            [self endBackgroundTask];
+            
+        });
+    }];
+}
+
+- (void)endBackgroundTask {
+    if (self.backgroundTaskIdentifier != UIBackgroundTaskInvalid) {
+        [[UIApplication sharedApplication] endBackgroundTask:self.backgroundTaskIdentifier];
+        self.backgroundTaskIdentifier = UIBackgroundTaskInvalid;
+        
+        TJPLOG_INFO(@"结束后台任务");
+    }
+}
+
 
 
 

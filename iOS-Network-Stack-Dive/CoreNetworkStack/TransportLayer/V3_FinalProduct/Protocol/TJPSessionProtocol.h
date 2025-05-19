@@ -21,34 +21,32 @@ NS_ASSUME_NONNULL_BEGIN
 @property (nonatomic, readonly) uint16_t port;
 
 
-/// 会话连接方法
-- (void)connectToHost:(NSString *)host port:(uint16_t)port;
-/// 会话断开连接
-- (void)disconnect;
-- (void)forceDisconnect;
-
-
 /// 网络断开
 - (void)networkDidBecomeAvailable;
 /// 网络恢复
 - (void)networkDidBecomeUnavailable;
 
 
-/// 发送消息
-- (void)sendData:(NSData *)data;
-
-
-
-/// 发送心跳包
-- (void)sendHeartbeat:(NSData *)heartbeatData;
+/// 会话连接方法
+- (void)connectToHost:(NSString *)host port:(uint16_t)port;
+/// 会话断开连接
+- (void)disconnect;
+/// 强制断开连接
+- (void)forceDisconnect;
+/// 准备重连
+- (void)forceReconnect;
 /// 更新连接状态
 - (void)updateConnectionState:(TJPConnectState)state;
 /// 断开连接原因
 - (void)disconnectWithReason:(TJPDisconnectReason)reason;
-/// 准备重连
-- (void)forceReconnect;
 /// 清理资源方法
 - (void)prepareForRelease;
+
+
+/// 发送消息
+- (void)sendData:(NSData *)data;
+/// 发送心跳包
+- (void)sendHeartbeat:(NSData *)heartbeatData;
 
 
 @end

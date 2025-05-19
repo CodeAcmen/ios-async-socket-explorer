@@ -70,10 +70,10 @@ typedef NS_ENUM(uint16_t, TJPContentType) {
 };
 
 typedef NS_ENUM(uint16_t, TJPMessageType) {
-    TJPMessageTypeNormalData,      //普通数据消息
-    TJPMessageTypeHeartbeat,       //心跳消息
-    TJPMessageTypeACK,             //确认消息
-    TJPMessageTypeControl          //控制消息
+    TJPMessageTypeNormalData,      // 普通数据消息
+    TJPMessageTypeHeartbeat,       // 心跳消息
+    TJPMessageTypeACK,             // 确认消息
+    TJPMessageTypeControl          // 控制消息
 };
 
 
@@ -98,9 +98,9 @@ typedef NS_ENUM(NSInteger, TJPDisconnectReason) {
 };
 
 typedef NS_ENUM(NSUInteger, TJPParseState) {
-    TJPParseStateHeader  = 1 << 0,      //解析协议头
-    TJPParseStateBody    = 1 << 1,      //解析协议体
-    TJPParseStateError   = 1 << 2       //解析出错
+    TJPParseStateHeader  = 1 << 0,      // 解析协议头
+    TJPParseStateBody    = 1 << 1,      // 解析协议体
+    TJPParseStateError   = 1 << 2       // 解析出错
 };
 
 typedef NS_ENUM(NSUInteger, TJPNetworkQoS) {
@@ -109,22 +109,31 @@ typedef NS_ENUM(NSUInteger, TJPNetworkQoS) {
     TJPNetworkQoSUserInitiated        = 1 << 2
 };
 
+//网络指标收集级别
+typedef NS_ENUM(NSInteger, TJPMetricsLevel) {
+    TJPMetricsLevelNone = 0,       // 禁用指标收集
+    TJPMetricsLevelBasic = 1,      // 基本指标（连接状态、成功率）
+    TJPMetricsLevelStandard = 2,   // 标准指标（包括流量统计、心跳检测）
+    TJPMetricsLevelDetailed = 3,   // 详细指标（包括每个消息的RTT、重试统计）
+    TJPMetricsLevelDebug = 4       // 调试级别（包括所有可能的指标和原始数据）
+};
+
 
 //定义心跳模式
 typedef NS_ENUM(NSUInteger, TJPHeartbeatMode) {
-    TJPHeartbeatModeForeground,         //应用在前台
-    TJPHeartbeatModeBackground,         //应用在后台
-    TJPHeartbeatModeSuspended,          //心跳暂停
-    TJPHeartbeatModeLowPower            //低功耗模式
+    TJPHeartbeatModeForeground,         // 应用在前台
+    TJPHeartbeatModeBackground,         // 应用在后台
+    TJPHeartbeatModeSuspended,          // 心跳暂停
+    TJPHeartbeatModeLowPower            // 低功耗模式
 };
 
 //运营商类型定义
 typedef NS_ENUM(NSUInteger, TJPCarrierType) {
-    TJPCarrierTypeUnknown,              //未知运营商
-    TJPCarrierTypeChinaMobile,          //中国移动
-    TJPCarrierTypeChinaUnicom,          //中国联通
-    TJPCarrierTypeChinaTelecom,         //中国电信
-    TJPCarrierTypeOther,                //其他运营商
+    TJPCarrierTypeUnknown,              // 未知运营商
+    TJPCarrierTypeChinaMobile,          // 中国移动
+    TJPCarrierTypeChinaUnicom,          // 中国联通
+    TJPCarrierTypeChinaTelecom,         // 中国电信
+    TJPCarrierTypeOther,                // 其他运营商
 };
 
 //网络类型定义
@@ -140,10 +149,36 @@ typedef NS_ENUM(NSUInteger, TJPNetworkType) {
 
 //网络健康状态
 typedef NS_ENUM(NSUInteger, TJPNetworkHealthStatus) {
-    TJPNetworkHealthStatusGood,         //健康心跳
-    TJPNetworkHealthStatusFair,         //一般心跳
-    TJPNetworkHealthStatusPoor,         //心跳较差
-    TJPNetworkHealthStatusCritical      //心跳严重问题
+    TJPNetworkHealthStatusGood,         // 健康心跳
+    TJPNetworkHealthStatusFair,         // 一般心跳
+    TJPNetworkHealthStatusPoor,         // 心跳较差
+    TJPNetworkHealthStatusCritical      // 心跳严重问题
+};
+
+//应用状态类型
+typedef NS_ENUM(NSUInteger, TJPAppState) {
+    TJPAppStateActive,            // 应用激活状态（前台运行）
+    TJPAppStateInactive,          // 应用非激活状态,挂起状态（如接到电话）
+    TJPAppStateBackground,        // 应用后台状态
+    TJPAppStateTerminated         // 应用终止状态
+};
+
+//心跳策略类型
+typedef NS_ENUM(NSUInteger, TJPHeartbeatStrategy) {
+    TJPHeartbeatStrategyBalanced,       // 平衡策略（默认策略）
+    TJPHeartbeatStrategyAggressive,     // 激进策略（较短间隔，适用于重要连接）
+    TJPHeartbeatStrategyConservative,   // 保守策略（较长间隔，省电模式）
+    TJPHeartbeatStrategyCustom          // 自定义策略 提供自定义接口
+};
+
+//心跳状态变更事件类型
+typedef NS_ENUM(NSUInteger, TJPHeartbeatStateEvent) {
+    TJPHeartbeatStateEventStarted,          // 心跳启动
+    TJPHeartbeatStateEventStopped,          // 心跳停止
+    TJPHeartbeatStateEventPaused,           // 心跳暂停
+    TJPHeartbeatStateEventResumed,          // 心跳恢复
+    TJPHeartbeatStateEventModeChanged,      // 心跳模式变更
+    TJPHeartbeatStateEventIntervalChanged   // 心跳间隔变更
 };
 
 
@@ -157,9 +192,9 @@ typedef struct {
     uint16_t msgType;               //消息类型                 2字节
     uint32_t sequence;              //序列号                   4字节
     uint32_t timestamp;             //时间戳 (秒级，防重放攻击)   4字节
-    TJPEncryptType encrypt_type;    // 加密类型                1字节
-    TJPCompressType compress_type;  // 压缩类型                1字节
-    uint16_t session_id;            // 会话ID                  2字节
+    TJPEncryptType encrypt_type;    //加密类型                 1字节
+    TJPCompressType compress_type;  //压缩类型                 1字节
+    uint16_t session_id;            //会话ID                  2字节
     uint32_t bodyLength;            //Body长度(网络字节序)       4字节
     uint32_t checksum;              //CRC32                   4字节
 } TJPFinalAdavancedHeader;

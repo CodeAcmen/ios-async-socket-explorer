@@ -8,6 +8,7 @@
 #import "TJPConnectionManager+TJPMetrics.h"
 #import <GCDAsyncSocket.h>
 #import <objc/runtime.h>
+#import "TJPMetricsKeys.h"
 
 #import "TJPMetricsCollector.h"
 
@@ -20,11 +21,6 @@
 + (void)enableMetricsMonitoring {
     static dispatch_once_t onceToken;
     dispatch_once(&onceToken, ^{
-        [self swizzleMethod:@selector(sendData:)
-                withMethod:@selector(metrics_sendData:)];
-        
-        [self swizzleMethod:@selector(socket:didReadData:withTag:)
-                withMethod:@selector(metrics_socket:didReadData:withTag:)];
         
         [self swizzleMethod:@selector(connectToHost:port:)
                 withMethod:@selector(metrics_connectToHost:port:)];
@@ -53,17 +49,6 @@
     }
 }
 
-// 埋点发送消息方法
-- (void)metrics_sendData:(NSData *)data {
-    [[TJPMetricsCollector sharedInstance] incrementCounter:TJPMetricsKeyBytesSend by:data.length];
-    [self metrics_sendData:data];
-}
-
-// 埋点接收消息方法
-- (void)metrics_socket:(GCDAsyncSocket *)sock didReadData:(NSData *)data withTag:(long)tag {
-    [[TJPMetricsCollector sharedInstance] incrementCounter:TJPMetricsKeyBytesReceived by:data.length];
-    [self metrics_socket:sock didReadData:data withTag:tag];
-}
 
 // 埋点连接方法
 - (void)metrics_connectToHost:(NSString *)host port:(uint16_t)port{

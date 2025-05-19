@@ -22,6 +22,10 @@
     return [[TJPNetworkConfig alloc] init];
 }
 
+- (instancetype)init {
+    return [self initWithHost:@"127.0.0.1" port:8080 maxRetry:5 heartbeat:15.0];
+}
+
 - (instancetype)initWithHost:(NSString *)host port:(uint16_t)port maxRetry:(NSUInteger)maxRetry heartbeat:(CGFloat)heartbeat {
     if (self = [super init]) {
         _host = host;
@@ -29,22 +33,24 @@
         _maxRetry = maxRetry;
         _heartbeat = heartbeat;
         _baseDelay = 2.0;
+        _shouldReconnectAfterBackground = YES;
+        _shouldReconnectAfterServerClose = NO;
+        _useTLS = NO;
+        
+        
+        // 默认指标设置
+#ifdef DEBUG
+        _metricsLevel = TJPMetricsLevelStandard;
+        _metricsConsoleEnabled = YES;
+#else
+        _metricsLevel = TJPMetricsLevelBasic;
+        _metricsConsoleEnabled = NO;
+#endif
+        _metricsReportInterval = 15.0;
     }
     return self;
 }
 
-- (instancetype)init {
-    if (self = [super init]) {
-        _host = @"127.0.0.1";
-        _port = 8080;
-        _maxRetry = 5;
-        _heartbeat = 15.0;
-        _baseDelay = 2.0;
-        _shouldReconnectAfterBackground = YES;
-        _shouldReconnectAfterServerClose = NO;
-        _useTLS = NO;
-    }
-    return self;
-}
+
 
 @end

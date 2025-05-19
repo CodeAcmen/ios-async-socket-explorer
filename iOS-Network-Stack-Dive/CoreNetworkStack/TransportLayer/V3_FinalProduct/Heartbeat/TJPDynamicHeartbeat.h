@@ -3,14 +3,16 @@
 //  iOS-Network-Stack-Dive
 //
 //  Created by 唐佳鹏 on 2025/3/21.
-//
+//  动态心跳
 
-#import <Foundation/Foundation.h>
+#import <UIKit/UIKit.h>
+#import "TJPCoreTypes.h"
 
 NS_ASSUME_NONNULL_BEGIN
 
 @class TJPConcreteSession, TJPNetworkCondition, TJPSequenceManager;
 @protocol TJPSessionProtocol;
+
 @interface TJPDynamicHeartbeat : NSObject
 
 //网络质量采集器
@@ -23,9 +25,60 @@ NS_ASSUME_NONNULL_BEGIN
 //当前心跳时间
 @property (nonatomic, assign) NSTimeInterval currentInterval;
 
-//改为声明在属性是为了单元测试
+//心跳队列
 @property (nonatomic, strong) NSMutableDictionary<NSNumber *, NSDate *> *pendingHeartbeats;
 
+
+//***********************************************
+//前后台心跳优化
+
+//心跳模式及策略
+@property (nonatomic, assign) TJPHeartbeatMode heartbeatMode;
+@property (nonatomic, assign) TJPHeartbeatStrategy heartbeatStrategy;
+//当前app状态
+@property (nonatomic, assign) TJPAppState currentAppState;
+
+//配置参数
+@property (nonatomic, strong) NSMutableDictionary<NSNumber *, NSNumber *> *modeBaseIntervals;   //基础频率
+@property (nonatomic, strong) NSMutableDictionary<NSNumber *, NSNumber *> *modeMinIntervals;    //最小频率
+@property (nonatomic, strong) NSMutableDictionary<NSNumber *, NSNumber *> *modeMaxIntervals;    //最大频率
+
+//状态跟踪
+@property (nonatomic, assign) NSTimeInterval lastModeChangeTime;  //记录状态时间
+@property (nonatomic, assign) BOOL isTransitioning;   //是否为状态过度
+@property (nonatomic, assign) NSUInteger backgroundTransitionCounter;   //后台过渡次数
+
+
+//后台任务支持
+@property (nonatomic, assign) UIBackgroundTaskIdentifier backgroundTaskIdentifier;
+
+
+
+/// 修改心跳模式
+- (void)changeToHeartbeatMode:(TJPHeartbeatMode)newMode;
+/**
+ * 配置指定心跳模式的参数
+ *
+ * @param baseInterval 基础心跳间隔（秒）
+ * @param minInterval 最小心跳间隔（秒）
+ * @param maxInterval 最大心跳间隔（秒）
+ * @param mode 心跳模式
+ */
+- (void)configureWithBaseInterval:(NSTimeInterval)baseInterval  minInterval:(NSTimeInterval)minInterval maxInterval:(NSTimeInterval)maxInterval forMode:(TJPHeartbeatMode)mode;
+/**
+ * 手动设置心跳模式
+ *
+ * @param mode 心跳模式
+ * @param force 是否强制设置（忽略当前应用状态）
+ */
+- (void)setHeartbeatMode:(TJPHeartbeatMode)mode force:(BOOL)force;
+
+
+
+/// 获取心跳状态 用于Log日志或者调试问题
+- (NSDictionary *)getHeartbeatStatus;
+
+//***********************************************
 
 
 /// 初始化方法

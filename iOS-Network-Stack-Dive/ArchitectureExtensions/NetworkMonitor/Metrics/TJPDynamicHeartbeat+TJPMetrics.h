@@ -6,6 +6,7 @@
 //
 
 #import "TJPDynamicHeartbeat.h"
+#import "TJPMetricsKeys.h"
 
 NS_ASSUME_NONNULL_BEGIN
 
@@ -15,6 +16,14 @@ NS_ASSUME_NONNULL_BEGIN
 @property (nonatomic, readonly) float heartbeatLossRate;      // 实时丢包率
 @property (nonatomic, readonly) NSTimeInterval avgRTT;       // 动态平均往返时延
 @property (nonatomic, readonly) NSTimeInterval currentInterval; // 当前心跳间隔
+
+
+// 事件记录方法（使用字符串键）
+- (void)recordHeartbeatEvent:(NSString *)eventType withParameters:(nullable NSDictionary *)params;
+
+// 获取心跳诊断数据
+- (NSDictionary *)getHeartbeatDiagnostics;
+
 
 @end
 
