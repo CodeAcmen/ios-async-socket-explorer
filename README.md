@@ -25,9 +25,6 @@ ios-async-socket-explorer 是一个生产级TCP通信框架，来源于即时通
 ![Typhoon](https://img.shields.io/badge/Typhoon-red?style=flat-square)
 ![GCD](https://img.shields.io/badge/GCD-purple?style=flat-square&logo=apple)
 
-[查看演示](https://github.com/CodeAcmen/ios-async-socket-explorer/iOS-Network-Stack-Dive/Docs
-/CoreNetworkStackDoc) | [开始使用](#快速开始) | [技术文档](https://github.com/CodeAcmen/ios-async-socket-explorer/iOS-Network-Stack-Dive/Docs)
-
 
 ## 🚀 快速开始
 **Objective-C 接入示例**
@@ -217,8 +214,6 @@ Socket通信模块架构
 - **测试友好**: 业务逻辑完全独立，单元测试覆盖率可达90%以上
 
 ## 项目结构
-<details>
-<summary><b>📋 项目结构</b></summary>
 ```
 iOS-Network-Stack-Dive
 # 项目结构构思（后续会根据实际情况调整）
@@ -267,7 +262,6 @@ iOS-Network-Stack-Dive/
     └── VIPER-Sample/              # 真实项目代码片段
         └── MessageModule/         # 消息模块实现
 ```
-</details>
 
 ## 版本历史
 - **v1.0.0**：网络框架基础核心功能基本完成、生产级VIPER架构演示完成
@@ -278,7 +272,6 @@ iOS-Network-Stack-Dive/
 - **v1.3.0**：升级动态心跳机制，结合App状态+网络状态，使用更成熟稳定的方案动态调整心跳频率；埋点功能优化，提供更全面的埋点维度
 
 ## 后续迭代计划
-
 - **运营商网络适配**: 智能心跳策略、NAT超时处理、运营商防拦截
 - **极端环境支持**: 智能降级策略、弱网优化、多级故障恢复
 - **高性能传输**: 连接池优化、大文件传输、QoS流量控制
@@ -307,9 +300,7 @@ iOS-Network-Stack-Dive/
 - [Typhoon](https://github.com/appsquickly/Typhoon) - 依赖注入框架
 </details>
 
-
 ## 许可与免责声明
-
 本项目采用MIT许可证，供个人学习和研究使用。使用时请注意：
 
 1. 允许修改和分发，但建议不要直接用于商业产品
