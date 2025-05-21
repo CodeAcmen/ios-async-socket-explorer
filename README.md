@@ -16,7 +16,18 @@ ios-async-socket-explorer 是一个生产级TCP通信框架，来源于即时通
 - 企业级VIPER分层架构设计，单元测试覆盖率>90%
 - 丰富的监控指标和全链路追踪，确保系统可观测性
 
-[查看演示](https://github.com/yourusername/ios-async-socket-explorer/blob/main/Examples/) | [开始使用](#快速开始) | [技术文档](https://github.com/yourusername/ios-async-socket-explorer/wiki)
+## 🛠️ 技术栈
+
+![Objective-C](https://img.shields.io/badge/Objective--C-orange?style=flat-square&logo=objective-c)
+![TCP/IP](https://img.shields.io/badge/TCP%2FIP-blue?style=flat-square&logo=internetexplorer)
+![CocoaAsyncSocket](https://img.shields.io/badge/CocoaAsyncSocket-lightgrey?style=flat-square)
+![SSL/TLS](https://img.shields.io/badge/SSL%2FTLS-green?style=flat-square&logo=openssl)
+![Typhoon](https://img.shields.io/badge/Typhoon-red?style=flat-square)
+![GCD](https://img.shields.io/badge/GCD-purple?style=flat-square&logo=apple)
+
+[查看演示](https://github.com/CodeAcmen/ios-async-socket-explorer/iOS-Network-Stack-Dive/Docs
+/CoreNetworkStackDoc) | [开始使用](#快速开始) | [技术文档](https://github.com/CodeAcmen/ios-async-socket-explorer/iOS-Network-Stack-Dive/Docs)
+
 
 ## 🚀 快速开始
 **Objective-C 接入示例**
@@ -159,16 +170,25 @@ Socket通信模块架构
 - **自适应策略**: 基于当前网络质量动态调整传输参数和重试策略
 - **开闭原则**: 基于协议设计的可插拔架构，支持业务定制与扩展
 
-### TLV数据区格式
-- **Tag**：业务标识（如 0x1001=文字消息），大端字节序。
-- **Length**：Value 部分长度（不含 Tag 和 Length），大端字节序。
-- **Value**：原始数据或嵌套 TLV（用保留 Tag 0xFFFF 标记）。
-```
-+------+----------+--------+
-| Tag  |  Length  | Value  |
-| 2字节| 4字节    | N字节  |
-+------+----------+--------+
-```
+### TLV数据协议设计
+二进制高效通信协议，支持协议平滑升级和嵌套结构：
+
+<table>
+  <tr>
+    <th width="25%">Tag (2字节)</th>
+    <th width="25%">Length (4字节)</th>
+    <th width="50%">Value (N字节)</th>
+  </tr>
+  <tr>
+    <td>业务标识<br><code>0x1001</code>=文本消息<br><code>0x1002</code>=图片消息</td>
+    <td>Value部分长度<br>(不含T和L字段)</td>
+    <td>原始数据或嵌套TLV<br>(保留Tag <code>0xFFFF</code>标记)</td>
+  </tr>
+</table>
+
+- 采用**大端字节序**，兼容不同硬件平台
+- 支持**协议版本协商**，实现向前兼容
+- 内置**校验机制**，确保数据完整性
 ## 生产级VIPER架构
 
 在iOS项目中，采用VIPER架构模式进行分层设计，提高系统的可维护性和扩展性：
@@ -197,6 +217,8 @@ Socket通信模块架构
 - **测试友好**: 业务逻辑完全独立，单元测试覆盖率可达90%以上
 
 ## 项目结构
+<details>
+<summary><b>📋 项目结构</b></summary>
 ```
 iOS-Network-Stack-Dive
 # 项目结构构思（后续会根据实际情况调整）
@@ -245,6 +267,8 @@ iOS-Network-Stack-Dive/
     └── VIPER-Sample/              # 真实项目代码片段
         └── MessageModule/         # 消息模块实现
 ```
+</details>
+
 ## 版本历史
 - **v1.0.0**：网络框架基础核心功能基本完成、生产级VIPER架构演示完成
 - **v1.0.1**：修复了因libffi编译导致无法在模拟器运行的问题
@@ -260,16 +284,6 @@ iOS-Network-Stack-Dive/
 - **高性能传输**: 连接池优化、大文件传输、QoS流量控制
 - **IM组件库**: 防腐层设计、聊天UI组件、VIPER架构示例
 
-## 🛠️ 技术栈
-
-![Objective-C](https://img.shields.io/badge/Objective--C-orange?style=flat-square&logo=objective-c)
-![TCP/IP](https://img.shields.io/badge/TCP%2FIP-blue?style=flat-square&logo=internetexplorer)
-![CocoaAsyncSocket](https://img.shields.io/badge/CocoaAsyncSocket-lightgrey?style=flat-square)
-![SSL/TLS](https://img.shields.io/badge/SSL%2FTLS-green?style=flat-square&logo=openssl)
-![Typhoon](https://img.shields.io/badge/Typhoon-red?style=flat-square)
-![GCD](https://img.shields.io/badge/GCD-purple?style=flat-square&logo=apple)
-
-
 ## 贡献
 欢迎**任何开发者贡献代码、改进文档、提出意见和建议！** 如果你有关于iOS网络栈的实践经验或心得，欢迎提交PR来丰富本项目。
 
@@ -277,7 +291,7 @@ iOS-Network-Stack-Dive/
 ## License
 本项目遵循 **MIT 许可证**，详细信息请查看 [LICENSE](./LICENSE) 文件。
 
-⭐ 如果这个项目对你有帮助，请点个Star支持！
+如果这个项目对你有帮助，请点个 ⭐ Star 支持！
 
 <details>
 <summary><b>推荐学习资源</b></summary>
