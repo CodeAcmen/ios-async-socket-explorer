@@ -325,13 +325,13 @@ NSString * const TJPMetricsKeySessionDisconnects = @"session_disconnects";
 
 #pragma mark - 线程安全操作
 - (void)performLocked:(void (^)(void))block {
-    NSLog(@"准备获取锁 - 线程: %@", [NSThread currentThread]);
+//    NSLog(@"准备获取锁 - 线程: %@", [NSThread currentThread]);
     os_unfair_lock_lock(&_lock);
-    NSLog(@"已获取锁 - 线程: %@", [NSThread currentThread]);
+//    NSLog(@"已获取锁 - 线程: %@", [NSThread currentThread]);
     block();
-    NSLog(@"准备释放锁 - 线程: %@", [NSThread currentThread]);
+//    NSLog(@"准备释放锁 - 线程: %@", [NSThread currentThread]);
     os_unfair_lock_unlock(&_lock);
-    NSLog(@"已释放锁 - 线程: %@", [NSThread currentThread]);
+//    NSLog(@"已释放锁 - 线程: %@", [NSThread currentThread]);
 
 }
 
