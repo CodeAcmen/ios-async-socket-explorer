@@ -29,7 +29,7 @@
     NSData *testData = [@"Test Data" dataUsingEncoding:NSUTF8StringEncoding];
     
     // 创建 TJPMessageContext 实例
-    TJPMessageContext *context = [TJPMessageContext contextWithData:testData seq:1];
+    TJPMessageContext *context = [TJPMessageContext contextWithData:testData seq:1 messageType:TJPMessageTypeNormalData encryptType:TJPEncryptTypeNone compressType:TJPCompressTypeNone sessionId:@""];
     
     // 验证 sendTime 是否为当前时间（使用近似匹配）
     XCTAssertNotNil(context.sendTime, @"sendTime should not be nil");
@@ -47,7 +47,7 @@
     NSData *testData = [@"Test Data" dataUsingEncoding:NSUTF8StringEncoding];
     
     // 创建 TJPMessageContext 实例
-    TJPMessageContext *context = [TJPMessageContext contextWithData:testData seq:1];
+    TJPMessageContext *context = [TJPMessageContext contextWithData:testData seq:1 messageType:TJPMessageTypeNormalData encryptType:TJPEncryptTypeNone compressType:TJPCompressTypeNone sessionId:@""];
     
     // 初始时的 retryCount
     NSInteger initialRetryCount = context.retryCount;

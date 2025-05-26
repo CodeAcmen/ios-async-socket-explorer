@@ -11,35 +11,73 @@
 #import "TJPCoreTypes.h"
 #import "TJPNetworkUtil.h"
 #import "TJPErrorUtil.h"
+#import "TJPRingBuffer.h"
+
 
 
 @interface TJPMessageParser () {
+    // 协议解析状态
     TJPFinalAdavancedHeader _currentHeader;
-    NSMutableData *_buffer;
     TJPParseState _state;
     
-    //安全相关
+    // 双缓冲区实现 - 通过开关控制
+    NSMutableData *_buffer;                // 旧实现：NSMutableData
+    TJPRingBuffer *_ringBuffer;            // 新实现：环形缓冲区
+    BOOL _useRingBuffer;                   // 实现切换开关
+    
+    // 安全相关
     NSMutableSet *_recentSequences;  //防重放攻击
     NSDate *_lastCleanupTime;  //定期清理计数器
+    
+    
+    // 增加性能统计
+    CFTimeInterval _totalParseTime;        // 总解析时间
+    NSUInteger _totalPacketCount;          // 总包数量
+    CFTimeInterval _lastBenchmarkTime;     // 上次基准测试时间
 }
 
 @end
 
 @implementation TJPMessageParser
-
+#pragma mark - Lifecycle
 - (instancetype)init {
+    return [self initWithRingBufferEnabled:NO];
+}
+
+- (instancetype)initWithRingBufferEnabled:(BOOL)enabled {
     if (self = [super init]) {
-        _buffer = [NSMutableData data];
         _state = TJPParseStateHeader;
+        _useRingBuffer = enabled;
         
+        // 初始化缓冲区
+        _buffer = [NSMutableData data];
+        _ringBuffer = [[TJPRingBuffer alloc] initWithCapacity:TJP_DEFAULT_RING_BUFFER_CAPACITY];
+        
+        // 安全相关初始化
         _recentSequences = [NSMutableSet setWithCapacity:1000];
         _lastCleanupTime = [NSDate date];
+
+        
+        // 性能统计初始化
+        _totalParseTime = 0;
+        _totalPacketCount = 0;
+        _lastBenchmarkTime = CFAbsoluteTimeGetCurrent();
+        
+        TJPLOG_INFO(@"MessageParser 初始化完成，使用%@缓冲区", _useRingBuffer ? @"环形" : @"传统");
+        
     }
     return self;
 }
 
 
+#pragma mark - Public Method
 - (void)feedData:(NSData *)data {
+    CFTimeInterval startTime = CFAbsoluteTimeGetCurrent();
+
+    if (!data || data.length == 0) {
+        return;
+    }
+
     // 防止缓冲区过大导致内存耗尽
     if (data.length > TJPMAX_BUFFER_SIZE || (_buffer.length + data.length) > TJPMAX_BUFFER_SIZE) {
         TJPLOG_ERROR(@"数据大小超过限制: 当前缓冲区 %lu, 新增数据 %lu, 限制 %d", (unsigned long)_buffer.length, (unsigned long)data.length, TJPMAX_BUFFER_SIZE);
@@ -47,22 +85,31 @@
         _state = TJPParseStateError;
         return;
     }
-    [_buffer appendData:data];
+    
+    // 根据开关选择实现
+    if (_useRingBuffer) {
+        [self feedDataWithRingBuffer:data];
+    } else {
+        [self feedDataWithLegacyBuffer:data];
+    }
     
     //定期清理过期序列号
     [self cleanupExpiredSequences];
+    
+    _totalParseTime += (CFAbsoluteTimeGetCurrent() - startTime);
+
 }
 
 - (BOOL)hasCompletePacket {
-    if (_state == TJPParseStateHeader) {
-        return _buffer.length >= sizeof(TJPFinalAdavancedHeader);
-    }else if (_state == TJPParseStateBody) {
-        return _buffer.length >= ntohl(_currentHeader.bodyLength);
-    }else if (_state == TJPParseStateError) {
-        // 错误状态下，需要先重置解析器
+    if (_state == TJPParseStateError) {
         return NO;
     }
-    return NO;
+    
+    if (_useRingBuffer) {
+        return [self hasCompletePacketWithRingBuffer];
+    } else {
+        return [self hasCompletePacketWithLegacyBuffer];
+    }
 }
 
 - (TJPParsedPacket *)nextPacket {
@@ -72,29 +119,198 @@
         return nil;
     }
     
-    //如果当前数据包是头部 先解析头部
-    if (_state == TJPParseStateHeader) {
-        if (![self parseHeaderData]) {
-            //头部解析失败直接返回
-            return nil;
-        };
+    CFTimeInterval startTime = CFAbsoluteTimeGetCurrent();
+    TJPParsedPacket *result = nil;
+    if (_useRingBuffer) {
+        result = [self nextPacketWithRingBuffer];
+    } else {
+        result = [self nextPacketWithLegacyBuffer];
     }
-    //如果数据包是是body 解析消息体
+    
+    // 性能统计
+    if (result) {
+        _totalPacketCount++;
+        _totalParseTime += (CFAbsoluteTimeGetCurrent() - startTime);
+    }
+
+    return result;
+}
+
+#pragma mark - Ring Buffer
+- (void)feedDataWithRingBuffer:(NSData *)data {
+    // 检查剩余空间
+    if (_ringBuffer.availableSpace < data.length) {
+        TJPLOG_ERROR(@"环形缓冲区空间不足: 需要 %lu, 可用 %lu",
+                    (unsigned long)data.length, (unsigned long)_ringBuffer.availableSpace);
+        [self reset];
+        _state = TJPParseStateError;
+        return;
+    }
+    
+    NSUInteger written = [_ringBuffer writeData:data];
+    if (written != data.length) {
+        TJPLOG_ERROR(@"环形缓冲区写入不完整: 期望 %lu, 实际 %lu",
+                    (unsigned long)data.length, (unsigned long)written);
+        _state = TJPParseStateError;
+        return;
+    }
+    
+//    TJPLOG_INFO(@"[环形Buffer] 收到数据: %lu 字节, 缓冲区使用率: %.1f%%",
+//                (unsigned long)data.length, _ringBuffer.usageRatio * 100);
+}
+
+- (BOOL)hasCompletePacketWithRingBuffer {
+    if (_state == TJPParseStateHeader) {
+        return [_ringBuffer hasAvailableData:sizeof(TJPFinalAdavancedHeader)];
+    } else if (_state == TJPParseStateBody) {
+        uint32_t bodyLength = ntohl(_currentHeader.bodyLength);
+        return [_ringBuffer hasAvailableData:bodyLength];
+    }
+    return NO;
+}
+
+- (TJPParsedPacket *)nextPacketWithRingBuffer {
+    // 解析头部
+    if (_state == TJPParseStateHeader) {
+        if (![self parseHeaderWithRingBuffer]) {
+            return nil;
+        }
+    }
+    
+    // 解析消息体
     if (_state == TJPParseStateBody) {
-        return [self parseBodyData];
+        return [self parseBodyWithRingBuffer];
     }
     
     return nil;
 }
 
-- (BOOL)parseHeaderData {
+- (BOOL)parseHeaderWithRingBuffer {
+    if (![_ringBuffer hasAvailableData:sizeof(TJPFinalAdavancedHeader)]) {
+        TJPLOG_INFO(@"环形缓冲区数据不足，无法解析头部");
+        return NO;
+    }
+    
+    // 从环形缓冲区读取头部数据
+    TJPFinalAdavancedHeader header = {0};
+    NSUInteger readBytes = [_ringBuffer readBytes:&header length:sizeof(TJPFinalAdavancedHeader)];
+    
+    if (readBytes != sizeof(TJPFinalAdavancedHeader)) {
+        TJPLOG_ERROR(@"头部数据读取不完整: 期望 %lu, 实际 %lu",
+                    (unsigned long)sizeof(TJPFinalAdavancedHeader), (unsigned long)readBytes);
+        _state = TJPParseStateError;
+        return NO;
+    }
+    
+    // 头部验证
+    NSError *validationError = nil;
+    if (![self validateHeader:header error:&validationError]) {
+        TJPLOG_ERROR(@"头部验证失败: %@", validationError.localizedDescription);
+        _state = TJPParseStateError;
+        return NO;
+    }
+    
+    _currentHeader = header;
+    _state = TJPParseStateBody;
+    
+//    TJPLOG_INFO(@"[环形Buffer] 解析序列号:%u 的头部成功", ntohl(_currentHeader.sequence));
+    return YES;
+}
+
+- (TJPParsedPacket *)parseBodyWithRingBuffer {
+    uint32_t bodyLength = ntohl(_currentHeader.bodyLength);
+    
+    if (![_ringBuffer hasAvailableData:bodyLength]) {
+        TJPLOG_INFO(@"环形缓冲区数据不足，等待更多数据...");
+        return nil;
+    }
+    
+    // 读取消息体数据
+    NSData *payload = [_ringBuffer readData:bodyLength];
+    if (!payload || payload.length != bodyLength) {
+        TJPLOG_ERROR(@"消息体数据读取失败: 期望 %u, 实际 %lu",
+                    bodyLength, (unsigned long)payload.length);
+        _state = TJPParseStateError;
+        return nil;
+    }
+    
+    // 验证校验和
+    if (![self validateChecksum:_currentHeader.checksum forData:payload]) {
+        TJPLOG_ERROR(@"校验和验证失败，可能数据已被篡改");
+        _state = TJPParseStateError;
+        return nil;
+    }
+    
+    // 创建解析结果
+    NSError *error = nil;
+    TJPParsedPacket *packet = [TJPParsedPacket packetWithHeader:_currentHeader
+                                                        payload:payload
+                                                         policy:TJPTLVTagPolicyRejectDuplicates
+                                                 maxNestedDepth:4
+                                                          error:&error];
+    if (error) {
+        TJPLOG_ERROR(@"[环形Buffer] 解析序列号:%u 的内容失败: %@",
+                    ntohl(_currentHeader.sequence), error.localizedDescription);
+        _state = TJPParseStateError;
+        return nil;
+    }
+    
+//    TJPLOG_INFO(@"[环形Buffer] 解析序列号:%u 的内容成功", ntohl(_currentHeader.sequence));
+    _state = TJPParseStateHeader;
+    return packet;
+}
+
+#pragma mark Legacy Buffer
+- (void)feedDataWithLegacyBuffer:(NSData *)data {
+    @synchronized (self) {
+        if ((_buffer.length + data.length) > TJPMAX_BUFFER_SIZE) {
+            TJPLOG_ERROR(@"传统缓冲区大小超过限制: 当前 %lu, 新增 %lu, 限制 %d",
+                         (unsigned long)_buffer.length, (unsigned long)data.length, TJPMAX_BUFFER_SIZE);
+            [self reset];
+            _state = TJPParseStateError;
+            return;
+        }
+        
+        [_buffer appendData:data];
+    }
+    
+    //    TJPLOG_INFO(@"[传统Buffer] 收到数据: %lu 字节", (unsigned long)data.length);
+}
+
+- (BOOL)hasCompletePacketWithLegacyBuffer {
+    if (_state == TJPParseStateHeader) {
+        return _buffer.length >= sizeof(TJPFinalAdavancedHeader);
+    } else if (_state == TJPParseStateBody) {
+        uint32_t bodyLength = ntohl(_currentHeader.bodyLength);
+        return _buffer.length >= bodyLength;
+    }
+    return NO;
+}
+
+- (TJPParsedPacket *)nextPacketWithLegacyBuffer {
+    // 解析头部
+    if (_state == TJPParseStateHeader) {
+        if (![self parseHeaderWithLegacyBuffer]) {
+            return nil;
+        }
+    }
+    
+    // 解析消息体
+    if (_state == TJPParseStateBody) {
+        return [self parseBodyWithLegacyBuffer];
+    }
+    
+    return nil;
+}
+
+- (BOOL)parseHeaderWithLegacyBuffer {
     if (_buffer.length < sizeof(TJPFinalAdavancedHeader)) {
         TJPLOG_INFO(@"数据长度不够数据头解析");
         return nil;
     }
     TJPFinalAdavancedHeader currentHeader = {0};
 
-    //解析头部
+    // 解析头部
     [_buffer getBytes:&currentHeader length:sizeof(TJPFinalAdavancedHeader)];
     
     // 安全验证
@@ -107,16 +323,16 @@
     
     TJPLOG_INFO(@"解析数据头部成功...魔数校验成功!");
     _currentHeader = currentHeader;
-    //移除已处理的Header数据
+    // 移除已处理的Header数据
     [_buffer replaceBytesInRange:NSMakeRange(0, sizeof(TJPFinalAdavancedHeader)) withBytes:NULL length:0];
     
-    TJPLOG_INFO(@"解析序列号:%u 的头部成功", ntohl(_currentHeader.sequence));
+//    TJPLOG_INFO(@"解析序列号:%u 的头部成功", ntohl(_currentHeader.sequence));
     _state = TJPParseStateBody;
     
     return YES;
 }
 
-- (TJPParsedPacket *)parseBodyData {
+- (TJPParsedPacket *)parseBodyWithLegacyBuffer {
     uint32_t bodyLength = ntohl(_currentHeader.bodyLength);
     if (_buffer.length < bodyLength) {
         TJPLOG_INFO(@"数据长度不够内容解析,等待更多数据...");
@@ -141,7 +357,7 @@
         return nil;
     }
     
-    TJPLOG_INFO(@"解析序列号:%u 的内容成功", ntohl(_currentHeader.sequence));
+//    TJPLOG_INFO(@"解析序列号:%u 的内容成功", ntohl(_currentHeader.sequence));
 
     _state = TJPParseStateHeader;
     return body;
@@ -160,8 +376,11 @@
 
 - (void)reset {
     [_buffer setLength:0];
+    [_ringBuffer reset];
     _currentHeader = (TJPFinalAdavancedHeader){0};
     _state = TJPParseStateHeader;
+    
+    TJPLOG_INFO(@"MessageParser 重置完成");
 }
 
 #pragma mark - Private Method
@@ -323,23 +542,3 @@
 
 
 
-//旧版本
-//- (NSData *)_buildPacketWithData:(NSData *)data seq:(uint32_t)seq {
-//    // 初始化协议头
-//    TJPFinalAdavancedHeader header = {0};
-//    header.magic = htonl(kProtocolMagic);
-//    header.version_major = kProtocolVersionMajor;
-//    header.version_minor = kProtocolVersionMinor;
-//    header.msgType = htons(TJPMessageTypeNormalData); // 普通消息类型
-//    header.sequence = htonl(seq);
-//    header.bodyLength = htonl((uint32_t)data.length);
-//    
-//    // 计算数据体的CRC32
-//    uint32_t checksum = [TJPNetworkUtil crc32ForData:data];
-//    header.checksum = htonl(checksum);  // 注意要转换为网络字节序
-//    
-//    // 构建完整协议包
-//    NSMutableData *packet = [NSMutableData dataWithBytes:&header length:sizeof(header)];
-//    [packet appendData:data];
-//    return packet;
-//}

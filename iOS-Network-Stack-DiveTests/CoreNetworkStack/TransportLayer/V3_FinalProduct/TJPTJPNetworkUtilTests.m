@@ -7,7 +7,9 @@
 
 #import <XCTest/XCTest.h>
 #import "TJPCoreTypes.h"
+#import "TJPMessageBuilder.h"
 #import "TJPNetworkUtil.h"
+
 
 
 @interface TJPTJPNetworkUtilTests : XCTestCase
@@ -29,7 +31,7 @@
     uint32_t sequence = 1234;
     TJPMessageType type = TJPMessageTypeNormalData;
     
-    NSData *packet = [TJPNetworkUtil buildPacketWithData:data type:type sequence:sequence];
+    NSData *packet = [TJPMessageBuilder buildPacketWithMessageType:type sequence:sequence payload:data encryptType:TJPEncryptTypeNone compressType:TJPCompressTypeNone sessionID:@""];
     
     // 验证包的长度（协议头 + 数据）
     XCTAssertEqual(packet.length, sizeof(TJPFinalAdavancedHeader) + data.length, @"数据包的长度应该是协议头长度 + 数据长度");
