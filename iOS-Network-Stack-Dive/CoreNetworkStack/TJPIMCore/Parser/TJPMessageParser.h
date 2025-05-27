@@ -14,9 +14,11 @@ NS_ASSUME_NONNULL_BEGIN
 @interface TJPMessageParser : NSObject
 @property (nonatomic, assign, readonly) TJPParseState currentState;
 
-//单元测试用
-@property (nonatomic, strong, readonly) NSMutableData *buffer;
-@property (nonatomic, readonly) TJPFinalAdavancedHeader currentHeader;
+@property (nonatomic, readonly) NSMutableData *buffer;
+
+
+/// 开关控制是否使用环形缓冲区
+@property (nonatomic, assign) BOOL useRingBuffer;
 
 
 ///  缓冲区添加数据
@@ -30,6 +32,9 @@ NS_ASSUME_NONNULL_BEGIN
 
 /// 重置数据
 - (void)reset;
+
+
+- (instancetype)initWithRingBufferEnabled:(BOOL)enabled;
 
 
 @end

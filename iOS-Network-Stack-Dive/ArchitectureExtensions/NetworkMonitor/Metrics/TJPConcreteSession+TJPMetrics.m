@@ -54,7 +54,6 @@
         [self swizzleMethod:@selector(performVersionHandshake)
                 withMethod:@selector(metrics_performVersionHandshake)];
         
-        
     });
     
 }
