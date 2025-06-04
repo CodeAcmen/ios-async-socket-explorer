@@ -110,6 +110,12 @@ typedef NS_ENUM(NSUInteger, TJPParseState) {
     TJPParseStateError   = 1 << 2       // 解析出错
 };
 
+typedef NS_ENUM(NSUInteger, TJPBufferStrategy) {
+    TJPBufferStrategyAuto = 0,       //默认自动选择
+    TJPBufferStrategyTradition,      //传统NSMutableData缓冲区
+    TJPBufferStrategyRingBuffer      //环形缓冲区
+};
+
 typedef NS_ENUM(NSUInteger, TJPNetworkQoS) {
     TJPNetworkQoSDefault              = 1 << 0,
     TJPNetworkQoSBackground           = 1 << 1,

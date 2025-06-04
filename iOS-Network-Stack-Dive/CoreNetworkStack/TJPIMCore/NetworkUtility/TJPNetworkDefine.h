@@ -52,7 +52,7 @@
 #define TJPMAX_BUFFER_SIZE (20 * 1024 * 1024) // 20MB 最大缓冲区大小
 #define TJPMAX_TIME_WINDOW 60 // 60秒时间窗口，防重放攻击
 
-#define TJP_DEFAULT_RING_BUFFER_CAPACITY (1024 * 1024) // 缓冲区大小 初始64kb
+#define TJP_DEFAULT_RING_BUFFER_CAPACITY (128 * 1024) // 缓冲区大小 初始128kb
 
 
 
