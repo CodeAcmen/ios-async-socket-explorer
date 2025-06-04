@@ -124,7 +124,7 @@ static const NSTimeInterval kDefaultRetryInterval = 10;
     _seqManager = [[TJPSequenceManager alloc] init];
     
     // 初始化协议解析器
-    _parser = [[TJPMessageParser alloc] init];
+    _parser = [[TJPMessageParser alloc] initWithRingBufferEnabled:YES];
     
     // 初始化重连策略
     _reconnectPolicy = [[TJPReconnectPolicy alloc] initWithMaxAttempst:config.maxRetry baseDelay:config.baseDelay qos:TJPNetworkQoSDefault delegate:self];
