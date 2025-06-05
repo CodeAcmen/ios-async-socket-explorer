@@ -1,20 +1,36 @@
 # ios-async-socket-explorer
+> [English Version (简要英文版入口) → Click here](./README.en.md)
 
 ![GitHub stars](https://img.shields.io/github/stars/CodeAcmen/ios-async-socket-explorer?style=social)
 ![Platform](https://img.shields.io/badge/platform-iOS-blue.svg)
 ![License](https://img.shields.io/badge/license-MIT-green.svg)
 
-> 基于CocoaAsyncSocket构建的企业级iOS通信框架，提供高性能、可靠的IM底层支持。
+> 企业级 iOS TCP 通信框架，专为高并发、弱网环境、模块化架构而设计。
 
 ## 概述
-ios-async-socket-explorer 是一个生产级TCP通信框架，来源于即时通讯领域实际工作经验（**已脱敏**）。展示了从**小型项目单 TCP 架构**，逐步演进为适用于中大型项目**多路复用架构**的过程，包含协议设计、架构解耦、高并发优化等核心实践。
+`ios-async-socket-explorer` 是一套基于 CocoaAsyncSocket 封装的生产级通信框架，源自真实企业级 IM 项目实践，致力于提升 iOS 在弱网、高并发场景下的 TCP 通信稳定性、可维护性和扩展能力。
 
 **主要特性:**
-- 支持峰值3k+并发连接的高性能架构，日均稳定处理10万+消息量
-- 完善的弱网环境优化策略，包含指数退避重连算法和自适应心跳
-- TLS加密与自定义二进制协议，保障通信安全性
-- 企业级VIPER分层架构设计，单元测试覆盖率>90%
-- 丰富的监控指标和全链路追踪，确保系统可观测性
+-  支持 **3000+并发连接**，**日均处理10w+消息**
+-  实现 **TLV二进制协议 + CRC32校验 + ACK确认机制**
+-  搭载 **RTT自适应心跳**、**指数退避重连**，支持复杂弱网环境
+-  企业级 **VIPER分层架构设计**，单元测试覆盖率>85%
+-  丰富的**监控指标和全链路追踪**，确保系统可观测性
+
+> 已被用于 B2B IM 服务、物联网通信、弱网移动端场景评估
+
+## 为什么选型 CocoaAsyncSocket？
+
+尽管 iOS 生态已有多种通信方案（如 Starscream、NSURLSession WebSocket 等），但：
+
+| 选型因素 | 原因 |
+|----------|------|
+| 高并发 + 底层控制 | CocoaAsyncSocket 支持底层 socket 原生封装，适合定制协议 |
+| 企业部署场景 | 兼容 TLS、Socket KeepAlive、链路监控等安全与连接策略 |
+| 可控性强 | 相比 WebSocket，更灵活地实现连接复用、消息确认、重传策略 |
+| 跨项目适配 | Objective-C 封装 + Swift 调用，适配多技术栈客户端项目 |
+
+---
 
 ## 🛠️ 技术栈
 
