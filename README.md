@@ -7,6 +7,15 @@
 
 > 企业级 iOS TCP 通信框架，专为高并发、弱网环境、模块化架构而设计。
 
+## 🛠️ 技术栈
+
+![Objective-C](https://img.shields.io/badge/Objective--C-orange?style=flat-square&logo=objective-c)
+![TCP/IP](https://img.shields.io/badge/TCP%2FIP-blue?style=flat-square&logo=internetexplorer)
+![CocoaAsyncSocket](https://img.shields.io/badge/CocoaAsyncSocket-lightgrey?style=flat-square)
+![SSL/TLS](https://img.shields.io/badge/SSL%2FTLS-green?style=flat-square&logo=openssl)
+![Typhoon](https://img.shields.io/badge/Typhoon-red?style=flat-square)
+![GCD](https://img.shields.io/badge/GCD-purple?style=flat-square&logo=apple)
+
 ## 概述
 `ios-async-socket-explorer` 是一套基于 CocoaAsyncSocket 封装的生产级通信框架，源自真实企业级 IM 项目实践，致力于提升 iOS 在弱网、高并发场景下的 TCP 通信稳定性、可维护性和扩展能力。
 
@@ -31,16 +40,6 @@
 | 跨项目适配 | Objective-C 封装 + Swift 调用，适配多技术栈客户端项目 |
 
 ---
-
-## 🛠️ 技术栈
-
-![Objective-C](https://img.shields.io/badge/Objective--C-orange?style=flat-square&logo=objective-c)
-![TCP/IP](https://img.shields.io/badge/TCP%2FIP-blue?style=flat-square&logo=internetexplorer)
-![CocoaAsyncSocket](https://img.shields.io/badge/CocoaAsyncSocket-lightgrey?style=flat-square)
-![SSL/TLS](https://img.shields.io/badge/SSL%2FTLS-green?style=flat-square&logo=openssl)
-![Typhoon](https://img.shields.io/badge/Typhoon-red?style=flat-square)
-![GCD](https://img.shields.io/badge/GCD-purple?style=flat-square&logo=apple)
-
 
 ## 🚀 快速开始
 **Objective-C 接入示例**
@@ -331,16 +330,27 @@ iOS-Network-Stack-Dive/
 
 详情请查看[LICENSE](./LICENSE)文件。
 
-## 社区说明
+## 社区透明度声明
 
-最近有开发者反馈本项目在短时间内获得了大量 Star，其中部分来自异常或不活跃账号。经我自行核查，确实存在一部分 Star 来自非自然用户增长渠道。
+近期我收到关于项目 Star 异常增长的反馈。经与 GitHub 官方核查确认，其中部分来自非自然增长渠道。
 
-在此我诚恳地说明：  
-在早期推广过程中，曾尝试使用第三方服务进行项目曝光测试。虽然初衷是想让更多人看到这个项目，但我认识到这并不符合开源社区所倡导的透明与真实原则。
+### 立场与行动
+1. **问题回顾**  
+   项目在早期曾尝试通过第三方服务进行曝光测试（现已永久终止）
 
-对此我已联系 GitHub 支持，积极配合清理异常账号带来的 Star。同时，我承诺不会采用类似方式推广项目，今后将更加注重项目质量、用户反馈与真实贡献的积累。
+2. **当前处理**  
+   ✅ 已停止所有非自然推广行为  
+   ✅ 已向 GitHub 报告异常 Star，并提交可疑样本，等待平台进一步处置  
+   ✅ 项目保持完全透明，所有代码和提交记录均可审查
 
-感谢社区的监督与包容，任何建议或疑问欢迎通过 issue 或 discussion 与我交流。
+4. **未来承诺**  
+   **专注技术价值**：依靠代码质量与架构创新赢得认可    
+   **真实数据优先**：杜绝任何形式的数据操控  
+   **开放治理**：将定期发布社区透明度报告（含增长分析）
+   
+### 特别致谢
+感谢提出质疑的开发者！您的监督促使我更好地践行开源精神。任何疑问或建议，欢迎通过 issue 或 discussion 提出。
 
-—— 项目维护者
+—— 项目维护者  
+*更新于 2025.06.07*
 
