@@ -7,6 +7,15 @@
 
 > 企业级 iOS TCP 通信框架，专为高并发、弱网环境、模块化架构而设计。
 
+## 🛠️ 技术栈
+
+![Objective-C](https://img.shields.io/badge/Objective--C-orange?style=flat-square&logo=objective-c)
+![TCP/IP](https://img.shields.io/badge/TCP%2FIP-blue?style=flat-square&logo=internetexplorer)
+![CocoaAsyncSocket](https://img.shields.io/badge/CocoaAsyncSocket-lightgrey?style=flat-square)
+![SSL/TLS](https://img.shields.io/badge/SSL%2FTLS-green?style=flat-square&logo=openssl)
+![Typhoon](https://img.shields.io/badge/Typhoon-red?style=flat-square)
+![GCD](https://img.shields.io/badge/GCD-purple?style=flat-square&logo=apple)
+
 ## 概述
 `ios-async-socket-explorer` 是一套基于 CocoaAsyncSocket 封装的生产级通信框架，源自真实企业级 IM 项目实践，致力于提升 iOS 在弱网、高并发场景下的 TCP 通信稳定性、可维护性和扩展能力。
 
@@ -31,16 +40,6 @@
 | 跨项目适配 | Objective-C 封装 + Swift 调用，适配多技术栈客户端项目 |
 
 ---
-
-## 🛠️ 技术栈
-
-![Objective-C](https://img.shields.io/badge/Objective--C-orange?style=flat-square&logo=objective-c)
-![TCP/IP](https://img.shields.io/badge/TCP%2FIP-blue?style=flat-square&logo=internetexplorer)
-![CocoaAsyncSocket](https://img.shields.io/badge/CocoaAsyncSocket-lightgrey?style=flat-square)
-![SSL/TLS](https://img.shields.io/badge/SSL%2FTLS-green?style=flat-square&logo=openssl)
-![Typhoon](https://img.shields.io/badge/Typhoon-red?style=flat-square)
-![GCD](https://img.shields.io/badge/GCD-purple?style=flat-square&logo=apple)
-
 
 ## 🚀 快速开始
 **Objective-C 接入示例**
