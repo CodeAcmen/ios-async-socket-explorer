@@ -46,7 +46,7 @@
             @"viewControllers": @[
                 @{ @"title": @"粘包问题演示", @"viewController": [StickPacketDemoController class] },
                 @{ @"title": @"粘包问题解决方案", @"viewController": [StickPacketSolutionController class] },
-                @{ @"title": @"TCP框架+数据监控演示", @"viewController": [TJPNetworkMonitorViewController class] }
+                @{ @"title": @"TCP通信框架+数据监控演示", @"viewController": [TJPNetworkMonitorViewController class] }
             ]
         },
         @{
