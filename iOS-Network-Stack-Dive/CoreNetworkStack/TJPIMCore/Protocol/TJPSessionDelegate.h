@@ -27,6 +27,8 @@ NS_ASSUME_NONNULL_BEGIN
 // 连接失败
 - (void)session:(id<TJPSessionProtocol>)session didFailWithError:(NSError *)error;
 
+- (void)sessionDidForceDisconnect:(id<TJPSessionProtocol>)session;
+
 // === 内容回调 ===
 // 接收文本
 - (void)session:(id<TJPSessionProtocol>)session didReceiveText:(NSString *)text;

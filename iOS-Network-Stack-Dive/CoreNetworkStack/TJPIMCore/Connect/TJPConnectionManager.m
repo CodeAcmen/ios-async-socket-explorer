@@ -117,6 +117,25 @@
     [self disconnectWithReason:TJPDisconnectReasonUserInitiated];
 }
 
+- (void)forceDisconnect {
+    dispatch_async(self.socketQueue, ^{
+        TJPLOG_INFO(@"连接管理器强制断开");
+        // 立即关闭socket，不等待优雅断开
+        if (self.socket) {
+            [self.socket disconnect];
+            self.socket = nil;
+        }
+        
+        // 立即触发断开回调
+        if (self.delegate && [self.delegate respondsToSelector:@selector(connection:didDisconnectWithError:reason:)]) {
+            NSError *error = [NSError errorWithDomain:@"TJPConnectionManager"
+                                               code:-1
+                                           userInfo:@{NSLocalizedDescriptionKey: @"Force disconnect"}];
+            [self.delegate connection:self didDisconnectWithError:error reason:TJPDisconnectReasonForceReconnect];
+        }
+    });
+}
+
 - (void)disconnectWithReason:(TJPDisconnectReason)reason {
     dispatch_async(self.socketQueue, ^{
         if (self.internalState == TJPConnectionStateDisconnected) {

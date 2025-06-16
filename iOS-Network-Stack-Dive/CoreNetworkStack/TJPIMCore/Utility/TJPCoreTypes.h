@@ -77,10 +77,10 @@ typedef NS_ENUM(uint16_t, TJPContentType) {
 };
 
 typedef NS_ENUM(uint16_t, TJPMessageType) {
-    TJPMessageTypeNormalData,      // 普通数据消息
-    TJPMessageTypeHeartbeat,       // 心跳消息
-    TJPMessageTypeACK,             // 确认消息
-    TJPMessageTypeControl          // 控制消息
+    TJPMessageTypeNormalData = 0,      // 普通数据消息
+    TJPMessageTypeHeartbeat = 1,       // 心跳消息
+    TJPMessageTypeACK = 2,             // 确认消息
+    TJPMessageTypeControl = 3          // 控制消息
 };
 
 

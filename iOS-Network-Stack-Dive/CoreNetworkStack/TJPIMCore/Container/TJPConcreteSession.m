@@ -75,7 +75,7 @@ static const NSTimeInterval kDefaultRetryInterval = 10;
 - (void)dealloc {
     TJPLogDealloc();
     //清理定时器
-    [self cancelAllRetransmissionTimers];
+    [self cancelAllRetransmissionTimersSync];
     [self prepareForRelease];
 
 }
@@ -182,22 +182,20 @@ static const NSTimeInterval kDefaultRetryInterval = 10;
             // 更新心跳管理器的 session 引用 并启动心跳 updateSession中包含启动心跳方法
             [strongSelf.heartbeatManager updateSession:strongSelf];
             TJPLOG_INFO(@"连接成功，心跳已启动，当前间隔 %.1f 秒", strongSelf.heartbeatManager.currentInterval);
-            
-            // 如果有积压消息 发送积压消息
-            [strongSelf flushPendingMessages];
-    
-            // 判断是否需要握手
-            if ([strongSelf shouldPerformHandshake]) {
-                [strongSelf performVersionHandshake];
-            } else {
-                TJPLOG_INFO(@"使用现有协商结果，跳过版本握手");
-            }
+
+            [strongSelf handleConnectedState];
         } else if ([newState isEqualToString:TJPConnectStateDisconnecting]) {
             // 状态改为开始断开就更新时间
-            strongSelf.disconnectionTime = [NSDate date];
+            [strongSelf handleDisconnectedState];
         } else if ([newState isEqualToString:TJPConnectStateDisconnected]) {
             // 断开连接，停止心跳
-            [strongSelf.heartbeatManager stopMonitoring];
+            [strongSelf handleDisconnectedState];
+            
+            // 特殊处理强制断开后的逻辑
+            if (strongSelf.disconnectReason == TJPDisconnectReasonForceReconnect) {
+                [strongSelf handleForceDisconnectComplete];
+            }
+            
         }
     }];
 }
@@ -502,8 +500,29 @@ static const NSTimeInterval kDefaultRetryInterval = 10;
    [[NSNotificationCenter defaultCenter] removeObserver:self];
 }
 
-- (void)forceDisconnect { 
+- (void)forceDisconnect {
+    TJPLOG_INFO(@"强制断开连接 - 当前状态: %@", self.stateMachine.currentState);
     
+    //更新断开原因
+    self.disconnectReason = TJPDisconnectReasonForceReconnect;
+    
+    //发送强制断开事件
+    [self.stateMachine sendEvent:TJPConnectEventForceDisconnect];
+    
+    //关闭底层连接
+    [self.connectionManager forceDisconnect];
+    
+    //停止心跳
+    [self.heartbeatManager stopMonitoring];
+    
+    //清理定时器和待确认消息
+    [self cancelAllRetransmissionTimersSync];
+    [self.pendingMessages removeAllObjects];
+    
+    //停止监控
+    [TJPMetricsConsoleReporter stop];
+    
+    TJPLOG_INFO(@"强制断开完成");
 }
 
 
@@ -609,7 +628,7 @@ static const NSTimeInterval kDefaultRetryInterval = 10;
         // 停止Timer
         [self cancelAllRetransmissionTimers];
 
-        //清理资源
+        // 清理资源
         [self.pendingMessages removeAllObjects];
             
         // 停止网络指标监控
@@ -624,6 +643,39 @@ static const NSTimeInterval kDefaultRetryInterval = 10;
 }
 
 #pragma mark - Private Methods
+- (void)handleConnectedState {
+    // 如果有积压消息 发送积压消息
+    [self flushPendingMessages];
+
+    // 判断是否需要握手
+    if ([self shouldPerformHandshake]) {
+        [self performVersionHandshake];
+    } else {
+        TJPLOG_INFO(@"使用现有协商结果，跳过版本握手");
+    }
+}
+
+- (void)handleDisconnectingState {
+    self.disconnectionTime = [NSDate date];
+}
+
+- (void)handleDisconnectedState {
+    [self.heartbeatManager stopMonitoring];
+}
+
+- (void)handleForceDisconnectComplete {
+    TJPLOG_INFO(@"强制断开完成，会话 %@ 已就绪", self.sessionId);
+    // 重置一些状态
+    self.isReconnecting = NO;
+    
+    // 通知协调器可以进行后续操作（如重连或回收）
+    if (self.delegate && [self.delegate respondsToSelector:@selector(sessionDidForceDisconnect:)]) {
+        dispatch_async(dispatch_get_main_queue(), ^{
+            [self.delegate sessionDidForceDisconnect:self];
+        });
+    }
+}
+
 - (void)scheduleRetransmissionForSequence:(uint32_t)sequence {
     // 取消之前可能存在的重传计时器
     NSString *timerKey = [NSString stringWithFormat:@"retry_%u", sequence];
@@ -742,19 +794,22 @@ static const NSTimeInterval kDefaultRetryInterval = 10;
 
 - (void)cancelAllRetransmissionTimers {
     dispatch_async(self.sessionQueue, ^{
-        // 取消所有计时器
-        for (NSString *key in [self.retransmissionTimers allKeys]) {
-            dispatch_source_t timer = self.retransmissionTimers[key];
-            if (timer) {
-                dispatch_source_cancel(timer);
-            }
-        }
-        
-        // 清空计时器字典
-        [self.retransmissionTimers removeAllObjects];
-        
-        TJPLOG_INFO(@"已清理所有重传计时器");
+        [self cancelAllRetransmissionTimersSync];
     });
+}
+
+- (void)cancelAllRetransmissionTimersSync {
+    if (!_retransmissionTimers) return;
+    
+    for (NSString *key in [_retransmissionTimers allKeys]) {
+        dispatch_source_t timer = _retransmissionTimers[key];
+        if (timer) {
+            dispatch_source_cancel(timer);
+        }
+    }
+    [_retransmissionTimers removeAllObjects];
+    
+    TJPLOG_INFO(@"已清理所有重传计时器");
 }
 
 - (void)flushPendingMessages {
@@ -849,17 +904,22 @@ static const NSTimeInterval kDefaultRetryInterval = 10;
 
 
 - (void)processReceivedPacket:(TJPParsedPacket *)packet {
+    TJPLOG_INFO(@"处理数据包: 类型=%hu, 序列号=%u", packet.messageType, packet.sequence);
    switch (packet.messageType) {
        case TJPMessageTypeNormalData:
+           TJPLOG_INFO(@"处理普通数据包，序列号: %u", packet.sequence);
            [self handleDataPacket:packet];
            break;
        case TJPMessageTypeHeartbeat:
+           TJPLOG_INFO(@"处理心跳包，序列号: %u", packet.sequence);
            [self.heartbeatManager heartbeatACKNowledgedForSequence:packet.sequence];
            break;
        case TJPMessageTypeACK:
+           TJPLOG_INFO(@"处理ACK包，序列号: %u", packet.sequence);
            [self handleACKForSequence:packet.sequence];
            break;
        case TJPMessageTypeControl:
+           TJPLOG_INFO(@"处理控制包，序列号: %u", packet.sequence);
            [self handleControlPacket:packet];
            break;
        default:
