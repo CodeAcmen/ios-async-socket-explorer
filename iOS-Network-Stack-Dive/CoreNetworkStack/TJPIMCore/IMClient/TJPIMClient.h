@@ -15,18 +15,75 @@ NS_ASSUME_NONNULL_BEGIN
 /// 单例类
 + (instancetype)shared;
 
-/// 连接方法
+/**
+ * 使用默认会话类型
+ */
 - (void)connectToHost:(NSString *)host port:(uint16_t)port;
+
+/**
+ * 连接指定类型的会话
+ */
 - (void)connectToHost:(NSString *)host port:(uint16_t)port forType:(TJPSessionType)type;
 
-/// 发送消息  消息类型详见 TJPCoreTypes 头文件定义的 TJPContentType
-- (void)sendMessage:(id<TJPMessageProtocol>)message;
-- (void)sendMessage:(id<TJPMessageProtocol>)message throughType:(TJPSessionType)type;
+/**
+ * 断开指定类型的会话
+ */
+- (void)disconnectSessionType:(TJPSessionType)type;
 
+/**
+ * 断开所有会话
+ */
+- (void)disconnectAll;
 
-/// 断开连接
+/**
+ * 兼容原有方法（断开默认会话）
+ */
 - (void)disconnect;
 
+
+/**
+ * 通过指定类型的会话发送消息
+ */
+- (void)sendMessage:(id<TJPMessageProtocol>)message throughType:(TJPSessionType)type;
+
+/**
+ * 兼容原有方法（使用默认会话类型）
+ */
+- (void)sendMessage:(id<TJPMessageProtocol>)message;
+
+/**
+ * 自动路由发送消息
+ */
+- (void)sendMessageWithAutoRoute:(id<TJPMessageProtocol>)message;
+
+/**
+ * 检查指定类型的会话是否已连接
+ */
+- (BOOL)isConnectedForType:(TJPSessionType)type;
+
+/**
+ * 获取指定类型会话的连接状态
+ */
+- (TJPConnectState)getConnectionStateForType:(TJPSessionType)type;
+
+/**
+ * 配置消息内容类型到会话类型的路由
+ */
+- (void)configureRouting:(TJPContentType)contentType toSessionType:(TJPSessionType)sessionType;
+
+
+/**
+ * 获取所有连接状态
+ */
+- (NSDictionary<NSNumber *, TJPConnectState> *)getAllConnectionStates;
+
+
+- (BOOL)isStateConnected:(TJPConnectState)state;
+- (BOOL)isStateConnecting:(TJPConnectState)state;
+- (BOOL)isStateDisconnected:(TJPConnectState)state;
+- (BOOL)isStateDisconnecting:(TJPConnectState)state;
+- (BOOL)isStateConnectedOrConnecting:(TJPConnectState)state;
+- (BOOL)isStateDisconnectedOrDisconnecting:(TJPConnectState)state;
 @end
 
 NS_ASSUME_NONNULL_END

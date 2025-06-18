@@ -37,7 +37,6 @@ TJPConnectEvent const TJPConnectEventReconnect = @"Reconnect";                  
 }
 
 #pragma mark - Initialization
-
 - (instancetype)initWithInitialState:(TJPConnectState)initialState {
     return [self initWithInitialState:initialState setupStandardRules:NO];
 }
@@ -56,6 +55,10 @@ TJPConnectEvent const TJPConnectEventReconnect = @"Reconnect";                  
         }
     }
     return self;
+}
+
+- (void)dealloc {
+    TJPLogDealloc();
 }
 
 #pragma mark - Public Methods

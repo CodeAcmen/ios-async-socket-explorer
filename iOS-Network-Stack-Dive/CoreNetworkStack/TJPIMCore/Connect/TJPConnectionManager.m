@@ -43,10 +43,25 @@
 }
 
 - (void)dealloc {
-    TJPLOG_INFO(@"TJPConnectionManager 释放");
+    NSLog(@"🚨 [TJPConnectionManager] 开始释放 ConnectionManager");
+    
+    // 🔥 关键修复：立即清理 socket delegate，防止野指针回调
+    if (self.socket) {
+        NSLog(@"🚨 [TJPConnectionManager] 清理 socket delegate");
+        
+        // 在释放前先移除delegate，防止socket回调已释放的对象
+        self.socket.delegate = nil;
+        self.socket.delegateQueue = nil;
+        
+        // 强制断开socket连接
+        [self.socket disconnect];
+        self.socket = nil;
+    }
+    
+    // 取消定时器
     [self cancelConnectionTimeoutTimer];
-    [self disconnect];
-
+    
+    NSLog(@"🚨 [TJPConnectionManager] ConnectionManager 释放完成");
 }
 
 #pragma mark - Properties
@@ -65,7 +80,7 @@
     TJPConnectionState oldState = _internalState;
     _internalState = newState;
     
-    TJPLOG_INFO(@"连接管理器状态变化: %d -> %d", (int)oldState, (int)newState);
+    TJPLOG_INFO(@"[TJPConnectionManager] 连接管理器状态变化: %d -> %d", (int)oldState, (int)newState);
     
     // 这里可以添加更复杂的状态监控和日志记录逻辑
 }
@@ -74,12 +89,12 @@
 - (void)connectToHost:(NSString *)host port:(uint16_t)port {
     dispatch_async(self.socketQueue, ^{
         if (self.internalState != TJPConnectionStateDisconnected) {
-            TJPLOG_INFO(@"当前已有连接或正在连接中，无法发起新连接");
+            TJPLOG_INFO(@"[TJPConnectionManager] 当前已有连接或正在连接中，无法发起新连接");
             return;
         }
         
         if (host.length == 0) {
-            TJPLOG_ERROR(@"主机地址不能为空,请检查!!");
+            TJPLOG_ERROR(@"[TJPConnectionManager] 主机地址不能为空,请检查!!");
             return;
         }
         
@@ -117,11 +132,52 @@
     [self disconnectWithReason:TJPDisconnectReasonUserInitiated];
 }
 
-- (void)disconnectWithReason:(TJPDisconnectReason)reason {
+- (void)forceDisconnect {
     dispatch_async(self.socketQueue, ^{
-        if (self.internalState == TJPConnectionStateDisconnected) {
+        TJPLOG_INFO(@"[TJPConnectionManager] 连接管理器强制断开");
+        // 立即关闭socket，不等待优雅断开
+        if (self.socket) {
+            [self.socket disconnect];
+            self.socket = nil;
+        }
+        
+        // 立即触发断开回调
+        if (self.delegate && [self.delegate respondsToSelector:@selector(connection:didDisconnectWithError:reason:)]) {
+            NSError *error = [NSError errorWithDomain:@"TJPConnectionManager"
+                                               code:-1
+                                           userInfo:@{NSLocalizedDescriptionKey: @"Force disconnect"}];
+            [self.delegate connection:self didDisconnectWithError:error reason:TJPDisconnectReasonForceReconnect];
+        }
+    });
+}
+
+- (void)disconnectWithReason:(TJPDisconnectReason)reason {
+    if (!self) {
+        NSLog(@"[TJPConnectionManager] self 为 nil，直接返回");
+        return;
+    }
+    // 打印调用栈，找出谁调用了这个方法
+//    NSArray *callStack = [NSThread callStackSymbols];
+//    NSLog(@"📞 [ConnectionManager] disconnect 调用栈:");
+//    for (NSInteger i = 0; i < MIN(callStack.count, 8); i++) {
+//        NSLog(@"📞 %ld: %@", (long)i, callStack[i]);
+//    }
+    
+    dispatch_async(self.socketQueue, ^{
+        if (!self) {
+            NSLog(@"[TJPConnectionManager] 异步执行时 self 无效");
             return;
         }
+        @try {
+            if (self.internalState == TJPConnectionStateDisconnected) {
+                NSLog(@"[TJPConnectionManager] 已经是断开状态，跳过");
+                return;
+            }
+        } @catch (NSException *exception) {
+            NSLog(@"[TJPConnectionManager] 访问 internalState 异常: %@", exception.reason);
+            return;
+        }
+        
         
         [self cancelConnectionTimeoutTimer];
         self.disconnectReason = reason;
@@ -135,8 +191,9 @@
                 [self.delegate connectionWillDisconnect:self reason:reason];
             });
         }
-        
-        [self.socket disconnect];
+        if (self.socket) {
+            [self.socket disconnect];
+        }
     });
 }
 
@@ -147,7 +204,7 @@
 - (void)sendData:(NSData *)data withTimeout:(NSTimeInterval)timeout tag:(long)tag {
     dispatch_async(self.socketQueue, ^{
         if (self.internalState != TJPConnectionStateConnected) {
-            TJPLOG_WARN(@"当前未连接，无法发送数据");
+            TJPLOG_WARN(@"[TJPConnectionManager] 当前未连接，无法发送数据");
             return;
         }
         
@@ -158,7 +215,7 @@
 - (void)startTLS:(NSDictionary *)settings {
     dispatch_async(self.socketQueue, ^{
         if (self.internalState != TJPConnectionStateConnected) {
-            TJPLOG_WARN(@"当前未连接，无法启动TLS");
+            TJPLOG_WARN(@"[TJPConnectionManager] 当前未连接，无法启动TLS");
             return;
         }
         
@@ -203,7 +260,7 @@
         if (!strongSelf) return;
         
         if (strongSelf.internalState == TJPConnectionStateConnecting) {
-            TJPLOG_ERROR(@"连接超时（%0.1f秒）", strongSelf.connectionTimeout);
+            TJPLOG_ERROR(@"[TJPConnectionManager] 连接超时（%0.1f秒）", strongSelf.connectionTimeout);
             [strongSelf cancelConnectionTimeoutTimer];
             [strongSelf disconnectWithReason:TJPDisconnectReasonConnectionTimeout];
         }

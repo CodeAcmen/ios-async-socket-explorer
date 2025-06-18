@@ -38,6 +38,8 @@ NS_ASSUME_NONNULL_BEGIN
 - (void)connectToHost:(NSString *)host port:(uint16_t)port;
 /// 断开连接方法
 - (void)disconnect;
+/// 强制断开连接方法
+- (void)forceDisconnect;
 /// 断开连接原因
 - (void)disconnectWithReason:(TJPDisconnectReason)reason;
 /// 发送消息

@@ -12,7 +12,9 @@ typedef NS_ENUM(NSUInteger, TJPSessionType) {
     TJPSessionTypeDefault = 0,       // 默认通用会话
     TJPSessionTypeChat = 1,          // 聊天会话
     TJPSessionTypeMedia = 2,         // 媒体传输会话
-    TJPSessionTypeSignaling = 3      // 信令会话
+    TJPSessionTypeSignaling = 3,     // 信令会话
+    TJPSessionTypeFile = 4           // 文件传输
+
 };
 
 // 协议支持的特性定义
@@ -77,10 +79,10 @@ typedef NS_ENUM(uint16_t, TJPContentType) {
 };
 
 typedef NS_ENUM(uint16_t, TJPMessageType) {
-    TJPMessageTypeNormalData,      // 普通数据消息
-    TJPMessageTypeHeartbeat,       // 心跳消息
-    TJPMessageTypeACK,             // 确认消息
-    TJPMessageTypeControl          // 控制消息
+    TJPMessageTypeNormalData = 0,      // 普通数据消息
+    TJPMessageTypeHeartbeat = 1,       // 心跳消息
+    TJPMessageTypeACK = 2,             // 确认消息
+    TJPMessageTypeControl = 3          // 控制消息
 };
 
 

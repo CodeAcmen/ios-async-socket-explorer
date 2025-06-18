@@ -46,9 +46,6 @@ NS_ASSUME_NONNULL_BEGIN
 
 /// 初始化方法
 - (instancetype)initWithConfiguration:(TJPNetworkConfig *)config;
-//- (void)disconnect;
-//- (void)forceReconnect;
-//- (void)prepareForRelease;
 
 //*****************************************************
 //   埋点统计 具体实现看TJPConcreteSession+TJPMetrics.h 通过hook相关方法增加埋点
@@ -58,6 +55,24 @@ NS_ASSUME_NONNULL_BEGIN
 - (void)handleRetransmissionForSequence:(uint32_t)sequence;
 - (void)performVersionHandshake;
 //*****************************************************
+
+//*****************************************************
+//  多路复用支持相关
+
+/// 最后活跃时间
+@property (nonatomic, strong) NSDate *lastActiveTime;
+/// 最后释放时间
+@property (nonatomic, strong) NSDate *lastReleaseTime;
+/// 使用次数
+@property (nonatomic, assign) NSUInteger useCount;
+/// 是否在池中
+@property (nonatomic, assign) BOOL isPooled;
+
+- (void)resetForReuse;
+- (BOOL)isHealthyForReuse;
+
+//*****************************************************
+
 
 @end
 

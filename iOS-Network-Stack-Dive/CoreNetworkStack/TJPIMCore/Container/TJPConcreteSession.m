@@ -73,11 +73,19 @@ static const NSTimeInterval kDefaultRetryInterval = 10;
 @implementation TJPConcreteSession
 
 - (void)dealloc {
-    TJPLogDealloc();
-    //清理定时器
-    [self cancelAllRetransmissionTimers];
+    NSLog(@"🚨 [CRITICAL] 会话 %@ 开始释放", _sessionId ?: @"unknown");
+    
+//    NSArray *callStack = [NSThread callStackSymbols];
+//    NSLog(@"🚨 [CRITICAL] 调用栈:");
+//    for (NSInteger i = 0; i < MIN(callStack.count, 10); i++) {
+//        NSLog(@"🚨 [CRITICAL] %ld: %@", (long)i, callStack[i]);
+//    }
+    
+    // 清理定时器
+    [self cancelAllRetransmissionTimersSync];
     [self prepareForRelease];
-
+    
+    NSLog(@"🚨 [CRITICAL] 会话 %@ 释放完成", _sessionId ?: @"unknown");
 }
 
 #pragma mark - Lifecycle
@@ -88,7 +96,7 @@ static const NSTimeInterval kDefaultRetryInterval = 10;
         _sessionId = [[NSUUID UUID] UUIDString];
         _retransmissionTimers = [NSMutableDictionary dictionary];
         _pendingMessages = [NSMutableDictionary dictionary];
-
+        
         // 创建专用队列（串行，中等优先级）
         _sessionQueue = dispatch_queue_create("com.concreteSession.tjp.sessionQueue", DISPATCH_QUEUE_SERIAL);
         dispatch_set_target_queue(_sessionQueue, dispatch_get_global_queue(QOS_CLASS_DEFAULT, 0));
@@ -103,18 +111,18 @@ static const NSTimeInterval kDefaultRetryInterval = 10;
         _connectionManager.delegate = self;
         _connectionManager.connectionTimeout = 30.0;
         _connectionManager.useTLS = config.useTLS;
-
-
+        
+        
         // 初始化组件
         [self setupComponentWithConfig:config];
         
-                
+        
         // 注册心跳超时通知
         [[NSNotificationCenter defaultCenter] addObserver:self
                                                  selector:@selector(handleHeartbeatTimeout:)
                                                      name:kHeartbeatTimeoutNotification
                                                    object:nil];
-            
+        
     }
     return self;
 }
@@ -134,7 +142,7 @@ static const NSTimeInterval kDefaultRetryInterval = 10;
     
     // 自定义前台模式参数
     [_heartbeatManager configureWithBaseInterval:30.0 minInterval:15.0 maxInterval:300.0 forMode:TJPHeartbeatModeForeground];
-                                      
+    
     // 自定义后台模式参数
     [_heartbeatManager configureWithBaseInterval:90.0 minInterval:45.0 maxInterval:600.0 forMode:TJPHeartbeatModeBackground];
 }
@@ -148,8 +156,8 @@ static const NSTimeInterval kDefaultRetryInterval = 10;
         if (!strongSelf) return;
         
         // 记录错误
-        TJPLOG_ERROR(@"会话 %@ 状态转换错误: %@ -> %@，尝试恢复", strongSelf.sessionId, state, event);
-
+        TJPLOG_ERROR(@"[TJPConcreteSession] 会话 %@ 状态转换错误: %@ -> %@，尝试恢复", strongSelf.sessionId, state, event);
+        
         // 尝试恢复逻辑
         if ([event isEqualToString:TJPConnectEventConnect] &&
             ![state isEqualToString:TJPConnectStateDisconnected]) {
@@ -167,9 +175,9 @@ static const NSTimeInterval kDefaultRetryInterval = 10;
     [_stateMachine onStateChange:^(TJPConnectState oldState, TJPConnectState newState) {
         __strong typeof(weakSelf) strongSelf = weakSelf;
         if (!strongSelf) return;
-
-        TJPLOG_INFO(@"会话 %@ 状态变化: %@ -> %@", strongSelf.sessionId, oldState, newState);
-
+        
+        TJPLOG_INFO(@"[TJPConcreteSession] 会话 %@ 状态变化: %@ -> %@", strongSelf.sessionId, oldState, newState);
+        
         // 通知代理
         if (strongSelf.delegate && [strongSelf.delegate respondsToSelector:@selector(session:didChangeState:)]) {
             dispatch_async(dispatch_get_main_queue(), ^{
@@ -181,23 +189,21 @@ static const NSTimeInterval kDefaultRetryInterval = 10;
         if ([newState isEqualToString:TJPConnectStateConnected]) {
             // 更新心跳管理器的 session 引用 并启动心跳 updateSession中包含启动心跳方法
             [strongSelf.heartbeatManager updateSession:strongSelf];
-            TJPLOG_INFO(@"连接成功，心跳已启动，当前间隔 %.1f 秒", strongSelf.heartbeatManager.currentInterval);
+            TJPLOG_INFO(@"[TJPConcreteSession] 连接成功，心跳已启动，当前间隔 %.1f 秒", strongSelf.heartbeatManager.currentInterval);
             
-            // 如果有积压消息 发送积压消息
-            [strongSelf flushPendingMessages];
-    
-            // 判断是否需要握手
-            if ([strongSelf shouldPerformHandshake]) {
-                [strongSelf performVersionHandshake];
-            } else {
-                TJPLOG_INFO(@"使用现有协商结果，跳过版本握手");
-            }
+            [strongSelf handleConnectedState];
         } else if ([newState isEqualToString:TJPConnectStateDisconnecting]) {
             // 状态改为开始断开就更新时间
-            strongSelf.disconnectionTime = [NSDate date];
+            [strongSelf handleDisconnectedState];
         } else if ([newState isEqualToString:TJPConnectStateDisconnected]) {
             // 断开连接，停止心跳
-            [strongSelf.heartbeatManager stopMonitoring];
+            [strongSelf handleDisconnectedState];
+            
+            // 特殊处理强制断开后的逻辑
+            if (strongSelf.disconnectReason == TJPDisconnectReasonForceReconnect) {
+                [strongSelf handleForceDisconnectComplete];
+            }
+            
         }
     }];
 }
@@ -205,12 +211,12 @@ static const NSTimeInterval kDefaultRetryInterval = 10;
 #pragma mark - TJPConnectionDelegate
 - (void)connectionWillConnect:(TJPConnectionManager *)connection {
     // 记录日志，不需要特殊处理
-    TJPLOG_INFO(@"连接即将建立");
+    TJPLOG_INFO(@"[TJPConcreteSession] 连接即将建立");
 }
 
 - (void)connectionDidConnect:(TJPConnectionManager *)connection {
     dispatch_async(self.sessionQueue, ^{
-        TJPLOG_INFO(@"连接成功，准备给状态机发送连接成功事件");
+        TJPLOG_INFO(@"[TJPConcreteSession] 连接成功，准备给状态机发送连接成功事件");
         self.isReconnecting = NO;
         
         // 触发连接成功事件 状态转换为"已连接"
@@ -263,17 +269,17 @@ static const NSTimeInterval kDefaultRetryInterval = 10;
 
 - (void)connection:(TJPConnectionManager *)connection didReceiveData:(NSData *)data {
     dispatch_async([TJPNetworkCoordinator shared].parseQueue, ^{
-        TJPLOG_INFO(@"读取到数据，准备解析");
+        TJPLOG_INFO(@"[TJPConcreteSession] 读取到数据，准备解析");
         
         // 使用解析器解析数据
         [self.parser feedData:data];
         
         // 解析数据
         while ([self.parser hasCompletePacket]) {
-            TJPLOG_INFO(@"开始解析数据包");
+            TJPLOG_INFO(@"[TJPConcreteSession] 开始解析数据包");
             TJPParsedPacket *packet = [self.parser nextPacket];
             if (!packet) {
-                TJPLOG_INFO(@"数据解析出错，TJPParsedPacket为空，请检查代码,后续流程停止");
+                TJPLOG_INFO(@"[TJPConcreteSession] 数据解析出错，TJPParsedPacket为空，请检查代码,后续流程停止");
                 return;
             }
             // 处理数据包
@@ -285,7 +291,7 @@ static const NSTimeInterval kDefaultRetryInterval = 10;
 
 
 - (void)connectionDidSecure:(TJPConnectionManager *)connection {
-    TJPLOG_INFO(@"连接已建立TLS安全层");
+    TJPLOG_INFO(@"[TJPConcreteSession] 连接已建立TLS安全层");
 }
 
 
@@ -295,7 +301,7 @@ static const NSTimeInterval kDefaultRetryInterval = 10;
 - (void)connectToHost:(NSString *)host port:(uint16_t)port {
     dispatch_async(self.sessionQueue, ^{
         if (host.length == 0) {
-            TJPLOG_ERROR(@"主机地址不能为空,请检查!!");
+            TJPLOG_ERROR(@"[TJPConcreteSession] 主机地址不能为空,请检查!!");
             return;
         }
         self.host = host;
@@ -303,20 +309,20 @@ static const NSTimeInterval kDefaultRetryInterval = 10;
         
         //通过状态机检查当前状态
         if (![self.stateMachine.currentState isEqualToString:TJPConnectStateDisconnected]) {
-            TJPLOG_INFO(@"当前状态无法连接主机,当前状态为: %@", self.stateMachine.currentState);
+            TJPLOG_INFO(@"[TJPConcreteSession] 当前状态无法连接主机,当前状态为: %@", self.stateMachine.currentState);
             return;
         }
         
-        TJPLOG_INFO(@"session 准备给状态机发送连接事件");
-
+        TJPLOG_INFO(@"[TJPConcreteSession] 准备给状态机发送连接事件");
+        
         //触发连接事件 状态转换为"连接中"
         [self.stateMachine sendEvent:TJPConnectEventConnect];
         
         self.disconnectReason = TJPDisconnectReasonNone;
-
+        
         // 使用连接管理器进行连接  职责拆分 session不再负责连接方法
         [self.connectionManager connectToHost:host port:port];
-
+        
     });
 }
 
@@ -324,19 +330,19 @@ static const NSTimeInterval kDefaultRetryInterval = 10;
 - (void)sendData:(NSData *)data {
     dispatch_async(self.sessionQueue, ^{
         if (![self.stateMachine.currentState isEqualToString:TJPConnectStateConnected]) {
-            TJPLOG_INFO(@"当前状态发送消息失败,当前状态为: %@", self.stateMachine.currentState);
+            TJPLOG_INFO(@"[TJPConcreteSession] 当前状态发送消息失败,当前状态为: %@", self.stateMachine.currentState);
             return;
         }
         
         // 参数验证
         if (!data) {
-            TJPLOG_ERROR(@"发送数据为空");
+            TJPLOG_ERROR(@"[TJPConcreteSession] 发送数据为空");
             return;
         }
         
         // 检查数据大小
         if (data.length > TJPMAX_BODY_SIZE) {
-            TJPLOG_ERROR(@"数据大小超过限制: %lu > %d", (unsigned long)data.length, TJPMAX_BODY_SIZE);
+            TJPLOG_ERROR(@"[TJPConcreteSession] 数据大小超过限制: %lu > %d", (unsigned long)data.length, TJPMAX_BODY_SIZE);
             return;
         }
         
@@ -347,13 +353,13 @@ static const NSTimeInterval kDefaultRetryInterval = 10;
         // 获取当前会话使用的加密和压缩类型
         TJPEncryptType encryptType = TJPEncryptTypeCRC32;
         TJPCompressType compressType = TJPCompressTypeZlib;
-
+        
         
         //构造协议包  实际通过Socket发送的协议包(协议头+原始数据)
         NSData *packet = [TJPMessageBuilder buildPacketWithMessageType:TJPMessageTypeNormalData sequence:seq payload:data encryptType:encryptType compressType:compressType sessionID:self.sessionId];
         
         if (!packet) {
-            TJPLOG_ERROR(@"消息包构建失败");
+            TJPLOG_ERROR(@"[TJPConcreteSession] 消息包构建失败");
             return;
         }
         
@@ -365,7 +371,7 @@ static const NSTimeInterval kDefaultRetryInterval = 10;
         //设置超时重传
         [self scheduleRetransmissionForSequence:context.sequence];
         
-        TJPLOG_INFO(@"session 消息即将发出, 序列号: %u, 大小: %lu字节", seq, (unsigned long)packet.length);
+        TJPLOG_INFO(@"[TJPConcreteSession] 消息即将发出, 序列号: %u, 大小: %lu字节", seq, (unsigned long)packet.length);
         
         //使用连接管理器发送消息
         [self.connectionManager sendData:packet withTimeout:-1 tag:context.sequence];
@@ -376,19 +382,29 @@ static const NSTimeInterval kDefaultRetryInterval = 10;
 - (void)sendHeartbeat:(NSData *)heartbeatData {
     dispatch_async(self.sessionQueue, ^{
         if (![self.stateMachine.currentState isEqualToString:TJPConnectStateConnected]) {
-            TJPLOG_INFO(@"当前状态发送心跳包失败, 当前状态为: %@", self.stateMachine.currentState);
+            TJPLOG_INFO(@"[TJPConcreteSession] 当前状态发送心跳包失败, 当前状态为: %@", self.stateMachine.currentState);
             return;
         }
-        TJPLOG_INFO(@"session 正在发送心跳包");
+        TJPLOG_INFO(@"[TJPConcreteSession] 正在发送心跳包");
         [self.connectionManager sendData:heartbeatData withTimeout:-1 tag:0];
     });
 }
 
 - (void)disconnectWithReason:(TJPDisconnectReason)reason {
+    NSLog(@"[DISCONNECT] 会话 %@ 收到断开请求，原因: %d", self.sessionId ?: @"unknown", (int)reason);
+    
+    // 打印调用栈，找出是谁调用了断开
+    if (reason != TJPDisconnectReasonUserInitiated) { // 只在非用户主动断开时打印
+        NSArray *callStack = [NSThread callStackSymbols];
+        NSLog(@"📞 [DISCONNECT] 断开调用栈:");
+        for (NSInteger i = 0; i < MIN(callStack.count, 8); i++) {
+            NSLog(@"📞 [DISCONNECT] %ld: %@", (long)i, callStack[i]);
+        }
+    }
     dispatch_async(self.sessionQueue, ^{
         // 避免重复断开
         if ([self.stateMachine.currentState isEqualToString:TJPConnectStateDisconnected]) {
-            TJPLOG_INFO(@"当前已是断开状态，无需再次断开");
+            TJPLOG_INFO(@"[TJPConcreteSession] 当前已是断开状态，无需再次断开");
             return;
         }
         
@@ -397,18 +413,18 @@ static const NSTimeInterval kDefaultRetryInterval = 10;
         
         // 状态转换为"断开中"
         [self.stateMachine sendEvent:TJPConnectEventDisconnect];
-
+        
         
         //使用管理器断开连接
         [self.connectionManager disconnectWithReason:reason];
-
+        
         //停止心跳
         [self.heartbeatManager stopMonitoring];
         
         //清理资源
         [self.pendingMessages removeAllObjects];
         [self cancelAllRetransmissionTimers];
-
+        
         //停止监控
         [TJPMetricsConsoleReporter stop];
         
@@ -424,12 +440,12 @@ static const NSTimeInterval kDefaultRetryInterval = 10;
                 [self.delegate sessionNeedsReconnect:self];
             }
         }
-
+        
     });
 }
 
 - (void)disconnect {
-   [self disconnectWithReason:TJPDisconnectReasonUserInitiated];
+    [self disconnectWithReason:TJPDisconnectReasonUserInitiated];
 }
 
 - (void)updateConnectionState:(TJPConnectState)state {
@@ -449,7 +465,7 @@ static const NSTimeInterval kDefaultRetryInterval = 10;
     dispatch_async(self.sessionQueue, ^{
         //重连之前确保连接断开
         [self disconnectWithReason:TJPDisconnectReasonForceReconnect];
-
+        
         //延迟一点时间确保连接完全断开
         dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(0.5 * NSEC_PER_SEC)), self.sessionQueue, ^{
             // 重置连接相关的状态
@@ -462,48 +478,69 @@ static const NSTimeInterval kDefaultRetryInterval = 10;
 }
 
 - (void)networkDidBecomeAvailable {
-   dispatch_async(self.sessionQueue, ^{
-       // 检查是否已经在重连
-       if (self.isReconnecting) {
-           TJPLOG_INFO(@"已有重连过程在进行，忽略");
-           return;
-       }
-       
-       // 只有当前状态为断开状态且启用了自动重连才尝试重连
-       if ([self.stateMachine.currentState isEqualToString:TJPConnectStateDisconnected] &&
-           self.autoReconnectEnabled &&
-           self.disconnectReason != TJPDisconnectReasonUserInitiated) {
-           
-           self.isReconnecting = YES;
-           TJPLOG_INFO(@"网络恢复，尝试自动重连");
-           
-           [self.reconnectPolicy attemptConnectionWithBlock:^{
-               [self connectToHost:self.host port:self.port];
-           }];
-       }
-   });
+    dispatch_async(self.sessionQueue, ^{
+        // 检查是否已经在重连
+        if (self.isReconnecting) {
+            TJPLOG_INFO(@"[TJPConcreteSession] 已有重连过程在进行，忽略");
+            return;
+        }
+        
+        // 只有当前状态为断开状态且启用了自动重连才尝试重连
+        if ([self.stateMachine.currentState isEqualToString:TJPConnectStateDisconnected] &&
+            self.autoReconnectEnabled &&
+            self.disconnectReason != TJPDisconnectReasonUserInitiated) {
+            
+            self.isReconnecting = YES;
+            TJPLOG_INFO(@"[TJPConcreteSession] 网络恢复，尝试自动重连");
+            
+            [self.reconnectPolicy attemptConnectionWithBlock:^{
+                [self connectToHost:self.host port:self.port];
+            }];
+        }
+    });
 }
 
 - (void)networkDidBecomeUnavailable {
-   dispatch_async(self.sessionQueue, ^{
-       // 如果当前连接中或已连接，则标记为网络错误并断开
-       if ([self.stateMachine.currentState isEqualToString:TJPConnectStateConnecting] ||
-           [self.stateMachine.currentState isEqualToString:TJPConnectStateConnected]) {
-           
-           [self disconnectWithReason:TJPDisconnectReasonNetworkError];
-       }
-   });
+    dispatch_async(self.sessionQueue, ^{
+        // 如果当前连接中或已连接，则标记为网络错误并断开
+        if ([self.stateMachine.currentState isEqualToString:TJPConnectStateConnecting] ||
+            [self.stateMachine.currentState isEqualToString:TJPConnectStateConnected]) {
+            
+            [self disconnectWithReason:TJPDisconnectReasonNetworkError];
+        }
+    });
 }
 
 - (void)prepareForRelease {
-   [self.connectionManager disconnect];
-   [self.heartbeatManager stopMonitoring];
+    [self.connectionManager disconnect];
+    [self.heartbeatManager stopMonitoring];
     [TJPMetricsConsoleReporter stop];
-   [[NSNotificationCenter defaultCenter] removeObserver:self];
+    [[NSNotificationCenter defaultCenter] removeObserver:self];
 }
 
-- (void)forceDisconnect { 
+- (void)forceDisconnect {
+    TJPLOG_INFO(@"[TJPConcreteSession] 强制断开连接 - 当前状态: %@", self.stateMachine.currentState);
     
+    //更新断开原因
+    self.disconnectReason = TJPDisconnectReasonForceReconnect;
+    
+    //发送强制断开事件
+    [self.stateMachine sendEvent:TJPConnectEventForceDisconnect];
+    
+    //关闭底层连接
+    [self.connectionManager forceDisconnect];
+    
+    //停止心跳
+    [self.heartbeatManager stopMonitoring];
+    
+    //清理定时器和待确认消息
+    [self cancelAllRetransmissionTimersSync];
+    [self.pendingMessages removeAllObjects];
+    
+    //停止监控
+    [TJPMetricsConsoleReporter stop];
+    
+    TJPLOG_INFO(@"[TJPConcreteSession] 强制断开完成");
 }
 
 
@@ -534,7 +571,7 @@ static const NSTimeInterval kDefaultRetryInterval = 10;
     // 获取序列号
     uint32_t seq = [self.seqManager nextSequenceForCategory:TJPMessageCategoryControl];
     header.sequence = htonl(seq);
-
+    
 #warning //构建版本协商TLV数据 - 这里使用我构建的数据  实际环境需要替换成你需要的
     NSMutableData *tlvData = [NSMutableData data];
     //版本信息标签
@@ -544,25 +581,25 @@ static const NSTimeInterval kDefaultRetryInterval = 10;
     // 版本值(Value第一部分): 将主版本号和次版本号打包为一个16位整数
     // 主版本占用高8位，次版本占用低8位
     uint16_t versionValue = htons((majorVersion << 8) | minorVersion);
-   
+    
     // 使用定义的特性标志
     uint16_t featureFlags = htons(TJP_SUPPORTED_FEATURES);
     
     // 记录日志，便于调试
-    NSLog(@"发送版本协商: 版本=%d.%d, 特性=0x%04X", majorVersion, minorVersion, TJP_SUPPORTED_FEATURES);
-
+    NSLog(@"[TJPConcreteSession] 发送版本协商: 版本=%d.%d, 特性=0x%04X", majorVersion, minorVersion, TJP_SUPPORTED_FEATURES);
+    
     [tlvData appendBytes:&versionTag length:sizeof(uint16_t)];
     [tlvData appendBytes:&versionLength length:sizeof(uint32_t)];
     [tlvData appendBytes:&versionValue length:sizeof(uint16_t)];
     [tlvData appendBytes:&featureFlags length:sizeof(uint16_t)];
     
     header.bodyLength = htonl((uint32_t)tlvData.length);
-
+    
     // CRC32计算校验和
     uint32_t checksum = [TJPNetworkUtil crc32ForData:tlvData];
     header.checksum = htonl(checksum);
     
-
+    
     // 构建完整的握手数据包
     NSMutableData *handshakeData = [NSMutableData dataWithBytes:&header length:sizeof(TJPFinalAdavancedHeader)];
     [handshakeData appendData:tlvData];
@@ -584,22 +621,22 @@ static const NSTimeInterval kDefaultRetryInterval = 10;
     // 发送握手数据包
     [self.connectionManager sendData:handshakeData withTimeout:10.0 tag:header.sequence];
     
-    TJPLOG_INFO(@"已发送版本握手包，等待服务器响应");
+    TJPLOG_INFO(@"[TJPConcreteSession] 已发送版本握手包，等待服务器响应");
 }
 
 
 
 #pragma mark - TJPReconnectPolicyDelegate
 - (void)reconnectPolicyDidReachMaxAttempts:(TJPReconnectPolicy *)reconnectPolicy {
-    TJPLOG_ERROR(@"最大重连次数已达到，连接失败");
+    TJPLOG_ERROR(@"[TJPConcreteSession] 最大重连次数已达到，连接失败");
     dispatch_async(self.sessionQueue, ^{
         // 停止重连尝试
         [self.reconnectPolicy stopRetrying];
         self.isReconnecting = NO;
-
+        
         // 将状态机转为断开状态
         [self.stateMachine sendEvent:TJPConnectEventConnectFailure];
-
+        
         // 关闭 socket 连接
         [self.connectionManager disconnect];
         
@@ -608,14 +645,14 @@ static const NSTimeInterval kDefaultRetryInterval = 10;
         
         // 停止Timer
         [self cancelAllRetransmissionTimers];
-
-        //清理资源
+        
+        // 清理资源
         [self.pendingMessages removeAllObjects];
-            
+        
         // 停止网络指标监控
         [TJPMetricsConsoleReporter stop];
-
-        TJPLOG_INFO(@"当前连接退出");
+        
+        TJPLOG_INFO(@"[TJPConcreteSession] 当前连接退出");
     });
 }
 
@@ -623,7 +660,86 @@ static const NSTimeInterval kDefaultRetryInterval = 10;
     return self.stateMachine.currentState;
 }
 
+
+#pragma mark - Public Methods
+- (void)resetForReuse {
+    // 验证基本状态
+    if (!self.sessionId || self.sessionId.length == 0) {
+        TJPLOG_ERROR(@"[TJPConcreteSession] resetForReuse 时 sessionId 无效");
+        return;
+    }
+    
+    TJPLOG_INFO(@"[TJPConcreteSession] 开始重置会话: %@ (第 %lu 次使用)", self.sessionId, (unsigned long)self.useCount + 1);
+    
+    if (self.sessionQueue) {
+        dispatch_sync(self.sessionQueue, ^{
+            [self performResetOperations];
+        });
+    } else {
+        [self performResetOperations];
+    }
+    
+    TJPLOG_INFO(@"[TJPConcreteSession] 会话重置完成: %@", self.sessionId);
+}
+
+- (void)performResetOperations {
+    // 清理状态但保持核心对象
+    if (self.pendingMessages) {
+        [self.pendingMessages removeAllObjects];
+    }
+    
+    // 取消定时器
+    [self cancelAllRetransmissionTimersSync];
+    
+    // 重置状态变量
+    self.disconnectReason = TJPDisconnectReasonNone;
+    self.isReconnecting = NO;
+    self.lastActiveTime = [NSDate date];
+    self.useCount++;
+    self.isPooled = NO;
+    
+    // 确保状态机处于正确状态
+    if (self.stateMachine && ![self.stateMachine.currentState isEqualToString:TJPConnectStateDisconnected]) {
+        TJPLOG_WARN(@"[TJPConcreteSession] 重置时状态异常: %@", self.stateMachine.currentState);
+        // 不要强制发送事件，可能导致意外的副作用
+    }
+}
+
+
 #pragma mark - Private Methods
+- (void)handleConnectedState {
+    // 如果有积压消息 发送积压消息
+    [self flushPendingMessages];
+
+    // 判断是否需要握手
+    if ([self shouldPerformHandshake]) {
+        [self performVersionHandshake];
+    } else {
+        TJPLOG_INFO(@"[TJPConcreteSession] 使用现有协商结果，跳过版本握手");
+    }
+}
+
+- (void)handleDisconnectingState {
+    self.disconnectionTime = [NSDate date];
+}
+
+- (void)handleDisconnectedState {
+    [self.heartbeatManager stopMonitoring];
+}
+
+- (void)handleForceDisconnectComplete {
+    TJPLOG_INFO(@"[TJPConcreteSession] 强制断开完成，会话 %@ 已就绪", self.sessionId);
+    // 重置一些状态
+    self.isReconnecting = NO;
+    
+    // 通知协调器可以进行后续操作（如重连或回收）
+    if (self.delegate && [self.delegate respondsToSelector:@selector(sessionDidForceDisconnect:)]) {
+        dispatch_async(dispatch_get_main_queue(), ^{
+            [self.delegate sessionDidForceDisconnect:self];
+        });
+    }
+}
+
 - (void)scheduleRetransmissionForSequence:(uint32_t)sequence {
     // 取消之前可能存在的重传计时器
     NSString *timerKey = [NSString stringWithFormat:@"retry_%u", sequence];
@@ -636,13 +752,13 @@ static const NSTimeInterval kDefaultRetryInterval = 10;
     //获取消息上下文
     TJPMessageContext *context = self.pendingMessages[@(sequence)];
     if (!context) {
-        TJPLOG_ERROR(@"无法为序列号 %u 安排重传! 原因:消息上下文不存在", sequence);
+        TJPLOG_ERROR(@"[TJPConcreteSession] 无法为序列号 %u 安排重传! 原因:消息上下文不存在", sequence);
         return;
     }
     
     //如果已经达到最大重试次数,不再安排重传
     if (context.retryCount >= context.maxRetryCount) {
-        TJPLOG_WARN(@"消息 %u 已达到最大重试次数 %ld，不再重试", sequence, (long)context.maxRetryCount);
+        TJPLOG_WARN(@"[TJPConcreteSession] 消息 %u 已达到最大重试次数 %ld，不再重试", sequence, (long)context.maxRetryCount);
         return;
     }
     
@@ -669,7 +785,7 @@ static const NSTimeInterval kDefaultRetryInterval = 10;
     
     // 设置定时器取消处理函数
     dispatch_source_set_cancel_handler(timer, ^{
-        TJPLOG_INFO(@"取消消息 %u 的重传计时器", sequence);
+        TJPLOG_INFO(@"[TJPConcreteSession] 取消消息 %u 的重传计时器", sequence);
     });
     
     // 保存定时器
@@ -678,7 +794,7 @@ static const NSTimeInterval kDefaultRetryInterval = 10;
     // 启动定时器
     dispatch_resume(timer);
     
-    TJPLOG_INFO(@"为消息 %u 安排重传，间隔 %.1f 秒，当前重试次数 %ld", sequence, retryInterval, (long)context.retryCount);
+    TJPLOG_INFO(@"[TJPConcreteSession] 为消息 %u 安排重传，间隔 %.1f 秒，当前重试次数 %ld", sequence, retryInterval, (long)context.retryCount);
 }
 
 
@@ -697,13 +813,13 @@ static const NSTimeInterval kDefaultRetryInterval = 10;
     
     // 如果消息已确认，不需要重传
     if (!context) {
-        TJPLOG_INFO(@"消息 %u 已确认，不需要重传", sequence);
+        TJPLOG_INFO(@"[TJPConcreteSession] 消息 %u 已确认，不需要重传", sequence);
         return;
     }
     
     // 检查连接状态
     if (![self.stateMachine.currentState isEqualToString:TJPConnectStateConnected]) {
-        TJPLOG_WARN(@"当前连接状态为 %@，无法重传消息 %u", self.stateMachine.currentState, sequence);
+        TJPLOG_WARN(@"[TJPConcreteSession] 当前连接状态为 %@，无法重传消息 %u", self.stateMachine.currentState, sequence);
         return;
     }
     
@@ -712,7 +828,7 @@ static const NSTimeInterval kDefaultRetryInterval = 10;
     
     // 检查重试次数是否已达上限
     if (context.retryCount >= context.maxRetryCount) {
-        TJPLOG_ERROR(@"消息 %u 重传失败，已达最大重试次数 %ld", sequence, (long)context.maxRetryCount);
+        TJPLOG_ERROR(@"[TJPConcreteSession] 消息 %u 重传失败，已达最大重试次数 %ld", sequence, (long)context.maxRetryCount);
         
         // 移除待确认消息
         [self.pendingMessages removeObjectForKey:@(sequence)];
@@ -731,7 +847,7 @@ static const NSTimeInterval kDefaultRetryInterval = 10;
     }
     
     // 执行重传
-    TJPLOG_INFO(@"重传消息 %u，第 %ld 次尝试", sequence, (long)context.retryCount + 1);
+    TJPLOG_INFO(@"[TJPConcreteSession] 重传消息 %u，第 %ld 次尝试", sequence, (long)context.retryCount + 1);
     NSData *packet = [context buildRetryPacket];
     [self.connectionManager sendData:packet withTimeout:-1 tag:sequence];
 
@@ -742,29 +858,32 @@ static const NSTimeInterval kDefaultRetryInterval = 10;
 
 - (void)cancelAllRetransmissionTimers {
     dispatch_async(self.sessionQueue, ^{
-        // 取消所有计时器
-        for (NSString *key in [self.retransmissionTimers allKeys]) {
-            dispatch_source_t timer = self.retransmissionTimers[key];
-            if (timer) {
-                dispatch_source_cancel(timer);
-            }
-        }
-        
-        // 清空计时器字典
-        [self.retransmissionTimers removeAllObjects];
-        
-        TJPLOG_INFO(@"已清理所有重传计时器");
+        [self cancelAllRetransmissionTimersSync];
     });
+}
+
+- (void)cancelAllRetransmissionTimersSync {
+    if (!_retransmissionTimers) return;
+    
+    for (NSString *key in [_retransmissionTimers allKeys]) {
+        dispatch_source_t timer = _retransmissionTimers[key];
+        if (timer) {
+            dispatch_source_cancel(timer);
+        }
+    }
+    [_retransmissionTimers removeAllObjects];
+    
+    TJPLOG_INFO(@"[TJPConcreteSession] 已清理所有重传计时器");
 }
 
 - (void)flushPendingMessages {
    dispatch_async(self.sessionQueue, ^{
        if ([self.pendingMessages count] == 0) {
-           TJPLOG_INFO(@"没有积压消息需要发送");
+           TJPLOG_INFO(@"[TJPConcreteSession] 没有积压消息需要发送");
            return;
        }
        
-       TJPLOG_INFO(@"开始发送积压消息，共 %lu 条", (unsigned long)self.pendingMessages.count);
+       TJPLOG_INFO(@"[TJPConcreteSession] 开始发送积压消息，共 %lu 条", (unsigned long)self.pendingMessages.count);
        
        for (NSNumber *seq in [self.pendingMessages allKeys]) {
            TJPMessageContext *context = self.pendingMessages[seq];
@@ -849,28 +968,33 @@ static const NSTimeInterval kDefaultRetryInterval = 10;
 
 
 - (void)processReceivedPacket:(TJPParsedPacket *)packet {
+    TJPLOG_INFO(@"[TJPConcreteSession] 处理数据包: 类型=%hu, 序列号=%u", packet.messageType, packet.sequence);
    switch (packet.messageType) {
        case TJPMessageTypeNormalData:
+           TJPLOG_INFO(@"[TJPConcreteSession] 处理普通数据包，序列号: %u", packet.sequence);
            [self handleDataPacket:packet];
            break;
        case TJPMessageTypeHeartbeat:
+           TJPLOG_INFO(@"[TJPConcreteSession] 处理心跳包，序列号: %u", packet.sequence);
            [self.heartbeatManager heartbeatACKNowledgedForSequence:packet.sequence];
            break;
        case TJPMessageTypeACK:
+           TJPLOG_INFO(@"[TJPConcreteSession] 处理ACK包，序列号: %u", packet.sequence);
            [self handleACKForSequence:packet.sequence];
            break;
        case TJPMessageTypeControl:
+           TJPLOG_INFO(@"[TJPConcreteSession] 处理控制包，序列号: %u", packet.sequence);
            [self handleControlPacket:packet];
            break;
        default:
-           TJPLOG_WARN(@"收到未知消息类型 %hu", packet.messageType);
+           TJPLOG_WARN(@"[TJPConcreteSession] 收到未知消息类型 %hu", packet.messageType);
            break;
    }
 }
 
 - (void)handleDataPacket:(TJPParsedPacket *)packet {
    if (!packet.payload) {
-       TJPLOG_ERROR(@"数据包载荷为空");
+       TJPLOG_ERROR(@"[TJPConcreteSession] 数据包载荷为空");
        return;
    }
    
@@ -887,7 +1011,7 @@ static const NSTimeInterval kDefaultRetryInterval = 10;
 
 - (void)handleControlPacket:(TJPParsedPacket *)packet {
    // 解析控制包数据，处理版本协商等控制消息
-   TJPLOG_INFO(@"收到控制包，长度: %lu", (unsigned long)packet.payload.length);
+   TJPLOG_INFO(@"[TJPConcreteSession] 收到控制包，长度: %lu", (unsigned long)packet.payload.length);
    
     // 确保数据包长度足够
     if (packet.payload.length >= 12) { // 至少包含 Tag(2) + Length(4) + Value(2) + Flags(2)
@@ -915,7 +1039,7 @@ static const NSTimeInterval kDefaultRetryInterval = 10;
             uint8_t majorVersion = (value >> 8) & 0xFF;
             uint8_t minorVersion = value & 0xFF;
             
-            TJPLOG_INFO(@"收到版本协商响应: 版本=%d.%d, 特性=0x%04X",
+            TJPLOG_INFO(@"[TJPConcreteSession] 收到版本协商响应: 版本=%d.%d, 特性=0x%04X",
                         majorVersion, minorVersion, flags);
             
             // 保存协商结果到会话属性中
@@ -935,10 +1059,10 @@ static const NSTimeInterval kDefaultRetryInterval = 10;
                 });
             }
         } else {
-            TJPLOG_INFO(@"收到未知控制消息，标签: 0x%04X", tag);
+            TJPLOG_INFO(@"[TJPConcreteSession] 收到未知控制消息，标签: 0x%04X", tag);
         }
     } else {
-        TJPLOG_WARN(@"控制包数据长度不足，无法解析");
+        TJPLOG_WARN(@"[TJPConcreteSession] 控制包数据长度不足，无法解析");
     }
     
    // 发送ACK确认
@@ -946,24 +1070,24 @@ static const NSTimeInterval kDefaultRetryInterval = 10;
 }
 
 - (void)configureSessionWithFeatures:(uint16_t)features {
-    TJPLOG_INFO(@"根据协商特性配置会话: 0x%04X", features);
+    TJPLOG_INFO(@"[TJPConcreteSession] 根据协商特性配置会话: 0x%04X", features);
     
     // 检查各个特性位并配置相应功能
     // 是否支持加密
     if (features & TJP_FEATURE_ENCRYPTION) {
-        TJPLOG_INFO(@"启用加密功能");
+        TJPLOG_INFO(@"[TJPConcreteSession] 启用加密功能");
         // 配置加密
     } else {
-        TJPLOG_INFO(@"禁用加密功能");
+        TJPLOG_INFO(@"[TJPConcreteSession] 禁用加密功能");
         // 禁用加密
     }
     
     // 示例：判断是否支持压缩
     if (features & TJP_FEATURE_COMPRESSION) {
-        TJPLOG_INFO(@"启用压缩功能");
+        TJPLOG_INFO(@"[TJPConcreteSession] 启用压缩功能");
         // 配置压缩
     } else {
-        TJPLOG_INFO(@"禁用压缩功能");
+        TJPLOG_INFO(@"[TJPConcreteSession] 禁用压缩功能");
         // 禁用压缩
     }
     
@@ -1001,7 +1125,7 @@ static const NSTimeInterval kDefaultRetryInterval = 10;
     uint32_t checksum = [TJPNetworkUtil crc32ForData:ackData];
     header.checksum = htonl(checksum);
     
-    TJPLOG_INFO(@"sendAckForPacket方法中计算的校验和 CRC32: %u", checksum);
+    TJPLOG_INFO(@"[TJPConcreteSession] sendAckForPacket方法中计算的校验和 CRC32: %u", checksum);
     
     
     // 构建完整的ACK数据包
@@ -1011,7 +1135,7 @@ static const NSTimeInterval kDefaultRetryInterval = 10;
     // 发送ACK数据包
     [self.connectionManager sendData:ackPacket withTimeout:-1 tag:ackSeq];
     
-    TJPLOG_INFO(@"已发送 %@ ACK确认包，确认序列号: %u", [self messageTypeToString:packet.messageType], packet.sequence);
+    TJPLOG_INFO(@"[TJPConcreteSession] 已发送 %@ ACK确认包，确认序列号: %u", [self messageTypeToString:packet.messageType], packet.sequence);
 }
 
 - (void)handleACKForSequence:(uint32_t)sequence {
@@ -1021,13 +1145,13 @@ static const NSTimeInterval kDefaultRetryInterval = 10;
        if (context) {
            switch (context.messageType) {
                case TJPMessageTypeNormalData:
-                   TJPLOG_INFO(@"普通消息 %u 已被确认", sequence);
+                   TJPLOG_INFO(@"[TJPConcreteSession] 普通消息 %u 已被确认", sequence);
                    break;
                case TJPMessageTypeControl:
-                   TJPLOG_INFO(@"控制消息 %u 已被确认", sequence);
+                   TJPLOG_INFO(@"[TJPConcreteSession] 控制消息 %u 已被确认", sequence);
                    break;
                default:
-                   TJPLOG_INFO(@"消息 %u 已被确认", sequence);
+                   TJPLOG_INFO(@"[TJPConcreteSession] 消息 %u 已被确认", sequence);
                    break;
            }
            // 从待确认消息列表中移除
@@ -1045,7 +1169,7 @@ static const NSTimeInterval kDefaultRetryInterval = 10;
            // 处理心跳ACK
            [self.heartbeatManager heartbeatACKNowledgedForSequence:sequence];
        } else {
-           TJPLOG_INFO(@"收到未知消息的ACK，序列号: %u", sequence);
+           TJPLOG_INFO(@"[TJPConcreteSession] 收到未知消息的ACK，序列号: %u", sequence);
        }
    });
 }
@@ -1054,7 +1178,7 @@ static const NSTimeInterval kDefaultRetryInterval = 10;
    id<TJPSessionProtocol> session = notification.userInfo[@"session"];
    if (session == self) {
        dispatch_async(self.sessionQueue, ^{
-           TJPLOG_WARN(@"心跳超时，断开连接");
+           TJPLOG_WARN(@"[TJPConcreteSession] 心跳超时，断开连接");
            [self disconnectWithReason:TJPDisconnectReasonHeartbeatTimeout];
        });
    }
@@ -1129,25 +1253,25 @@ static const NSTimeInterval kDefaultRetryInterval = 10;
         [self.stateMachine sendEvent:TJPConnectEventDisconnectComplete];
     } else if ([currentState isEqualToString:TJPConnectStateDisconnected]) {
         // 已经断开，无需处理
-        TJPLOG_INFO(@"已在断开状态，无需处理状态转换");
+        TJPLOG_INFO(@"[TJPConcreteSession] 已在断开状态，无需处理状态转换");
     }
 }
 
 - (void)handleDisconnectError:(NSError *)err {
     // 判断错误类型
     if (err) {
-        TJPLOG_INFO(@"连接已断开，原因: %@", err.localizedDescription);
+        TJPLOG_INFO(@"[TJPConcreteSession] 连接已断开，原因: %@", err.localizedDescription);
         // 设置断开原因
         if (err.code == NSURLErrorNotConnectedToInternet) {
             self.disconnectReason = TJPDisconnectReasonNetworkError;
-            TJPLOG_INFO(@"网络错误：无法连接到互联网");
+            TJPLOG_INFO(@"[TJPConcreteSession] 网络错误：无法连接到互联网");
         } else {
             self.disconnectReason = TJPDisconnectReasonSocketError;
-            TJPLOG_INFO(@"连接错误：%@", err.localizedDescription);
+            TJPLOG_INFO(@"[TJPConcreteSession] 连接错误：%@", err.localizedDescription);
         }
     } else {
         // 如果没有错误，则正常处理断开
-        TJPLOG_INFO(@"连接已正常断开");
+        TJPLOG_INFO(@"[TJPConcreteSession] 连接已正常断开");
 
         // 如果没有明确设置，这里可能是用户主动断开
         if (self.disconnectReason == TJPDisconnectReasonNone) {
@@ -1156,7 +1280,34 @@ static const NSTimeInterval kDefaultRetryInterval = 10;
     }
 }
 
+- (BOOL)isHealthyForReuse {
+    // 检查连接状态
+    if (self.connectState != TJPConnectStateConnected) {
+        return NO;
+    }
+    
+    // 检查使用次数（避免过度复用）
+    if (self.useCount > 50) {  // 最多复用50次
+        TJPLOG_INFO(@"[TJPConcreteSession] 会话 %@ 使用次数过多(%lu)，不适合复用", self.sessionId, (unsigned long)self.useCount);
+        return NO;
+    }
+    
+    // 检查待确认消息数量
+    if (self.pendingMessages.count > 20) {
+        TJPLOG_INFO(@"[TJPConcreteSession] 会话 %@ 待确认消息过多(%lu)，不适合复用", self.sessionId, (unsigned long)self.pendingMessages.count);
+        return NO;
+    }
+    
+    // 检查空闲时间
+    NSTimeInterval idleTime = [[NSDate date] timeIntervalSinceDate:self.lastActiveTime];
+    if (idleTime > 300) {  // 空闲超过5分钟
+        TJPLOG_INFO(@"[TJPConcreteSession] 会话 %@ 空闲时间过长(%.0f秒)，不适合复用", self.sessionId, idleTime);
+        return NO;
+    }
+    
+    return YES;
 
+}
 
 
 @end

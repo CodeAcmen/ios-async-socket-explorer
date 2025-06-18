@@ -72,6 +72,7 @@
 }
 
 - (void)dealloc {
+    TJPLogDealloc();
     [[NSNotificationCenter defaultCenter] removeObserver:self];
     [self endBackgroundTask];
 }
