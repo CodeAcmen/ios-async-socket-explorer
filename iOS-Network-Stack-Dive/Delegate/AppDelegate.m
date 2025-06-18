@@ -25,7 +25,7 @@
 
 - (BOOL)application:(UIApplication *)application didFinishLaunchingWithOptions:(NSDictionary *)launchOptions {
     
-    //自动注册所有消息类型
+    // 0.自动注册所有消息类型  必须
     [TJPMessageFactory load];
     
     [self setupNavigationCoordinator];

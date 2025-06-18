@@ -45,7 +45,7 @@
 #define kNetworkStatusChangedNotification @"kNetworkStatusChangedNotification"
 #define kHeartbeatTimeoutNotification @"kHeartbeatTimeoutNotification"
 #define kHeartbeatModeChangedNotification @"kHeartbeatModeChangedNotification"
-
+#define kSessionNeedsReacquisitionNotification @"kSessionNeedsReacquisitionNotification"
 
 
 #define TJPMAX_BODY_SIZE (10 * 1024 * 1024)  // 10MB 最大消息体大小

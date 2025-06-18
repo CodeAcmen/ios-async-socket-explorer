@@ -13,11 +13,17 @@
 NS_ASSUME_NONNULL_BEGIN
 
 @protocol TJPSessionProtocol;
-@class Reachability, TJPNetworkConfig;
+@class Reachability, TJPNetworkConfig, TJPLightweightSessionPool;
 
 @interface TJPNetworkCoordinator : NSObject <TJPSessionDelegate>
-
+/// 管理当前正在使用的会话 按sessionId索引
 @property (nonatomic, strong, readonly) NSMapTable<NSString *, id<TJPSessionProtocol>> *sessionMap;
+
+/// Session类型 为多路复用做支撑
+@property (nonatomic, strong) NSMutableDictionary<NSNumber *, NSString *> *sessionTypeMap;
+
+/// 会话池 管理会话复用
+@property (nonatomic, strong) TJPLightweightSessionPool *sessionPool;
 
 /// 网络状态
 @property (nonatomic, strong) Reachability *reachability;
@@ -29,8 +35,7 @@ NS_ASSUME_NONNULL_BEGIN
 /// 监控专用队列  串行：网络监控相关
 @property (nonatomic, strong) dispatch_queue_t monitorQueue;
 
-/// 新增Session类型 为多路复用做支撑
-@property (nonatomic, strong) NSMutableDictionary<NSNumber *, NSString *> *sessionTypeMap;
+
 
 
 
