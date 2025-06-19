@@ -17,9 +17,10 @@ NS_ASSUME_NONNULL_BEGIN
 
 @property (nonatomic, weak) id<TJPSessionDelegate> delegate;
 
-/// 独立的sessionId
+/// 独立的会话id
 @property (nonatomic, copy) NSString *sessionId;
 
+/// 会话类型
 @property (nonatomic, assign) TJPSessionType sessionType;
 
 /// 配置
@@ -42,6 +43,10 @@ NS_ASSUME_NONNULL_BEGIN
 
 /// 是否允许自动重连 默认开启
 @property (nonatomic, assign) BOOL autoReconnectEnabled;
+
+// 创建时间
+@property (nonatomic, readonly) NSDate *createdTime;
+
 
 
 /// 初始化方法
@@ -69,7 +74,7 @@ NS_ASSUME_NONNULL_BEGIN
 @property (nonatomic, assign) BOOL isPooled;
 
 - (void)resetForReuse;
-- (BOOL)isHealthyForReuse;
+- (BOOL)checkHealthyForSession;
 
 //*****************************************************
 

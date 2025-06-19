@@ -38,6 +38,7 @@ static const TJPSessionPoolConfig kDefaultPoolConfig = {
 // 池状态
 @property (nonatomic, assign) BOOL isRunning;
 
+
 @end
 
 @implementation TJPLightweightSessionPool
@@ -69,8 +70,10 @@ static const TJPSessionPoolConfig kDefaultPoolConfig = {
 }
 
 - (void)dealloc {
+    NSLog(@"🚨 [TJPLightweightSessionPool] 开始释放");
     [self stop];
     [[NSNotificationCenter defaultCenter] removeObserver:self];
+    NSLog(@"🚨 [TJPLightweightSessionPool] 释放完成");
 }
 
 
@@ -101,15 +104,15 @@ static const TJPSessionPoolConfig kDefaultPoolConfig = {
         
         [self stopCleanupTimer];
         
-        //断开活跃会话
+        // 断开活跃会话
         for (TJPConcreteSession *session in [self.activeSessions copy]) {
             [session disconnectWithReason:TJPDisconnectReasonUserInitiated];
         }
         [self.activeSessions removeAllObjects];
         
-        //清理池中会话
+        // 清理池中会话
         for (NSNumber *typeKey in [self.sessionPools allKeys]) {
-            //获取对应类型的池数组
+            // 获取对应类型的池数组
             NSMutableArray *pool = self.sessionPools[typeKey];
             
             for (TJPConcreteSession *session in [pool copy]) {
@@ -141,7 +144,7 @@ static const TJPSessionPoolConfig kDefaultPoolConfig = {
     __block TJPConcreteSession *session = nil;
     TJPLOG_INFO(@"[SessionPool] 开始获取会话，类型: %lu", (unsigned long)type);
 
-    //同步获取 确保会话有效
+    // 同步获取 确保会话有效
     dispatch_sync(self.poolQueue, ^{
         if (!self.isRunning || !self.poolEnabled) {
             TJPLOG_INFO(@"[SessionPool] 池未启用，创建新会话: %@", session.sessionId);
@@ -154,13 +157,13 @@ static const TJPSessionPoolConfig kDefaultPoolConfig = {
             return;
         }
         
-        //尝试从池中获取可复用的会话
+        // 尝试从池中获取可复用的会话
         session = [self getReusableSessionForType:type];
         
         if (session) {
-            //获取到池
+            // 获取到池
             self.hitCount++;
-            //先加入活跃集合 避免提前释放
+            // 先加入活跃集合 避免提前释放
             [self.activeSessions addObject:session];
             
             //从池中移除 加入活跃列表
@@ -173,12 +176,13 @@ static const TJPSessionPoolConfig kDefaultPoolConfig = {
             //重置session状态 供复用
             [session resetForReuse];
             
+            
             TJPLOG_INFO(@"[SessionPool] 从池中复用会话 %@ (类型:%lu, 使用次数:%lu)", session.sessionId, (unsigned long)type, (unsigned long)session.useCount);
         }else {
-            //池未命中，创建新会话
+            // 池未命中，创建新会话
             session = [self createNewSessionForType:type withConfig:config];
             if (session) {
-                //加入活跃集合
+                // 加入活跃集合
                 [self.activeSessions addObject:session];
                 self.missCount++;
                 TJPLOG_INFO(@"[SessionPool] 创建新会话 %@ (类型:%lu)", session.sessionId, (unsigned long)type);
@@ -210,7 +214,7 @@ static const TJPSessionPoolConfig kDefaultPoolConfig = {
     }
     
     dispatch_async(self.poolQueue, ^{
-        //从活跃列表移除
+        // 从活跃列表移除
         [self.activeSessions removeObject:concreteSession];
         
         if (!self.isRunning || !self.poolEnabled) {
@@ -220,12 +224,12 @@ static const TJPSessionPoolConfig kDefaultPoolConfig = {
             return;
         }
         
-        //检查会话是否适合放入池中
+        // 检查会话是否适合放入池中
         if ([self shouldPoolSession:concreteSession]) {
             [self addSessionToPool:concreteSession];
             TJPLOG_INFO(@"[SessionPool] 会话 %@ 已归还到池中 (类型:%lu)", concreteSession.sessionId, (unsigned long)concreteSession.sessionType);
         } else {
-            //不适合放入池中，直接断开
+            // 不适合放入池中，直接断开
             [concreteSession disconnectWithReason:TJPDisconnectReasonUserInitiated];
             TJPLOG_INFO(@"[SessionPool] 会话 %@ 不适合复用，已断开连接", concreteSession.sessionId);
         }
@@ -257,8 +261,8 @@ static const TJPSessionPoolConfig kDefaultPoolConfig = {
 
 - (void)warmupPoolForType:(TJPSessionType)type count:(NSUInteger)count withConfig:(TJPNetworkConfig *)config {
     if (count == 0) return;
-    
     dispatch_async(self.poolQueue, ^{
+        // 获取对应类型的池
         NSMutableArray *pool = [self getPoolForType:type];
         NSUInteger currentCount = pool.count;
         NSUInteger targetCount = MIN(count, self.config.maxPoolSize);
@@ -272,6 +276,7 @@ static const TJPSessionPoolConfig kDefaultPoolConfig = {
         TJPLOG_INFO(@"[SessionPool] 开始预热类型 %lu 的会话池，创建 %lu 个会话", (unsigned long)type, (unsigned long)createCount);
         
         for (NSUInteger i = 0; i < createCount; i++) {
+            // 创建对应类型的会话
             TJPConcreteSession *session = [self createNewSessionForType:type withConfig:config];
             if (!session || !session.sessionId) {
                 TJPLOG_ERROR(@"⚠️ [WARMUP] 第%lu个会话创建失败", (unsigned long)(i+1));
@@ -279,8 +284,6 @@ static const TJPSessionPoolConfig kDefaultPoolConfig = {
             }
             
             NSLog(@"🔥 [WARMUP] 创建会话 %@ 准备添加到池", session.sessionId);
-            session.isPooled = NO;
-            session.lastActiveTime = [NSDate date];
             
             [self addSessionToPool:session];
         }
@@ -332,7 +335,7 @@ static const TJPSessionPoolConfig kDefaultPoolConfig = {
     }
     
     
-    // 设置属性
+    // 设置会话属性
     session.sessionType = type;
     session.lastActiveTime = [NSDate date];
     session.useCount = 0;
@@ -372,7 +375,7 @@ static const TJPSessionPoolConfig kDefaultPoolConfig = {
 
         // 检查会话健康状况
         @try {
-            if (![strongSession isHealthyForReuse]) {
+            if (![strongSession checkHealthyForSession]) {
                 TJPLOG_INFO(@"[SessionPool] 会话 %@ 健康检查失败，标记移除", strongSession.sessionId);
                 [sessionsToRemove addObject:strongSession];
                 continue;
@@ -531,7 +534,7 @@ static const TJPSessionPoolConfig kDefaultPoolConfig = {
     }
     
     //检查会话健康状况
-    if (![session isHealthyForReuse]) {
+    if (![session checkHealthyForSession]) {
         return NO;
     }
     
@@ -650,7 +653,7 @@ static const TJPSessionPoolConfig kDefaultPoolConfig = {
         }
         
         // 检查健康状况
-        if (![session isHealthyForReuse]) {
+        if (![session checkHealthyForSession]) {
             TJPLOG_INFO(@"[SessionPool] 会话 %@ 健康检查失败，移除", session.sessionId);
             shouldRemove = YES;
         }

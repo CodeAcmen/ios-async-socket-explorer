@@ -24,6 +24,7 @@
 
 #define TJPLOG_INFO(fmt, ...) TJPLOG(@"INFO", fmt, ##__VA_ARGS__)
 #define TJPLOG_WARN(fmt, ...) TJPLOG(@"WARN", fmt, ##__VA_ARGS__)
+#define TJPLOG_DEBUG(fmt, ...) TJPLOG(@"DEBUG", fmt, ##__VA_ARGS__)
 #define TJPLOG_ERROR(fmt, ...) TJPLOG(@"ERROR", fmt, ##__VA_ARGS__)
 #define TJPLOG_MOCK(fmt, ...) TJPLOG(@"MOCK", fmt, ##__VA_ARGS__)
 #define TJPLogDealloc() NSLog(@"|DEALLOC| [%@:%d] %s", [[NSString stringWithUTF8String:__FILE__] lastPathComponent], __LINE__, __FUNCTION__)
@@ -33,6 +34,7 @@
 #define TJPLOG(level, fmt, ...)
 #define TJPLOG_INFO(fmt, ...)
 #define TJPLOG_WARN(fmt, ...)
+#define TJPLOG_DEBUG(fmt, ...)
 #define TJPLOG_ERROR(fmt, ...)
 #define TJPLOG_MOCK(fmt, ...)
 #define TJPLogDealloc()
