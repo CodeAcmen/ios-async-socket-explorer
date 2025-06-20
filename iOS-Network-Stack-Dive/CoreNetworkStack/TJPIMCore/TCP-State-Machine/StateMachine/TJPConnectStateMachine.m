@@ -23,6 +23,9 @@ TJPConnectEvent const TJPConnectEventForceDisconnect = @"ForceDisconnect";      
 TJPConnectEvent const TJPConnectEventReconnect = @"Reconnect";                          //重新连接事件
 
 @interface TJPConnectStateMachine ()
+@property (nonatomic, assign, readwrite) BOOL isInitializing;
+@property (nonatomic, assign, readwrite) BOOL hasSetInvalidHandler;
+
 
 @property (nonatomic, readwrite) TJPConnectState currentState;
 @property (nonatomic, copy, nullable) void (^invalidTransitionHandler)(TJPConnectState, TJPConnectEvent);
@@ -44,8 +47,13 @@ TJPConnectEvent const TJPConnectEventReconnect = @"Reconnect";                  
 - (instancetype)initWithInitialState:(TJPConnectState)initialState
                    setupStandardRules:(BOOL)autoSetup {
     if (self = [super init]) {
-        // 通过 setter 设置初始状态，触发 swizzled setCurrentState:
-        self.currentState = initialState;
+        TJPLOG_INFO(@"[TJPConnectStateMachine] 开始初始化状态机,临时禁用指标收集");
+        // 初始化状态
+        _isInitializing = YES;
+        _hasSetInvalidHandler = NO;
+        // 初始化直接设置ivar
+        _currentState = [initialState copy];
+        
         _transitions = [NSMutableDictionary dictionary];
         _stateChangeHandlers = [NSMutableArray array];
         _eventQueue = dispatch_queue_create("com.statemachine.queue", DISPATCH_QUEUE_SERIAL);
@@ -53,6 +61,23 @@ TJPConnectEvent const TJPConnectEventReconnect = @"Reconnect";                  
         if (autoSetup) {
             [self setupStandardTransitions];
         }
+        
+        TJPLOG_INFO(@"[TJPConnectStateMachine] 基础初始化完成，准备启动指标收集");
+        
+        // 异步启动指标收集 通过 setter 设置初始状态，触发 swizzled setCurrentState:
+        __weak typeof(self) weakSelf = self;
+        dispatch_async(_eventQueue, ^{
+            __strong typeof(weakSelf) strongSelf = weakSelf;
+            if (!strongSelf) return;
+            
+            strongSelf.isInitializing = NO;
+
+            // 通过 setter 重新设置状态，这次会被指标收集捕获
+            strongSelf.currentState = initialState;
+            
+            TJPLOG_INFO(@"[TJPConnectStateMachine] 状态机初始化完成，指标收集已启动");
+        });
+
     }
     return self;
 }
@@ -78,7 +103,7 @@ TJPConnectEvent const TJPConnectEventReconnect = @"Reconnect";                  
     dispatch_async(_eventQueue, ^{
         // 检查当前状态和事件是否有效
         if (![self canHandleEvent:event]) {
-            TJPLOG_ERROR(@"无效状态转换: %@ -> %@", self.currentState, event);
+            TJPLOG_ERROR(@"[TJPConnectStateMachine] 无效状态转换: %@ -> %@", self.currentState, event);
             
             // 调用无效转换处理器
             if (self.invalidTransitionHandler) {
@@ -92,20 +117,20 @@ TJPConnectEvent const TJPConnectEventReconnect = @"Reconnect";                  
         TJPConnectState newState = self->_transitions[key];
         
         if (!newState) {
-            TJPLOG_INFO(@"无效事件 当前状态:%@ -> 状态事件:%@", self.currentState, event);
+            TJPLOG_INFO(@"[TJPConnectStateMachine] 无效事件 当前状态:%@ -> 状态事件:%@", self.currentState, event);
             return;
         }
         
         // 如果新状态与当前状态相同，可以考虑跳过或仅记录日志
         if ([newState isEqualToString:self.currentState]) {
-            TJPLOG_INFO(@"状态保持不变: %@ (事件: %@)", self.currentState, event);
+            TJPLOG_INFO(@"[TJPConnectStateMachine] 状态保持不变: %@ (事件: %@)", self.currentState, event);
             return;
         }
         
         TJPConnectState oldState = self.currentState;
         self.currentState = newState;
         
-        TJPLOG_INFO(@"状态转换: %@ -> %@ (事件: %@)", oldState, newState, event);
+        TJPLOG_INFO(@"[TJPConnectStateMachine] 状态转换: %@ -> %@ (事件: %@)", oldState, newState, event);
         
         // 状态变更回调
         for (void(^handler)(TJPConnectState, TJPConnectState) in self->_stateChangeHandlers) {
@@ -119,7 +144,7 @@ TJPConnectEvent const TJPConnectEventReconnect = @"Reconnect";                  
         TJPConnectState oldState = self.currentState;
         self.currentState = state;
         
-        TJPLOG_INFO(@"状态强制切换: %@ -> %@", oldState, state);
+        TJPLOG_INFO(@"[TJPConnectStateMachine] 状态强制切换: %@ -> %@", oldState, state);
         
         // 通知状态变更
         for (void(^handler)(TJPConnectState, TJPConnectState) in self->_stateChangeHandlers) {
@@ -135,8 +160,19 @@ TJPConnectEvent const TJPConnectEventReconnect = @"Reconnect";                  
 }
 
 - (void)setInvalidTransitionHandler:(void (^)(TJPConnectState, TJPConnectEvent))handler {
+    TJPLOG_INFO(@"[TJPConnectStateMachine] 设置 InvalidTransitionHandler");
+    
+    if (self.hasSetInvalidHandler && handler != nil) {
+        TJPLOG_INFO(@"[TJPConnectStateMachine] handler已设置，跳过重复设置");
+        return;
+    }
+
     dispatch_async(_eventQueue, ^{
         self.invalidTransitionHandler = handler;
+        self.hasSetInvalidHandler = (handler != nil);
+        TJPLOG_INFO(@"[TJPConnectStateMachine] InvalidTransitionHandler 设置完成，状态: %@",
+              self.hasSetInvalidHandler ? @"已设置" : @"已清除");
+
     });
 }
 
@@ -147,7 +183,7 @@ TJPConnectEvent const TJPConnectEventReconnect = @"Reconnect";                  
 
 - (void)logAllTransitions {
     dispatch_sync(_eventQueue, ^{
-        TJPLOG_INFO(@"当前状态转换表：");
+        TJPLOG_INFO(@"[TJPConnectStateMachine] 当前状态转换表：");
         for (NSString *key in self->_transitions) {
             TJPLOG_INFO(@"%@ -> %@", key, self->_transitions[key]);
         }
@@ -163,7 +199,7 @@ TJPConnectEvent const TJPConnectEventReconnect = @"Reconnect";                  
     if ([fromState isEqualToString:TJPConnectStateConnected] &&
         [toState isEqualToString:TJPConnectStateConnecting] &&
         [event isEqualToString:TJPConnectEventConnect]) {
-        TJPLOG_ERROR(@"禁止从 Connected 直接到 Connecting");
+        TJPLOG_ERROR(@"[TJPConnectStateMachine] 禁止从 Connected 直接到 Connecting");
         return NO;
     }
     return YES;

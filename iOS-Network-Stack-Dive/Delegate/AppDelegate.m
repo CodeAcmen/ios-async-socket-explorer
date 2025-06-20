@@ -11,6 +11,7 @@
 #import "TJPViewPushHandler.h"
 #import "TJPViewPresentHandler.h"
 #import "TJPMessageFactory.h"
+#import "TJPLogManager.h"
 
 @interface AppDelegate ()
 
@@ -28,6 +29,11 @@
     // 0.自动注册所有消息类型  必须
     [TJPMessageFactory load];
     
+    // 控制台输出
+    [[TJPLogManager sharedManager] setDebugLoggingEnabled:YES];
+    [TJPLogManager sharedManager].minLogLevel = TJPLogLevelDebug;
+
+    // 设置导航跳转处理容器
     [self setupNavigationCoordinator];
         
     [self setupWindow];

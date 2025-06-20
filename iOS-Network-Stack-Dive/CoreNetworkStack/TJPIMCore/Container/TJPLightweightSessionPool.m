@@ -20,7 +20,14 @@ static const TJPSessionPoolConfig kDefaultPoolConfig = {
 };
 
 
-@interface TJPLightweightSessionPool ()
+@interface TJPLightweightSessionPool () {
+    // 健康检查缓存
+    NSMutableDictionary<NSString *, NSNumber *> *_healthCache;
+    NSTimeInterval _healthCacheValidDuration;
+    NSUInteger _healthCheckCounter;
+
+}
+
 // 按类型存储的会话池
 @property (nonatomic, strong) NSMutableDictionary<NSNumber *, NSMutableArray<TJPConcreteSession *> *> *sessionPools;
 // 活跃会话池
@@ -55,9 +62,15 @@ static const TJPSessionPoolConfig kDefaultPoolConfig = {
 
 - (instancetype)init {
     if (self = [super init]) {
+        // 初始化属性
         _config = kDefaultPoolConfig;
         _poolEnabled = YES;
         _isRunning = NO;
+        
+        _healthCache = [NSMutableDictionary dictionary];
+        // 健康状态缓存时间
+        _healthCacheValidDuration = 10.0;
+        _healthCheckCounter = 0;
         
         _sessionPools = [NSMutableDictionary dictionary];
         _activeSessions = [NSMutableSet set];
@@ -70,10 +83,10 @@ static const TJPSessionPoolConfig kDefaultPoolConfig = {
 }
 
 - (void)dealloc {
-    NSLog(@"🚨 [TJPLightweightSessionPool] 开始释放");
+    TJPLOG_INFO(@"🚨 [TJPLightweightSessionPool] 开始释放");
     [self stop];
     [[NSNotificationCenter defaultCenter] removeObserver:self];
-    NSLog(@"🚨 [TJPLightweightSessionPool] 释放完成");
+    TJPLOG_INFO(@"🚨 [TJPLightweightSessionPool] 释放完成");
 }
 
 
@@ -283,7 +296,7 @@ static const TJPSessionPoolConfig kDefaultPoolConfig = {
                 continue;
             }
             
-            NSLog(@"🔥 [WARMUP] 创建会话 %@ 准备添加到池", session.sessionId);
+            TJPLOG_INFO(@"🔥 [WARMUP] 创建会话 %@ 准备添加到池", session.sessionId);
             
             [self addSessionToPool:session];
         }
@@ -430,7 +443,7 @@ static const TJPSessionPoolConfig kDefaultPoolConfig = {
             // 安全移除，不触发额外的释放
             if ([pool containsObject:session]) {
                 [pool removeObject:session];
-                NSLog(@"[SessionPool] 已移除会话: %@", session.sessionId ?: @"unknown");
+                TJPLOG_INFO(@"[SessionPool] 已移除会话: %@", session.sessionId ?: @"unknown");
                 
                 // 标记为非池状态，但不调用断开
                 if (session) {
