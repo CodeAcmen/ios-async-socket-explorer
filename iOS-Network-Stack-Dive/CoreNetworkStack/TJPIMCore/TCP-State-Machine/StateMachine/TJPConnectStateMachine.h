@@ -15,6 +15,12 @@ NS_ASSUME_NONNULL_BEGIN
 /// 当前状态（只读）
 @property (nonatomic, readonly) TJPConnectState currentState;
 
+/// 初始化状态
+@property (nonatomic, assign, readonly) BOOL isInitializing;
+/// 回调设置标记位
+@property (nonatomic, assign, readonly) BOOL hasSetInvalidHandler;
+
+
 /// 初始化方法
 - (instancetype)initWithInitialState:(TJPConnectState)initialState;
 

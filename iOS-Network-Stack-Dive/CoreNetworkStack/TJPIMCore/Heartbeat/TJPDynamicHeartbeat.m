@@ -214,16 +214,21 @@
     });
 }
 
-
 - (void)adjustIntervalWithNetworkCondition:(TJPNetworkCondition *)condition {
     dispatch_async(self.heartbeatQueue, ^{
-        //规则调整
-        [self _calculateQualityLevel:condition];
-        
-        if (self->_heartbeatTimer == nil) {
-            TJPLOG_ERROR(@"当前_heartbeatTimer定时器不存在,更新间隔失败,请检查!!!");
+        //增强检查：如果session未连接，直接跳过
+        if (!self->_session || ![self->_session.connectState isEqualToString:TJPConnectStateConnected]) {
+            TJPLOG_DEBUG(@"[TJPDynamicHeartbeat] 会话未连接，跳过心跳间隔调整");
             return;
         }
+        // 增加空指针保护，避免日志被污染
+        if (self->_heartbeatTimer == nil) {
+            TJPLOG_DEBUG(@"[TJPDynamicHeartbeat] 心跳定时器未启动，跳过间隔调整");
+            return;
+        }
+        // 规则调整
+        [self _calculateQualityLevel:condition];
+        
         // 根据网络状态设置新间隔
         [self _updateTimerInterval];
     });

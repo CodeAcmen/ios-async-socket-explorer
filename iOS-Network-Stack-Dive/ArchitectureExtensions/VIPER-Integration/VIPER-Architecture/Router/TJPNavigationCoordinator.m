@@ -39,7 +39,7 @@
 
 - (void)registerHandler:(id<TJPViperBaseRouterHandlerProtocol>)handler forRouteType:(TJPNavigationRouteType)routeType {
     if (!handler || routeType == TJPNavigationRouteTypeUnknown) {
-        TJPLOG_ERROR("当前路由类型未知,请检查   routeType: %lu", (unsigned long)routeType);
+        TJPLOG_ERROR(@"当前路由类型未知,请检查   routeType: %lu", (unsigned long)routeType);
         return;
     }
     
@@ -65,7 +65,7 @@
 
 - (BOOL)dispatchRequestWithModel:(TJPNavigationModel *)model routeType:(TJPNavigationRouteType)routeType inContext:(UIViewController *)context {
     if (![TJPNavigationValidator isValidModel:model]) {
-        TJPLOG_ERROR("当前模型检查出错  model:%@", model);
+        TJPLOG_ERROR(@"当前模型检查出错  model:%@", model);
         return NO;
     }
     

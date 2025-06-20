@@ -52,6 +52,7 @@ static const NSTimeInterval kDefaultRetryInterval = 10;
 @property (nonatomic, strong) TJPMessageParser *parser;
 
 
+
 /*    版本协商规则    */
 //上次握手时间
 @property (nonatomic, strong) NSDate *lastHandshakeTime;
@@ -67,33 +68,38 @@ static const NSTimeInterval kDefaultRetryInterval = 10;
 @property (nonatomic, assign) uint16_t negotiatedFeatures;
 
 
+/*        Debug          */
+@property (nonatomic, assign) BOOL hasSetupComponents;
+
+
 
 @end
 
 @implementation TJPConcreteSession
 
 - (void)dealloc {
-    NSLog(@"🚨 [CRITICAL] 会话 %@ 开始释放", _sessionId ?: @"unknown");
-    
+    TJPLOG_INFO(@"🚨 [CRITICAL] 会话 %@ 开始释放", _sessionId ?: @"unknown");
 //    NSArray *callStack = [NSThread callStackSymbols];
-//    NSLog(@"🚨 [CRITICAL] 调用栈:");
+//    TJPLOG_INFO(@"🚨 [CRITICAL] 调用栈:");
 //    for (NSInteger i = 0; i < MIN(callStack.count, 10); i++) {
-//        NSLog(@"🚨 [CRITICAL] %ld: %@", (long)i, callStack[i]);
+//        TJPLOG_INFO(@"🚨 [CRITICAL] %ld: %@", (long)i, callStack[i]);
 //    }
-    
     // 清理定时器
     [self cancelAllRetransmissionTimersSync];
     [self prepareForRelease];
-    
-    NSLog(@"🚨 [CRITICAL] 会话 %@ 释放完成", _sessionId ?: @"unknown");
+    TJPLOG_INFO(@"🚨 [CRITICAL] 会话 %@ 释放完成", _sessionId ?: @"unknown");
 }
 
 #pragma mark - Lifecycle
 - (instancetype)initWithConfiguration:(TJPNetworkConfig *)config {
+    TJPLOG_INFO(@"[TJPConcreteSession] 通过配置:%@ 开始初始化", config);
     if (self = [super init]) {
+        _createdTime = [NSDate date];
         _config = config;
         _autoReconnectEnabled = YES;
         _sessionId = [[NSUUID UUID] UUIDString];
+        _disconnectReason = TJPDisconnectReasonNone;
+
         _retransmissionTimers = [NSMutableDictionary dictionary];
         _pendingMessages = [NSMutableDictionary dictionary];
         
@@ -101,19 +107,7 @@ static const NSTimeInterval kDefaultRetryInterval = 10;
         _sessionQueue = dispatch_queue_create("com.concreteSession.tjp.sessionQueue", DISPATCH_QUEUE_SERIAL);
         dispatch_set_target_queue(_sessionQueue, dispatch_get_global_queue(QOS_CLASS_DEFAULT, 0));
         
-        
-        // 初始化状态机（初始状态：断开连接）
-        _stateMachine = [[TJPConnectStateMachine alloc] initWithInitialState:TJPConnectStateDisconnected setupStandardRules:YES];
-        [self setupStateMachine];
-        
-        // 初始化连接管理器
-        _connectionManager = [[TJPConnectionManager alloc] initWithDelegateQueue:_sessionQueue];
-        _connectionManager.delegate = self;
-        _connectionManager.connectionTimeout = 30.0;
-        _connectionManager.useTLS = config.useTLS;
-        
-        
-        // 初始化组件
+        // 初始化各组件
         [self setupComponentWithConfig:config];
         
         
@@ -122,29 +116,70 @@ static const NSTimeInterval kDefaultRetryInterval = 10;
                                                  selector:@selector(handleHeartbeatTimeout:)
                                                      name:kHeartbeatTimeoutNotification
                                                    object:nil];
-        
+        TJPLOG_INFO(@"[TJPConcreteSession] 初始化完成: %@", _sessionId);
     }
     return self;
 }
 
 - (void)setupComponentWithConfig:(TJPNetworkConfig *)config {
-    // 序列号管理
-    _seqManager = [[TJPSequenceManager alloc] init];
+    // 检查是否已经设置过
+    if (self.hasSetupComponents) {
+        TJPLOG_WARN(@"[WARNING] setupComponentWithConfig 已经执行过，跳过重复执行");
+        TJPLOG_WARN(@"⚠️ [WARNING] 调用栈: %@", [NSThread callStackSymbols]);
+        return;
+    }
     
+    // 设置标志位
+    self.hasSetupComponents = YES;
+    
+    TJPLOG_DEBUG(@"[TJPConcreteSession] 开始初始化组件...");
+    
+    // 初始化状态机（初始状态：断开连接）
+    _stateMachine = [[TJPConnectStateMachine alloc] initWithInitialState:TJPConnectStateDisconnected setupStandardRules:YES];
+    [self setupStateMachine];
+    TJPLOG_DEBUG(@"[TJPConcreteSession] 状态机初始化完成: %@", _stateMachine);
+
+    
+    // 初始化连接管理器
+    _connectionManager = [[TJPConnectionManager alloc] initWithDelegateQueue:_sessionQueue];
+    _connectionManager.delegate = self;
+    _connectionManager.connectionTimeout = 30.0;
+    _connectionManager.useTLS = config.useTLS;
+    TJPLOG_DEBUG(@"[TJPConcreteSession] 连接管理器初始化完成: %@", _connectionManager);
+
+    // 初始化序列号管理
+    _seqManager = [[TJPSequenceManager alloc] init];
+    TJPLOG_DEBUG(@"[TJPConcreteSession] 序列号管理器初始化完成: %@", _seqManager);
+
     // 初始化协议解析器
     _parser = [[TJPMessageParser alloc] initWithBufferStrategy:TJPBufferStrategyAuto];
-    
+    TJPLOG_DEBUG(@"[TJPConcreteSession] 协议解析器初始化完成: %@", _parser);
+
     // 初始化重连策略
     _reconnectPolicy = [[TJPReconnectPolicy alloc] initWithMaxAttempst:config.maxRetry baseDelay:config.baseDelay qos:TJPNetworkQoSDefault delegate:self];
+    TJPLOG_DEBUG(@"[TJPConcreteSession] 重连策略初始化完成: %@", _reconnectPolicy);
+       
+    TJPLOG_DEBUG(@"[TJPConcreteSession] setupComponentWithConfig 完成");
+}
+
+- (void)ensureHeartbeatManagerInitialized {
+    if (_heartbeatManager) {
+        TJPLOG_DEBUG(@"[TJPConcreteSession] 心跳管理器已初始化，跳过");
+        return;
+    }
+    TJPLOG_INFO(@"[TJPConcreteSession] 延迟初始化心跳管理器: %@", self.sessionId);
+    
     
     // 初始化心跳管理
-    _heartbeatManager = [[TJPDynamicHeartbeat alloc] initWithBaseInterval:config.heartbeat seqManager:_seqManager session:self];
+    _heartbeatManager = [[TJPDynamicHeartbeat alloc] initWithBaseInterval:self.config.heartbeat seqManager:_seqManager session:self];
     
     // 自定义前台模式参数
     [_heartbeatManager configureWithBaseInterval:30.0 minInterval:15.0 maxInterval:300.0 forMode:TJPHeartbeatModeForeground];
     
     // 自定义后台模式参数
     [_heartbeatManager configureWithBaseInterval:90.0 minInterval:45.0 maxInterval:600.0 forMode:TJPHeartbeatModeBackground];
+    
+    TJPLOG_DEBUG(@"[TJPConcreteSession] 心跳管理器初始化完成: %@", _reconnectPolicy);
 }
 
 //制定转换规则
@@ -155,12 +190,10 @@ static const NSTimeInterval kDefaultRetryInterval = 10;
         __strong typeof(weakSelf) strongSelf = weakSelf;
         if (!strongSelf) return;
         
-        // 记录错误
         TJPLOG_ERROR(@"[TJPConcreteSession] 会话 %@ 状态转换错误: %@ -> %@，尝试恢复", strongSelf.sessionId, state, event);
         
         // 尝试恢复逻辑
-        if ([event isEqualToString:TJPConnectEventConnect] &&
-            ![state isEqualToString:TJPConnectStateDisconnected]) {
+        if ([event isEqualToString:TJPConnectEventConnect] && ![state isEqualToString:TJPConnectStateDisconnected]) {
             // 如果试图从非断开状态发起连接，先强制断开
             [strongSelf.stateMachine sendEvent:TJPConnectEventForceDisconnect];
             // 延迟后再尝试连接
@@ -186,16 +219,24 @@ static const NSTimeInterval kDefaultRetryInterval = 10;
         }
         
         // 根据新状态执行相应操作
-        if ([newState isEqualToString:TJPConnectStateConnected]) {
-            // 更新心跳管理器的 session 引用 并启动心跳 updateSession中包含启动心跳方法
-            [strongSelf.heartbeatManager updateSession:strongSelf];
-            TJPLOG_INFO(@"[TJPConcreteSession] 连接成功，心跳已启动，当前间隔 %.1f 秒", strongSelf.heartbeatManager.currentInterval);
-            
+        if ([newState isEqualToString:TJPConnectStateConnecting]) {
+            TJPLOG_INFO(@"[TJPConcreteSession] 开始连接，心跳管理器待命");
+        } else if ([newState isEqualToString:TJPConnectStateConnected]) {
+            TJPLOG_INFO(@"[TJPConcreteSession] 连接成功，启动心跳监控");
+            // 此处只启动心跳 不初始化心跳
+            if (strongSelf.heartbeatManager) {
+                [strongSelf.heartbeatManager updateSession:strongSelf];
+                TJPLOG_INFO(@"[TJPConcreteSession] 心跳已启动，当前间隔 %.1f 秒", strongSelf.heartbeatManager.currentInterval);
+            } else {
+                TJPLOG_ERROR(@"[TJPConcreteSession] 注意:心跳管理器未初始化，请检查心跳初始化逻辑!!!!");
+            }
             [strongSelf handleConnectedState];
         } else if ([newState isEqualToString:TJPConnectStateDisconnecting]) {
+            TJPLOG_INFO(@"[TJPConcreteSession] 开始断开连接");
             // 状态改为开始断开就更新时间
             [strongSelf handleDisconnectedState];
         } else if ([newState isEqualToString:TJPConnectStateDisconnected]) {
+            TJPLOG_INFO(@"[TJPConcreteSession] 连接已断开");
             // 断开连接，停止心跳
             [strongSelf handleDisconnectedState];
             
@@ -203,7 +244,6 @@ static const NSTimeInterval kDefaultRetryInterval = 10;
             if (strongSelf.disconnectReason == TJPDisconnectReasonForceReconnect) {
                 [strongSelf handleForceDisconnectComplete];
             }
-            
         }
     }];
 }
@@ -313,16 +353,16 @@ static const NSTimeInterval kDefaultRetryInterval = 10;
             return;
         }
         
-        TJPLOG_INFO(@"[TJPConcreteSession] 准备给状态机发送连接事件");
+        TJPLOG_INFO(@"[TJPConcreteSession] 准备连接到 %@:%d", host, port);
+
+        // 连接前的准备工作：确保心跳管理器已初始化
+        [self prepareForConnection];
         
-        //触发连接事件 状态转换为"连接中"
+        // 触发连接事件 状态转换为"连接中"
         [self.stateMachine sendEvent:TJPConnectEventConnect];
-        
-        self.disconnectReason = TJPDisconnectReasonNone;
-        
+                
         // 使用连接管理器进行连接  职责拆分 session不再负责连接方法
         [self.connectionManager connectToHost:host port:port];
-        
     });
 }
 
@@ -391,14 +431,14 @@ static const NSTimeInterval kDefaultRetryInterval = 10;
 }
 
 - (void)disconnectWithReason:(TJPDisconnectReason)reason {
-    NSLog(@"[DISCONNECT] 会话 %@ 收到断开请求，原因: %d", self.sessionId ?: @"unknown", (int)reason);
+    TJPLOG_INFO(@"[DISCONNECT] 会话 %@ 收到断开请求，原因: %d", self.sessionId ?: @"unknown", (int)reason);
     
     // 打印调用栈，找出是谁调用了断开
     if (reason != TJPDisconnectReasonUserInitiated) { // 只在非用户主动断开时打印
         NSArray *callStack = [NSThread callStackSymbols];
-        NSLog(@"📞 [DISCONNECT] 断开调用栈:");
+        TJPLOG_INFO(@"📞 [DISCONNECT] 断开调用栈:");
         for (NSInteger i = 0; i < MIN(callStack.count, 8); i++) {
-            NSLog(@"📞 [DISCONNECT] %ld: %@", (long)i, callStack[i]);
+            TJPLOG_INFO(@"📞 [DISCONNECT] %ld: %@", (long)i, callStack[i]);
         }
     }
     dispatch_async(self.sessionQueue, ^{
@@ -586,7 +626,7 @@ static const NSTimeInterval kDefaultRetryInterval = 10;
     uint16_t featureFlags = htons(TJP_SUPPORTED_FEATURES);
     
     // 记录日志，便于调试
-    NSLog(@"[TJPConcreteSession] 发送版本协商: 版本=%d.%d, 特性=0x%04X", majorVersion, minorVersion, TJP_SUPPORTED_FEATURES);
+    TJPLOG_INFO(@"[TJPConcreteSession] 发送版本协商: 版本=%d.%d, 特性=0x%04X", majorVersion, minorVersion, TJP_SUPPORTED_FEATURES);
     
     [tlvData appendBytes:&versionTag length:sizeof(uint16_t)];
     [tlvData appendBytes:&versionLength length:sizeof(uint32_t)];
@@ -707,6 +747,17 @@ static const NSTimeInterval kDefaultRetryInterval = 10;
 
 
 #pragma mark - Private Methods
+- (void)prepareForConnection {
+    // 增加池化层后连接时才初始化心跳 但不启动
+    [self ensureHeartbeatManagerInitialized];
+    
+    // 重置连接相关状态
+    self.disconnectReason = TJPDisconnectReasonNone;
+    
+    // 清理之前可能遗留的状态
+    self.lastActiveTime = [NSDate date];
+}
+
 - (void)handleConnectedState {
     // 如果有积压消息 发送积压消息
     [self flushPendingMessages];
@@ -1280,9 +1331,21 @@ static const NSTimeInterval kDefaultRetryInterval = 10;
     }
 }
 
+#pragma mark - Healthy Check
+- (BOOL)checkHealthyForSession {
+    if (self.heartbeatManager) {
+        // 有心跳管理器 使用更严格检查
+        return [self isHealthyForReuse];
+    }else {
+        // 无心跳管理器 使用宽松检查
+        return [self isHealthyForPromotion];
+    }
+    return NO;
+}
+
 - (BOOL)isHealthyForReuse {
-    // 检查连接状态
-    if (self.connectState != TJPConnectStateConnected) {
+    // 必须是已连接状态
+    if (![self.connectState isEqualToString:TJPConnectStateConnected]) {
         return NO;
     }
     
@@ -1306,7 +1369,37 @@ static const NSTimeInterval kDefaultRetryInterval = 10;
     }
     
     return YES;
+}
 
+- (BOOL)isHealthyForPromotion {
+    // 预热会话使用宽松检查标准
+
+    // 检查会话是否太旧（预热会话也有保质期）
+    NSTimeInterval age = [[NSDate date] timeIntervalSinceDate:self.createdTime];
+    if (age > 600) {  // 预热会话最多存活10分钟
+        TJPLOG_DEBUG(@"[TJPConcreteSession] 预热会话 %@ 存活时间过长(%.0f秒)，不适合升级", self.sessionId, age);
+        return NO;
+    }
+    
+    // 预热会话不应该有心跳管理器
+    if (self.heartbeatManager != nil) {
+        TJPLOG_WARN(@"[TJPConcreteSession] 预热会话 %@ 不应该有心跳管理器", self.sessionId);
+        return NO;
+    }
+    
+    // 预热会话不应该有待处理的消息
+    if (self.pendingMessages.count > 0) {
+        TJPLOG_WARN(@"[TJPConcreteSession] 预热会话 %@ 存在待处理消息，状态异常", self.sessionId);
+        return NO;
+    }
+    
+    // 预热会话不应该有使用计数
+    if (self.useCount > 0) {
+        TJPLOG_WARN(@"[TJPConcreteSession] 预热会话 %@ 已被使用过，状态异常", self.sessionId);
+        return NO;
+    }
+    
+    return YES;
 }
 
 

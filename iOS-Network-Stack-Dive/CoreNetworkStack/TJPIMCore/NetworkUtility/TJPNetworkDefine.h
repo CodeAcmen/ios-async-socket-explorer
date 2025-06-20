@@ -5,6 +5,8 @@
 //  Created by 唐佳鹏 on 2025/3/30.
 //
 
+#import "TJPLogManager.h"
+
 #ifndef TJPNetworkDefine_h
 #define TJPNetworkDefine_h
 
@@ -19,25 +21,24 @@
 //安全断言
 #define AssertMainThread() NSAssert([NSThread isMainThread], @"必须在主线程执行")
 
-#if DEBUG
-#define TJPLOG(level, fmt, ...) NSLog(@"[%@] [%@:%d %s] " fmt, level, [[NSString stringWithUTF8String:__FILE__] lastPathComponent], __LINE__, __FUNCTION__, ##__VA_ARGS__)
+#define TJPLOG(levelString, fmt, ...) \
+    do { \
+        TJPLogLevel __logLevel = [TJPLogManager levelFromString:(levelString)]; \
+        if ([[TJPLogManager sharedManager] shouldLogWithLevel:__logLevel]) { \
+            NSString *__msg = [NSString stringWithFormat:(fmt), ##__VA_ARGS__]; \
+            [[TJPLogManager sharedManager] throttledLog:__msg \
+                                                  level:__logLevel \
+                                                    tag:@(__FUNCTION__)]; \
+        } \
+    } while (0)
 
-#define TJPLOG_INFO(fmt, ...) TJPLOG(@"INFO", fmt, ##__VA_ARGS__)
-#define TJPLOG_WARN(fmt, ...) TJPLOG(@"WARN", fmt, ##__VA_ARGS__)
+#define TJPLOG_DEBUG(fmt, ...) TJPLOG(@"DEBUG", fmt, ##__VA_ARGS__)
+#define TJPLOG_INFO(fmt, ...)  TJPLOG(@"INFO", fmt, ##__VA_ARGS__)
+#define TJPLOG_WARN(fmt, ...)  TJPLOG(@"WARN", fmt, ##__VA_ARGS__)
 #define TJPLOG_ERROR(fmt, ...) TJPLOG(@"ERROR", fmt, ##__VA_ARGS__)
-#define TJPLOG_MOCK(fmt, ...) TJPLOG(@"MOCK", fmt, ##__VA_ARGS__)
-#define TJPLogDealloc() NSLog(@"|DEALLOC| [%@:%d] %s", [[NSString stringWithUTF8String:__FILE__] lastPathComponent], __LINE__, __FUNCTION__)
+#define TJPLOG_MOCK(fmt, ...)  TJPLOG(@"MOCK", fmt, ##__VA_ARGS__)
+#define TJPLogDealloc()        TJPLOG(@"INFO", @"|DEALLOC| %s", __PRETTY_FUNCTION__)
 
-#else
-
-#define TJPLOG(level, fmt, ...)
-#define TJPLOG_INFO(fmt, ...)
-#define TJPLOG_WARN(fmt, ...)
-#define TJPLOG_ERROR(fmt, ...)
-#define TJPLOG_MOCK(fmt, ...)
-#define TJPLogDealloc()
-
-#endif
 
 
 #define kNetworkFatalErrorNotification @"kNetworkFatalErrorNotification"

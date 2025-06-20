@@ -43,11 +43,11 @@
 }
 
 - (void)dealloc {
-    NSLog(@"🚨 [TJPConnectionManager] 开始释放 ConnectionManager");
+    TJPLOG_INFO(@"🚨 [TJPConnectionManager] 开始释放 ConnectionManager");
     
     // 🔥 关键修复：立即清理 socket delegate，防止野指针回调
     if (self.socket) {
-        NSLog(@"🚨 [TJPConnectionManager] 清理 socket delegate");
+        TJPLOG_INFO(@"🚨 [TJPConnectionManager] 清理 socket delegate");
         
         // 在释放前先移除delegate，防止socket回调已释放的对象
         self.socket.delegate = nil;
@@ -61,7 +61,7 @@
     // 取消定时器
     [self cancelConnectionTimeoutTimer];
     
-    NSLog(@"🚨 [TJPConnectionManager] ConnectionManager 释放完成");
+    TJPLOG_INFO(@"🚨 [TJPConnectionManager] ConnectionManager 释放完成");
 }
 
 #pragma mark - Properties
@@ -153,28 +153,28 @@
 
 - (void)disconnectWithReason:(TJPDisconnectReason)reason {
     if (!self) {
-        NSLog(@"[TJPConnectionManager] self 为 nil，直接返回");
+        TJPLOG_INFO(@"[TJPConnectionManager] self 为 nil，直接返回");
         return;
     }
     // 打印调用栈，找出谁调用了这个方法
 //    NSArray *callStack = [NSThread callStackSymbols];
-//    NSLog(@"📞 [ConnectionManager] disconnect 调用栈:");
+//    TJPLOG_INFO(@"📞 [ConnectionManager] disconnect 调用栈:");
 //    for (NSInteger i = 0; i < MIN(callStack.count, 8); i++) {
-//        NSLog(@"📞 %ld: %@", (long)i, callStack[i]);
+//        TJPLOG_INFO(@"📞 %ld: %@", (long)i, callStack[i]);
 //    }
     
     dispatch_async(self.socketQueue, ^{
         if (!self) {
-            NSLog(@"[TJPConnectionManager] 异步执行时 self 无效");
+            TJPLOG_INFO(@"[TJPConnectionManager] 异步执行时 self 无效");
             return;
         }
         @try {
             if (self.internalState == TJPConnectionStateDisconnected) {
-                NSLog(@"[TJPConnectionManager] 已经是断开状态，跳过");
+                TJPLOG_INFO(@"[TJPConnectionManager] 已经是断开状态，跳过");
                 return;
             }
         } @catch (NSException *exception) {
-            NSLog(@"[TJPConnectionManager] 访问 internalState 异常: %@", exception.reason);
+            TJPLOG_INFO(@"[TJPConnectionManager] 访问 internalState 异常: %@", exception.reason);
             return;
         }
         
