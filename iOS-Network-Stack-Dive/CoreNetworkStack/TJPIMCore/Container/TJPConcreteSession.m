@@ -20,6 +20,7 @@
 #import "TJPMessageBuilder.h"
 #import "TJPMessageContext.h"
 #import "TJPParsedPacket.h"
+#import "TJPMessageManager.h"
 #import "TJPSequenceManager.h"
 #import "TJPNetworkUtil.h"
 #import "TJPConnectStateMachine.h"
@@ -27,12 +28,12 @@
 #import "TJPMetricsConsoleReporter.h"
 #import "TJPConnectionDelegate.h"
 #import "TJPConnectionManager.h"
-
+#import "TJPMessageStateMachine.h"
 
 
 static const NSTimeInterval kDefaultRetryInterval = 10;
 
-@interface TJPConcreteSession () <TJPConnectionDelegate, TJPReconnectPolicyDelegate>
+@interface TJPConcreteSession () <TJPConnectionDelegate, TJPReconnectPolicyDelegate, TJPMessageManagerDelegate, TJPMessageManagerNetworkDelegate>
 
 @property (nonatomic, copy) NSString *host;
 @property (nonatomic, assign) uint16_t port;
@@ -47,9 +48,10 @@ static const NSTimeInterval kDefaultRetryInterval = 10;
 @property (nonatomic, strong) TJPDynamicHeartbeat *heartbeatManager;
 /// 序列号管理
 @property (nonatomic, strong) TJPSequenceManager *seqManager;
-
 /// 协议处理
 @property (nonatomic, strong) TJPMessageParser *parser;
+/// 消息管理
+@property (nonatomic, strong) TJPMessageManager *messageManager;
 
 
 
@@ -102,6 +104,7 @@ static const NSTimeInterval kDefaultRetryInterval = 10;
 
         _retransmissionTimers = [NSMutableDictionary dictionary];
         _pendingMessages = [NSMutableDictionary dictionary];
+        _sequenceToMessageId = [NSMutableDictionary dictionary];
         
         // 创建专用队列（串行，中等优先级）
         _sessionQueue = dispatch_queue_create("com.concreteSession.tjp.sessionQueue", DISPATCH_QUEUE_SERIAL);
@@ -158,6 +161,12 @@ static const NSTimeInterval kDefaultRetryInterval = 10;
     // 初始化重连策略
     _reconnectPolicy = [[TJPReconnectPolicy alloc] initWithMaxAttempst:config.maxRetry baseDelay:config.baseDelay qos:TJPNetworkQoSDefault delegate:self];
     TJPLOG_DEBUG(@"[TJPConcreteSession] 重连策略初始化完成: %@", _reconnectPolicy);
+    
+    // 初始化消息管理器
+    _messageManager = [[TJPMessageManager alloc] initWithSessionId:_sessionId];
+    _messageManager.delegate = self;
+    _messageManager.networkDelegate = self;
+    TJPLOG_DEBUG(@"[TJPConcreteSession] 消息管理器初始化完成: %@", _messageManager);
        
     TJPLOG_DEBUG(@"[TJPConcreteSession] setupComponentWithConfig 完成");
 }
@@ -367,55 +376,73 @@ static const NSTimeInterval kDefaultRetryInterval = 10;
 }
 
 /// 发送消息
+//- (void)sendData:(NSData *)data {
+//    dispatch_async(self.sessionQueue, ^{
+//        if (![self.stateMachine.currentState isEqualToString:TJPConnectStateConnected]) {
+//            TJPLOG_INFO(@"[TJPConcreteSession] 当前状态发送消息失败,当前状态为: %@", self.stateMachine.currentState);
+//            return;
+//        }
+//        
+//        // 参数验证
+//        if (!data) {
+//            TJPLOG_ERROR(@"[TJPConcreteSession] 发送数据为空");
+//            return;
+//        }
+//        
+//        // 检查数据大小
+//        if (data.length > TJPMAX_BODY_SIZE) {
+//            TJPLOG_ERROR(@"[TJPConcreteSession] 数据大小超过限制: %lu > %d", (unsigned long)data.length, TJPMAX_BODY_SIZE);
+//            return;
+//        }
+//        
+//        
+//        //创建序列号
+//        uint32_t seq = [self.seqManager nextSequenceForCategory:TJPMessageCategoryNormal];
+//        
+//        // 获取当前会话使用的加密和压缩类型
+//        TJPEncryptType encryptType = TJPEncryptTypeCRC32;
+//        TJPCompressType compressType = TJPCompressTypeZlib;
+//        
+//        
+//        //构造协议包  实际通过Socket发送的协议包(协议头+原始数据)
+//        NSData *packet = [TJPMessageBuilder buildPacketWithMessageType:TJPMessageTypeNormalData sequence:seq payload:data encryptType:encryptType compressType:compressType sessionID:self.sessionId];
+//        
+//        if (!packet) {
+//            TJPLOG_ERROR(@"[TJPConcreteSession] 消息包构建失败");
+//            return;
+//        }
+//        
+//        //消息的上下文,用于跟踪消息状态(发送时间,重试次数,序列号)
+//        TJPMessageContext *context = [TJPMessageContext contextWithData:data seq:seq messageType:TJPMessageTypeNormalData encryptType:encryptType compressType:compressType sessionId:self.sessionId];
+//        //存储待确认消息
+//        self.pendingMessages[@(context.sequence)] = context;
+//        
+//        //设置超时重传
+//        [self scheduleRetransmissionForSequence:context.sequence];
+//        
+//        TJPLOG_INFO(@"[TJPConcreteSession] 消息即将发出, 序列号: %u, 大小: %lu字节", seq, (unsigned long)packet.length);
+//        
+//        //使用连接管理器发送消息
+//        [self.connectionManager sendData:packet withTimeout:-1 tag:context.sequence];
+//    });
+//}
+
 - (void)sendData:(NSData *)data {
-    dispatch_async(self.sessionQueue, ^{
-        if (![self.stateMachine.currentState isEqualToString:TJPConnectStateConnected]) {
-            TJPLOG_INFO(@"[TJPConcreteSession] 当前状态发送消息失败,当前状态为: %@", self.stateMachine.currentState);
-            return;
+    // 改为使用消息管理器
+    [self.messageManager sendMessage:data messageType:TJPMessageTypeNormalData completion:^(NSString * _Nonnull messageId, NSError * _Nonnull error) {
+        if (error) {
+            TJPLOG_ERROR(@"[TJPConcreteSession] 消息创建失败: %@", error);
+        } else {
+            TJPLOG_INFO(@"[TJPConcreteSession] 消息已创建: %@", messageId);
         }
-        
-        // 参数验证
-        if (!data) {
-            TJPLOG_ERROR(@"[TJPConcreteSession] 发送数据为空");
-            return;
-        }
-        
-        // 检查数据大小
-        if (data.length > TJPMAX_BODY_SIZE) {
-            TJPLOG_ERROR(@"[TJPConcreteSession] 数据大小超过限制: %lu > %d", (unsigned long)data.length, TJPMAX_BODY_SIZE);
-            return;
-        }
-        
-        
-        //创建序列号
-        uint32_t seq = [self.seqManager nextSequenceForCategory:TJPMessageCategoryNormal];
-        
-        // 获取当前会话使用的加密和压缩类型
-        TJPEncryptType encryptType = TJPEncryptTypeCRC32;
-        TJPCompressType compressType = TJPCompressTypeZlib;
-        
-        
-        //构造协议包  实际通过Socket发送的协议包(协议头+原始数据)
-        NSData *packet = [TJPMessageBuilder buildPacketWithMessageType:TJPMessageTypeNormalData sequence:seq payload:data encryptType:encryptType compressType:compressType sessionID:self.sessionId];
-        
-        if (!packet) {
-            TJPLOG_ERROR(@"[TJPConcreteSession] 消息包构建失败");
-            return;
-        }
-        
-        //消息的上下文,用于跟踪消息状态(发送时间,重试次数,序列号)
-        TJPMessageContext *context = [TJPMessageContext contextWithData:data seq:seq messageType:TJPMessageTypeNormalData encryptType:encryptType compressType:compressType sessionId:self.sessionId];
-        //存储待确认消息
-        self.pendingMessages[@(context.sequence)] = context;
-        
-        //设置超时重传
-        [self scheduleRetransmissionForSequence:context.sequence];
-        
-        TJPLOG_INFO(@"[TJPConcreteSession] 消息即将发出, 序列号: %u, 大小: %lu字节", seq, (unsigned long)packet.length);
-        
-        //使用连接管理器发送消息
-        [self.connectionManager sendData:packet withTimeout:-1 tag:context.sequence];
-    });
+    }];
+}
+- (NSString *)sendData:(NSData *)data
+           messageType:(TJPMessageType)messageType
+           encryptType:(TJPEncryptType)encryptType
+          compressType:(TJPCompressType)compressType
+            completion:(void(^)(NSString *messageId, NSError *error))completion {
+    return [self.messageManager sendMessage:data messageType:messageType encryptType:encryptType compressType:compressType completion:completion];
 }
 
 /// 发送心跳包
@@ -582,6 +609,68 @@ static const NSTimeInterval kDefaultRetryInterval = 10;
     
     TJPLOG_INFO(@"[TJPConcreteSession] 强制断开完成");
 }
+
+#pragma mark - TJPMessageManagerDelegate
+- (void)messageManager:(id)manager message:(TJPMessageContext *)message didChangeState:(TJPMessageState)newState fromState:(TJPMessageState)oldState {
+    TJPLOG_INFO(@"[TJPConcreteSession] 消息状态变化 %@: %lu -> %lu", message.messageId, (unsigned long)oldState, (unsigned long)newState);
+
+}
+
+- (void)messageManager:(TJPMessageManager *)manager willSendMessage:(TJPMessageContext *)context {
+    TJPLOG_INFO(@"[TJPConcreteSession] 即将发送消息: %@", context.messageId);
+}
+
+- (void)messageManager:(TJPMessageManager *)manager didSendMessage:(TJPMessageContext *)context {
+    TJPLOG_INFO(@"[TJPConcreteSession] 消息发送完成: %@", context.messageId);
+}
+
+- (void)messageManager:(TJPMessageManager *)manager didReceiveACK:(TJPMessageContext *)context {
+    TJPLOG_INFO(@"[TJPConcreteSession] 收到消息ACK: %@", context.messageId);
+}
+
+- (void)messageManager:(TJPMessageManager *)manager didFailToSendMessage:(TJPMessageContext *)context error:(NSError *)error {
+    TJPLOG_ERROR(@"[TJPConcreteSession] 消息发送失败 %@: %@", context.messageId, error.localizedDescription);
+}
+
+#pragma mark - TJPMessageManagerNetworkDelegate
+- (void)messageManager:(TJPMessageManager *)manager needsSendMessage:(TJPMessageContext *)message {
+    // 实际发送逻辑
+    dispatch_async(self.sessionQueue, ^{
+        if (![self.stateMachine.currentState isEqualToString:TJPConnectStateConnected]) {
+            TJPLOG_INFO(@"[TJPConcreteSession] 当前状态发送消息失败,当前状态为: %@", self.stateMachine.currentState);
+            // 通知消息管理器发送失败
+            [manager updateMessage:message.messageId toState:TJPMessageStateFailed];
+
+            return;
+        }
+        
+        //创建序列号
+        uint32_t seq = [self.seqManager nextSequenceForCategory:TJPMessageCategoryNormal];
+        
+        // 更新消息管理器对应的消息序列号
+        message.sequence = seq;
+        self.sequenceToMessageId[@(seq)] = message.messageId;
+        
+        //构造协议包  实际通过Socket发送的协议包(协议头+原始数据)
+        NSData *packet = [TJPMessageBuilder buildPacketWithMessageType:message.messageType sequence:seq payload:message.payload encryptType:message.encryptType compressType:message.compressType sessionID:self.sessionId];
+        
+        if (!packet) {
+            TJPLOG_ERROR(@"[TJPConcreteSession] 消息包构建失败");
+            return;
+        }
+        
+        // 将消息加入待确认列表
+        self.pendingMessages[@(message.sequence)] = message;
+
+        //设置超时重传
+        [self scheduleRetransmissionForSequence:message.sequence];
+        
+        TJPLOG_INFO(@"[TJPConcreteSession] 消息即将发出, 序列号: %u, 大小: %lu字节", seq, (unsigned long)packet.length);
+        //使用连接管理器发送消息
+        [self.connectionManager sendData:packet withTimeout:-1 tag:seq];
+    });
+}
+
 
 
 #pragma mark - Version Handshake

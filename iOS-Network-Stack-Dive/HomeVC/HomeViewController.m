@@ -61,7 +61,7 @@
             @"viewControllers": @[
                 @{ @"title": @"封装VIPER-TableView演示", @"viewController": [TJPCustomTableViewDemoViewController class] },
                 @{ @"title": @"VIPER架构演示", @"viewController": @"VIPERDemo" },
-                @{ @"title": @"聊天界面实战", @"viewController": [TJPChatViewController class] }
+//                @{ @"title": @"聊天界面实战", @"viewController": [TJPChatViewController class] }
             ]
         }
     ];

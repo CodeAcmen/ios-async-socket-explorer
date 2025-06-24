@@ -36,9 +36,10 @@ typedef NS_ENUM(NSInteger, TJPNetworkError) {
     TJPErrorMessageReceiveFailed          = 2001, // 消息接收失败
     TJPErrorMessageTimeout                = 2002, // 消息超时未收到响应
     TJPErrorMessageTooLarge               = 2003, // 消息体过大
-    TJPErrorMessageFormatInvalid          = 2004, // 消息格式无效
-    TJPErrorMessageACKMissing             = 2005, // 未收到ACK确认
-    TJPErrorMessageRetryExceeded          = 2006, // 超过最大重试次数
+    TJPErrorMessageIsEmpty                = 2004, // 消息为空
+    TJPErrorMessageFormatInvalid          = 2005, // 消息格式无效
+    TJPErrorMessageACKMissing             = 2006, // 未收到ACK确认
+    TJPErrorMessageRetryExceeded          = 2007, // 超过最大重试次数
     
     // 协议解析错误 (3000-3999)
     TJPErrorProtocolVersionMismatch       = 3000, // 协议版本不匹配

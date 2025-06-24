@@ -56,14 +56,14 @@ typedef NS_ENUM(NSUInteger, TJPTLVParseError) {
 };
 
 typedef NS_ENUM(uint8_t, TJPEncryptType) {
-    TJPEncryptTypeNone = 0,
-    TJPEncryptTypeCRC32,
-    TJPEncryptTypeAES256,
+    TJPEncryptTypeNone = 0,     // 不使用加密
+    TJPEncryptTypeCRC32,        // CRC32校验
+    TJPEncryptTypeAES256,       // AES256加密
 };
 
 typedef NS_ENUM(uint8_t, TJPCompressType) {
-    TJPCompressTypeNone = 0,
-    TJPCompressTypeZlib,
+    TJPCompressTypeNone = 0,        // 不使用压缩
+    TJPCompressTypeZlib,            // Zlib方式压缩
 };
 
 
@@ -83,6 +83,24 @@ typedef NS_ENUM(uint16_t, TJPMessageType) {
     TJPMessageTypeHeartbeat = 1,       // 心跳消息
     TJPMessageTypeACK = 2,             // 确认消息
     TJPMessageTypeControl = 3          // 控制消息
+};
+
+typedef NS_ENUM(NSUInteger, TJPMessageState) {
+    TJPMessageStateCreated = 0,     // 已创建
+    TJPMessageStateSending,         // 发送中
+    TJPMessageStateSent,            // 已发送
+    TJPMessageStateDelivered,       // 已送达
+    TJPMessageStateRead,            // 已读
+    TJPMessageStateFailed,          // 发送失败
+    TJPMessageStateRetrying,        // 重试中
+    TJPMessageStateCancelled        // 已取消
+};
+
+typedef NS_ENUM(NSUInteger, TJPMessagePriority) {
+    TJPMessagePriorityLow = 0,
+    TJPMessagePriorityNormal,
+    TJPMessagePriorityHigh,
+    TJPMessagePriorityUrgent
 };
 
 
