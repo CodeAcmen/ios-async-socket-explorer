@@ -51,7 +51,6 @@ static const NSUInteger kHeaderLength = sizeof(TJPFinalAdavancedHeader);
 }
 
 #pragma mark - GCDAsyncSocketDelegate
-
 - (void)socket:(GCDAsyncSocket *)sock didAcceptNewSocket:(GCDAsyncSocket *)newSocket {
     NSLog(@"[MOCK SERVER] 接收到客户端连接");
     [self.connectedSockets addObject:newSocket];
@@ -60,7 +59,7 @@ static const NSUInteger kHeaderLength = sizeof(TJPFinalAdavancedHeader);
 }
 
 - (void)socket:(GCDAsyncSocket *)sock didReadData:(NSData *)data withTag:(long)tag {
-    NSLog(@"[MOCK SERVER] 接收到客户端发送的数据");
+    NSLog(@"[MOCK SERVER] 📥 接收到客户端发送的数据，大小: %lu字节", (unsigned long)data.length);
 
     // 解析协议头
     if (data.length < kHeaderLength) {
@@ -74,7 +73,7 @@ static const NSUInteger kHeaderLength = sizeof(TJPFinalAdavancedHeader);
     
     // 验证Magic Number
     if (ntohl(header.magic) != kProtocolMagic) {
-        NSLog(@"Invalid magic number");
+        NSLog(@"❌ Invalid magic number");
         [sock disconnect];
         return;
     }
@@ -88,7 +87,7 @@ static const NSUInteger kHeaderLength = sizeof(TJPFinalAdavancedHeader);
     uint16_t sessionId = ntohs(header.session_id);
     uint32_t timestamp = ntohl(header.timestamp);
     
-    NSLog(@"[MOCK SERVER] 接收到的消息: 类型=%hu, 序列号=%u, 时间戳=%u, 会话ID=%hu, 加密类型=%d, 压缩类型=%d",
+    NSLog(@"[MOCK SERVER] 📥 解析消息: 类型=%hu, 序列号=%u, 时间戳=%u, 会话ID=%hu, 加密类型=%d, 压缩类型=%d",
          msgType, seq, timestamp, sessionId, encryptType, compressType);
 
     
@@ -99,7 +98,7 @@ static const NSUInteger kHeaderLength = sizeof(TJPFinalAdavancedHeader);
     uint32_t receivedChecksum = ntohl(header.checksum);  // 转换为主机字节序
     uint32_t calculatedChecksum = [TJPNetworkUtil crc32ForData:payload];
 
-    NSLog(@"[MOCK SERVER] 接收到的校验和: %u, 计算的校验和: %u", receivedChecksum, calculatedChecksum);
+    NSLog(@"[MOCK SERVER] 🔍 校验和检查: 接收=%u, 计算=%u", receivedChecksum, calculatedChecksum);
 
     if (receivedChecksum != calculatedChecksum) {
         NSLog(@"Checksum 不匹配, 期望: %u, 收到: %u", calculatedChecksum, receivedChecksum);
@@ -111,6 +110,7 @@ static const NSUInteger kHeaderLength = sizeof(TJPFinalAdavancedHeader);
     switch (msgType) {
         case TJPMessageTypeNormalData: // 普通数据消息
         {
+            NSLog(@"[MOCK SERVER] 🔄 处理普通消息，序列号: %u", seq);
             if (self.didReceiveDataHandler) {
                 self.didReceiveDataHandler(payload, seq);
             }
@@ -121,6 +121,7 @@ static const NSUInteger kHeaderLength = sizeof(TJPFinalAdavancedHeader);
             
         case TJPMessageTypeHeartbeat: // 心跳消息
         {
+            NSLog(@"[MOCK SERVER] 💓 处理心跳消息，序列号: %u", seq);
             if (self.didReceiveDataHandler) {
                 self.didReceiveDataHandler(payload, seq);
             }
@@ -129,6 +130,7 @@ static const NSUInteger kHeaderLength = sizeof(TJPFinalAdavancedHeader);
             break;
         case TJPMessageTypeControl: // 控制消息
         {
+            NSLog(@"[MOCK SERVER] 🎛️ 处理控制消息，序列号: %u", seq);
             if (self.didReceiveDataHandler) {
                 self.didReceiveDataHandler(payload, seq);
             }
@@ -185,26 +187,31 @@ static const NSUInteger kHeaderLength = sizeof(TJPFinalAdavancedHeader);
     [sock readDataWithTimeout:-1 tag:0];
 }
 
-- (NSString *)featureDescriptionWithFlags:(uint16_t)flags {
-    NSMutableString *desc = [NSMutableString string];
-    
-    if (flags & 0x0001) [desc appendString:@"基本消息 "];
-    if (flags & 0x0002) [desc appendString:@"加密 "];
-    if (flags & 0x0004) [desc appendString:@"压缩 "];
-    if (flags & 0x0008) [desc appendString:@"已读回执 "];
-    if (flags & 0x0010) [desc appendString:@"群聊 "];
-    
-    return desc.length > 0 ? desc : @"无特性";
+- (void)socket:(GCDAsyncSocket *)sock didWriteDataWithTag:(long)tag {
+    NSLog(@"[MOCK SERVER] ✅ 数据发送完成，tag: %ld", tag);
+    if (tag > 0) {
+        NSLog(@"[MOCK SERVER] ✅ ACK包发送成功，序列号: %ld", tag);
+    }
+}
+
+// 5. 添加错误处理
+- (void)socket:(GCDAsyncSocket *)sock didWritePartialDataOfLength:(NSUInteger)partialLength tag:(long)tag {
+    NSLog(@"[MOCK SERVER] 📤 部分数据发送: %lu字节, tag: %ld", (unsigned long)partialLength, tag);
 }
 
 - (void)socketDidDisconnect:(GCDAsyncSocket *)sock withError:(NSError *)err {
     [self.connectedSockets removeObject:sock];
 }
 
+- (void)socket:(GCDAsyncSocket *)sock didReceiveError:(NSError *)error {
+    NSLog(@"[MOCK SERVER] ❌ Socket错误: %@", error.localizedDescription);
+}
+
+
 #pragma mark - Response Methods
 - (void)sendACKForSequence:(uint32_t)seq sessionId:(uint16_t)sessionId toSocket:(GCDAsyncSocket *)socket {
-    NSLog(@"[MOCK SERVER] 收到普通消息，序列号: %u", seq);
-    
+    NSLog(@"[MOCK SERVER] 📤 准备发送普通消息ACK，序列号: %u", seq);
+
     // 使用与客户端相同的时间戳生成ACK响应
     uint32_t currentTime = (uint32_t)[[NSDate date] timeIntervalSince1970];
 
@@ -225,15 +232,20 @@ static const NSUInteger kHeaderLength = sizeof(TJPFinalAdavancedHeader);
     header.checksum = 0;
     
     NSData *ackData = [NSData dataWithBytes:&header length:sizeof(header)];
-    NSLog(@"[MOCK SERVER] 普通消息响应包字段：magic=0x%X, msgType=%hu, sequence=%u, timestamp=%u, sessionId=%hu",
+    
+    NSLog(@"[MOCK SERVER] 📤 即将发送普通消息ACK包，大小: %lu字节", (unsigned long)ackData.length);
+    NSLog(@"[MOCK SERVER] 📤 ACK包字段：magic=0x%X, msgType=%hu, sequence=%u, timestamp=%u, sessionId=%hu",
           ntohl(header.magic), ntohs(header.msgType), ntohl(header.sequence), ntohl(header.timestamp), ntohs(header.session_id));
 
-    [socket writeData:ackData withTimeout:-1 tag:0];
+    [socket writeData:ackData withTimeout:10.0 tag:0];
+    
+    NSLog(@"[MOCK SERVER] ✅ 普通消息ACK包已提交发送，序列号: %u", seq);
+
 }
 
 - (void)sendControlACKForSequence:(uint32_t)seq sessionId:(uint16_t)sessionId toSocket:(GCDAsyncSocket *)socket {
-    NSLog(@"[MOCK SERVER] 收到控制消息，序列号: %u", seq);
-    
+    NSLog(@"[MOCK SERVER] 📤 准备发送控制消息ACK，序列号: %u", seq);
+
     // 使用当前时间戳
     uint32_t currentTime = (uint32_t)[[NSDate date] timeIntervalSince1970];
 
@@ -253,9 +265,13 @@ static const NSUInteger kHeaderLength = sizeof(TJPFinalAdavancedHeader);
     reply.checksum = 0;
     
     NSData *ackData = [NSData dataWithBytes:&reply length:sizeof(reply)];
-    NSLog(@"[MOCK SERVER] 控制消息响应包字段：magic=0x%X, msgType=%hu, sequence=%u, timestamp=%u, sessionId=%hu",
+    NSLog(@"[MOCK SERVER] 📤 即将发送控制消息ACK包，大小: %lu字节", (unsigned long)ackData.length);
+    NSLog(@"[MOCK SERVER] 📤 控制ACK包字段：magic=0x%X, msgType=%hu, sequence=%u, timestamp=%u, sessionId=%hu",
           ntohl(reply.magic), ntohs(reply.msgType), ntohl(reply.sequence), ntohl(reply.timestamp), ntohs(reply.session_id));
-    [socket writeData:ackData withTimeout:-1 tag:0];
+    
+    [socket writeData:ackData withTimeout:10.0 tag:0];
+    
+    NSLog(@"[MOCK SERVER] ✅ 控制消息ACK包已提交发送，序列号: %u", seq);
 }
 
 
@@ -340,6 +356,18 @@ static const NSUInteger kHeaderLength = sizeof(TJPFinalAdavancedHeader);
     
     [socket writeData:responseData withTimeout:-1 tag:0];
 
+}
+
+- (NSString *)featureDescriptionWithFlags:(uint16_t)flags {
+    NSMutableString *desc = [NSMutableString string];
+    
+    if (flags & 0x0001) [desc appendString:@"基本消息 "];
+    if (flags & 0x0002) [desc appendString:@"加密 "];
+    if (flags & 0x0004) [desc appendString:@"压缩 "];
+    if (flags & 0x0008) [desc appendString:@"已读回执 "];
+    if (flags & 0x0010) [desc appendString:@"群聊 "];
+    
+    return desc.length > 0 ? desc : @"无特性";
 }
 
 

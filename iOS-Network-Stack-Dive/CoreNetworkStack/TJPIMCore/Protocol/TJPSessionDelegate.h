@@ -46,7 +46,7 @@ NS_ASSUME_NONNULL_BEGIN
 - (void)session:(id<TJPSessionProtocol>)session didReceiveCustomData:(NSData *)data withType:(uint16_t)customType;
 
 // 发送消息失败
-- (void)session:(id<TJPSessionProtocol>)session didFailToSendMessageWithSequence:(uint32_t)sequence error:(NSError *)error;
+- (void)session:(id<TJPSessionProtocol>)session didFailToSendMessageWithMessage:(NSString *)messageId error:(NSError *)error;
 
 
 /**

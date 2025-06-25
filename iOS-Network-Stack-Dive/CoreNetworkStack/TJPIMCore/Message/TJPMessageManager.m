@@ -83,7 +83,7 @@ static const NSTimeInterval kDefaultRetryInterval = 10;
         }
         
         // 创建消息上下文 序列号稍后由会话分配
-        TJPMessageContext *context = [TJPMessageContext  contextWithData:data seq:0 messageType:messageType encryptType:TJPEncryptTypeCRC32 compressType:TJPCompressTypeNone sessionId:self.sessionId];
+        TJPMessageContext *context = [TJPMessageContext contextWithData:data seq:0 messageType:messageType encryptType:TJPEncryptTypeCRC32 compressType:TJPCompressTypeNone sessionId:self.sessionId];
         messageId = context.messageId;
         
         // 消息状态机管理消息状态
@@ -183,13 +183,42 @@ static const NSTimeInterval kDefaultRetryInterval = 10;
                 }
                 break;
                 
+            case TJPMessageStateRetrying:
+                // 重试中状态
+                TJPLOG_INFO(@"[TJPMessageManager] 消息 %@ 进入重试状态，第 %ld 次重试", message.messageId, (long)message.retryCount);
+                
+                // 可以添加重试回调（如果需要）
+//                if (self.delegate && [self.delegate respondsToSelector:@selector(messageManager:willRetryMessage:attemptCount:)]) {
+//                    // [self.delegate messageManager:self willRetryMessage:message attemptCount:message.retryCount];
+//                }
+                break;
+                
             case TJPMessageStateFailed:
                 // 触发失败回调
+                TJPLOG_ERROR(@"[TJPMessageManager] 消息 %@ 发送失败: %@", message.messageId, message.lastError.localizedDescription);
+                
+
                 if (self.delegate && [self.delegate respondsToSelector:@selector(messageManager:didFailToSendMessage:error:)]) {
                     dispatch_async(dispatch_get_main_queue(), ^{
                         [self.delegate messageManager:self didFailToSendMessage:message error:message.lastError];
                     });
                 }
+                break;
+            case TJPMessageStateDelivered:
+                // 已送达状态（如果支持送达回执）
+                TJPLOG_INFO(@"[TJPMessageManager] 消息 %@ 已送达", message.messageId);
+                
+//                if (self.delegate && [self.delegate respondsToSelector:@selector(messageManager:messageDidDeliver:)]) {
+//                    [self.delegate messageManager:self messageDidDeliver:message];
+//                }
+                break;
+            case TJPMessageStateCancelled:
+                // 已取消状态
+                TJPLOG_INFO(@"[TJPMessageManager] 消息 %@ 已取消", message.messageId);
+                
+//                if (self.delegate && [self.delegate respondsToSelector:@selector(messageManager:messageDidCancel:)]) {
+//                    [self.delegate messageManager:self messageDidCancel:message];
+//                }
                 break;
                 
             default:
