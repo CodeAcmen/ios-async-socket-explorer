@@ -151,7 +151,15 @@ static const NSTimeInterval kDefaultRetryInterval = 10;
     TJPLOG_DEBUG(@"[TJPConcreteSession] 连接管理器初始化完成: %@", _connectionManager);
 
     // 初始化序列号管理
-    _seqManager = [[TJPSequenceManager alloc] init];
+    _seqManager = [[TJPSequenceManager alloc] initWithSessionId:_sessionId];
+    // 设置重置回调
+    __weak typeof(self) weakSelf = self;
+    _seqManager.sequenceResetHandler = ^(TJPMessageCategory category) {
+        __strong typeof(weakSelf) strongSelf = weakSelf;
+        if (!strongSelf) return;
+        
+        [strongSelf handleSequenceReset:category];
+    };
     TJPLOG_DEBUG(@"[TJPConcreteSession] 序列号管理器初始化完成: %@", _seqManager);
 
     // 初始化协议解析器
@@ -861,6 +869,28 @@ static const NSTimeInterval kDefaultRetryInterval = 10;
     
     // 清理之前可能遗留的状态
     self.lastActiveTime = [NSDate date];
+}
+
+- (void)handleSequenceReset:(TJPMessageCategory)category {
+    TJPLOG_WARN(@"[TJPConcreteSession] 会话 %@ 类别 %d 序列号即将重置", self.sessionId, (int)category);
+    
+    // 检查是否有该类别的待确认消息
+    NSMutableArray<NSString *> *affectedMessages = [NSMutableArray array];
+    for (NSString *messageId in self.pendingMessages.allKeys) {
+        TJPMessageContext *context = self.pendingMessages[messageId];
+        if ([self.seqManager isSequenceForCategory:context.sequence category:category]) {
+            [affectedMessages addObject:messageId];
+        }
+    }
+    
+    if (affectedMessages.count > 0) {
+        TJPLOG_WARN(@"[TJPConcreteSession] 序列号重置可能影响 %lu 条待确认消息", (unsigned long)affectedMessages.count);
+        // 等待自然超时重传
+        for (NSString *messageId in affectedMessages) {
+            TJPLOG_INFO(@"[TJPConcreteSession] 消息 %@ 受序列号重置影响，等待重传", messageId);
+        }
+    }
+
 }
 
 - (void)handleConnectedState {
