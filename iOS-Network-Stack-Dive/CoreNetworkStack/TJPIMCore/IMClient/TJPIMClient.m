@@ -10,6 +10,7 @@
 #import "TJPConcreteSession.h"
 #import "TJPNetworkConfig.h"
 #import "TJPNetworkDefine.h"
+#import "TJPErrorUtil.h"
 
 
 @interface TJPIMClient ()
@@ -105,17 +106,17 @@
 - (void)disconnectSessionType:(TJPSessionType)type {
     id<TJPSessionProtocol> session = self.channels[@(type)];
     if (session) {
-        TJPLOG_INFO(@"断开类型 %lu 的会话连接", (unsigned long)type);
+        TJPLOG_INFO(@"[TJPIMClient] 断开类型 %lu 的会话连接", (unsigned long)type);
         [session disconnectWithReason:TJPDisconnectReasonUserInitiated];
         [self cleanupSessionForType:type];
     } else {
-        TJPLOG_INFO(@"类型 %lu 的会话不存在，无需断开", (unsigned long)type);
+        TJPLOG_INFO(@"[TJPIMClient] 类型 %lu 的会话不存在，无需断开", (unsigned long)type);
     }
 }
 
 - (void)disconnectAll {
     NSArray *allTypes = [self.channels.allKeys copy];
-    TJPLOG_INFO(@"断开所有会话连接，共 %lu 个", (unsigned long)allTypes.count);
+    TJPLOG_INFO(@"[TJPIMClient] 断开所有会话连接，共 %lu 个", (unsigned long)allTypes.count);
     
     for (NSNumber *key in allTypes) {
         TJPSessionType type = [key unsignedIntegerValue];
@@ -131,28 +132,13 @@
 
 // 通过指定通道的session发送消息
 - (void)sendMessage:(id<TJPMessageProtocol>)message throughType:(TJPSessionType)type {
-    id<TJPSessionProtocol> session = self.channels[@(type)];
-    
-    if (!session) {
-        TJPLOG_INFO(@"未找到类型为 %lu 的会话通道", (unsigned long)type);
-        return;
-    }
-    
-    // 检查连接状态
-    TJPConnectState currentState = [self getConnectionStateForType:type];
-    if (currentState != TJPConnectStateConnected) {
-        TJPLOG_INFO(@"当前状态发送消息失败,当前状态为: %@", currentState);
-        return;
-    }
-    
-    NSData *tlvData = [message tlvData];
-    if (!tlvData) {
-        TJPLOG_ERROR(@"消息序列化失败，无法发送");
-        return;
-    }
-    [session sendData:tlvData];
-    
-    TJPLOG_INFO(@"通过类型 %lu 的会话发送消息成功，大小: %lu 字节", (unsigned long)type, (unsigned long)tlvData.length);
+    [self sendMessage:message throughType:type completion:^(NSString * _Nonnull messageId, NSError * _Nonnull error) {
+        if (error) {
+            TJPLOG_ERROR(@"[TJPIMClient] 消息发送失败: %@", error);
+        } else {
+            TJPLOG_INFO(@"[TJPIMClient] 消息已发送: %@", messageId);
+        }
+    }];
 }
 
 
@@ -170,10 +156,42 @@
     NSNumber *sessionTypeNum = self.contentTypeToSessionType[@(contentType)];
     TJPSessionType sessionType = sessionTypeNum ? [sessionTypeNum unsignedIntegerValue] : TJPSessionTypeDefault;
     
-    TJPLOG_INFO(@"自动路由消息，内容类型: %lu -> 会话类型: %lu", (unsigned long)contentType, (unsigned long)sessionType);
+    TJPLOG_INFO(@"[TJPIMClient] 自动路由消息，内容类型: %lu -> 会话类型: %lu", (unsigned long)contentType, (unsigned long)sessionType);
     
     // 调用发送方法
     [self sendMessage:message throughType:sessionType];
+}
+
+- (NSString *)sendMessage:(id<TJPMessageProtocol>)message throughType:(TJPSessionType)type completion:(nonnull void (^)(NSString *msgId, NSError *error))completion {
+    return [self sendMessage:message throughType:type encryptType:TJPEncryptTypeCRC32 compressType:TJPCompressTypeZlib completion:completion];
+}
+
+- (NSString *)sendMessage:(id<TJPMessageProtocol>)message throughType:(TJPSessionType)type encryptType:(TJPEncryptType)encryptType compressType:(TJPCompressType)compressType completion:(void (^)(NSString * msgId, NSError *error))completion {
+    id<TJPSessionProtocol> session = self.channels[@(type)];
+    
+    if (!session) {
+        TJPLOG_INFO(@"[TJPIMClient] 未找到类型为 %lu 的会话通道", (unsigned long)type);
+        NSError *error = [TJPErrorUtil errorWithCode:TJPErrorConnectionLost description:@"未找到会话通道" userInfo:@{}];
+        if (completion) completion(@"", error);
+        return nil;
+    }
+    
+    // 检查连接状态
+    TJPConnectState currentState = [self getConnectionStateForType:type];
+    if (currentState != TJPConnectStateConnected) {
+        TJPLOG_INFO(@"[TJPIMClient] 当前状态发送消息失败,当前状态为: %@", currentState);
+        return nil;
+    }
+    
+    NSData *tlvData = [message tlvData];
+    if (!tlvData) {
+        TJPLOG_ERROR(@"[TJPIMClient] 消息序列化失败，无法发送");
+        return nil;
+    }
+    NSString *messageId = [session sendData:tlvData messageType:message.messageType encryptType:encryptType compressType:compressType completion:completion];
+    
+    TJPLOG_INFO(@"[TJPIMClient] 通过类型 %lu 的会话发送消息成功，大小: %lu 字节", (unsigned long)type, (unsigned long)tlvData.length);
+    return messageId;
 }
 
 

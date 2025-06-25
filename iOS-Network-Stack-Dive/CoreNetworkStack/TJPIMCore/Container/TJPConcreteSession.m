@@ -391,68 +391,17 @@ static const NSTimeInterval kDefaultRetryInterval = 10;
     });
 }
 
-/// 发送消息
-//- (void)sendData:(NSData *)data {
-//    dispatch_async(self.sessionQueue, ^{
-//        if (![self.stateMachine.currentState isEqualToString:TJPConnectStateConnected]) {
-//            TJPLOG_INFO(@"[TJPConcreteSession] 当前状态发送消息失败,当前状态为: %@", self.stateMachine.currentState);
-//            return;
-//        }
-//        
-//        // 参数验证
-//        if (!data) {
-//            TJPLOG_ERROR(@"[TJPConcreteSession] 发送数据为空");
-//            return;
-//        }
-//        
-//        // 检查数据大小
-//        if (data.length > TJPMAX_BODY_SIZE) {
-//            TJPLOG_ERROR(@"[TJPConcreteSession] 数据大小超过限制: %lu > %d", (unsigned long)data.length, TJPMAX_BODY_SIZE);
-//            return;
-//        }
-//        
-//        
-//        //创建序列号
-//        uint32_t seq = [self.seqManager nextSequenceForCategory:TJPMessageCategoryNormal];
-//        
-//        // 获取当前会话使用的加密和压缩类型
-//        TJPEncryptType encryptType = TJPEncryptTypeCRC32;
-//        TJPCompressType compressType = TJPCompressTypeZlib;
-//        
-//        
-//        //构造协议包  实际通过Socket发送的协议包(协议头+原始数据)
-//        NSData *packet = [TJPMessageBuilder buildPacketWithMessageType:TJPMessageTypeNormalData sequence:seq payload:data encryptType:encryptType compressType:compressType sessionID:self.sessionId];
-//        
-//        if (!packet) {
-//            TJPLOG_ERROR(@"[TJPConcreteSession] 消息包构建失败");
-//            return;
-//        }
-//        
-//        //消息的上下文,用于跟踪消息状态(发送时间,重试次数,序列号)
-//        TJPMessageContext *context = [TJPMessageContext contextWithData:data seq:seq messageType:TJPMessageTypeNormalData encryptType:encryptType compressType:compressType sessionId:self.sessionId];
-//        //存储待确认消息
-//        self.pendingMessages[@(context.sequence)] = context;
-//        
-//        //设置超时重传
-//        [self scheduleRetransmissionForSequence:context.sequence];
-//        
-//        TJPLOG_INFO(@"[TJPConcreteSession] 消息即将发出, 序列号: %u, 大小: %lu字节", seq, (unsigned long)packet.length);
-//        
-//        //使用连接管理器发送消息
-//        [self.connectionManager sendData:packet withTimeout:-1 tag:context.sequence];
-//    });
-//}
-
 - (void)sendData:(NSData *)data {
     // 改为使用消息管理器
-    [self.messageManager sendMessage:data messageType:TJPMessageTypeNormalData completion:^(NSString * _Nonnull messageId, NSError * _Nonnull error) {
+    [self.messageManager sendMessage:data messageType:TJPMessageTypeNormalData completion:^(NSString * _Nonnull msgId, NSError * _Nonnull error) {
         if (error) {
             TJPLOG_ERROR(@"[TJPConcreteSession] 消息创建失败: %@", error);
         } else {
-            TJPLOG_INFO(@"[TJPConcreteSession] 消息已创建: %@", messageId);
+            TJPLOG_INFO(@"[TJPConcreteSession] 消息已创建: %@", msgId);
         }
     }];
 }
+
 - (NSString *)sendData:(NSData *)data
            messageType:(TJPMessageType)messageType
            encryptType:(TJPEncryptType)encryptType
@@ -638,6 +587,20 @@ static const NSTimeInterval kDefaultRetryInterval = 10;
 
 - (void)messageManager:(TJPMessageManager *)manager didSendMessage:(TJPMessageContext *)context {
     TJPLOG_INFO(@"[TJPConcreteSession] 消息发送完成: %@", context.messageId);
+    
+    // 发送成功同志
+    dispatch_async(dispatch_get_main_queue(), ^{
+        [[NSNotificationCenter defaultCenter] postNotificationName:kTJPMessageSentNotification
+                                                            object:nil
+                                                          userInfo:@{
+            @"messageId": context.messageId,
+            @"sequence": @(context.sequence),
+            @"sessionId": self.sessionId ?: @"",
+            @"timestamp": [NSDate date]
+        }];
+        
+        TJPLOG_INFO(@"[TJPConcreteSession] 消息发送成功通知已发出: %@", context.messageId);
+    });
 }
 
 - (void)messageManager:(TJPMessageManager *)manager didReceiveACK:(TJPMessageContext *)context {
@@ -646,6 +609,20 @@ static const NSTimeInterval kDefaultRetryInterval = 10;
 
 - (void)messageManager:(TJPMessageManager *)manager didFailToSendMessage:(TJPMessageContext *)context error:(NSError *)error {
     TJPLOG_ERROR(@"[TJPConcreteSession] 消息发送失败 %@: %@", context.messageId, error.localizedDescription);
+    
+    // 发送失败通知
+    dispatch_async(dispatch_get_main_queue(), ^{
+        [[NSNotificationCenter defaultCenter] postNotificationName:kTJPMessageFailedNotification
+                                                            object:nil
+                                                          userInfo:@{
+            @"messageId": context.messageId,
+            @"error": error,
+            @"sessionId": self.sessionId ?: @"",
+            @"timestamp": [NSDate date]
+        }];
+        
+        TJPLOG_ERROR(@"[TJPConcreteSession] 消息发送失败通知已发出: %@", context.messageId);
+    });
 }
 
 #pragma mark - TJPMessageManagerNetworkDelegate
@@ -656,7 +633,6 @@ static const NSTimeInterval kDefaultRetryInterval = 10;
             TJPLOG_INFO(@"[TJPConcreteSession] 当前状态发送消息失败,当前状态为: %@", self.stateMachine.currentState);
             // 通知消息管理器发送失败
             [manager updateMessage:message.messageId toState:TJPMessageStateFailed];
-
             return;
         }
         
@@ -764,13 +740,13 @@ static const NSTimeInterval kDefaultRetryInterval = 10;
     context.maxRetryCount = 0;
     
     // 存储待确认消息
-    self.pendingMessages[@(seq)] = context;
-    
+    self.pendingMessages[context.messageId] = context;
+    self.sequenceToMessageId[@(seq)] = context.messageId;
     
     // 发送握手数据包
     [self.connectionManager sendData:handshakeData withTimeout:10.0 tag:header.sequence];
     
-    TJPLOG_INFO(@"[TJPConcreteSession] 已发送版本握手包，等待服务器响应");
+    TJPLOG_INFO(@"[TJPConcreteSession] 已发送版本握手包，等待服务器响应，消息ID: %@, 序列号: %u", context.messageId, seq);
 }
 
 
@@ -1025,16 +1001,6 @@ static const NSTimeInterval kDefaultRetryInterval = 10;
         // 通知MessageManager连接异常
         [self.messageManager updateMessage:messageId toState:TJPMessageStateFailed];
         
-        // 通知上层应用消息发送失败
-        if (self.delegate && [self.delegate respondsToSelector:@selector(session:didFailToSendMessageWithMessage:error:)]) {
-            NSError *error = [TJPErrorUtil errorWithCode:TJPErrorMessageRetryExceeded
-                                             description:[NSString stringWithFormat:@"消息 %@ 发送失败，超过最大重试次数", messageId]
-                                                userInfo:@{@"messageId": messageId, @"retryCount": @(context.retryCount)}];
-            
-            dispatch_async(dispatch_get_main_queue(), ^{
-                [self.delegate session:self didFailToSendMessageWithMessage:messageId error:error];
-            });
-        }
         return;
     }
     
@@ -1195,8 +1161,23 @@ static const NSTimeInterval kDefaultRetryInterval = 10;
        TJPLOG_ERROR(@"[TJPConcreteSession] 数据包载荷为空");
        return;
    }
+    
+    // 发送消息接收通知 用于UI更新
+    dispatch_async(dispatch_get_main_queue(), ^{
+        [[NSNotificationCenter defaultCenter] postNotificationName:kTJPMessageReceivedNotification
+                                                            object:nil
+                                                          userInfo:@{
+            @"data": packet.payload,
+            @"sequence": @(packet.sequence),
+            @"sessionId": self.sessionId ?: @"",
+            @"timestamp": [NSDate date],
+            @"messageType": @(packet.messageType)
+        }];
+        
+        TJPLOG_INFO(@"[TJPConcreteSession] 消息接收通知已发出，序列号: %u", packet.sequence);
+    });
    
-   // 向上层通知收到数据
+   // 向上层通知收到数据 用于核心业务逻辑处理
    if (self.delegate && [self.delegate respondsToSelector:@selector(session:didReceiveRawData:)]) {
        dispatch_async(dispatch_get_main_queue(), ^{
            [self.delegate session:self didReceiveRawData:packet.payload];
@@ -1237,8 +1218,7 @@ static const NSTimeInterval kDefaultRetryInterval = 10;
             uint8_t majorVersion = (value >> 8) & 0xFF;
             uint8_t minorVersion = value & 0xFF;
             
-            TJPLOG_INFO(@"[TJPConcreteSession] 收到版本协商响应: 版本=%d.%d, 特性=0x%04X",
-                        majorVersion, minorVersion, flags);
+            TJPLOG_INFO(@"[TJPConcreteSession] 收到版本协商响应: 版本=%d.%d, 特性=0x%04X", majorVersion, minorVersion, flags);
             
             // 保存协商结果到会话属性中
             self.negotiatedVersion = value;
@@ -1370,9 +1350,6 @@ static const NSTimeInterval kDefaultRetryInterval = 10;
                dispatch_source_cancel(timer);
                [self.retransmissionTimers removeObjectForKey:messageId];
            }
-           
-           [self.sequenceToMessageId removeObjectForKey:@(sequence)];
-           
        } else if ([self.heartbeatManager isHeartbeatSequence:sequence]) {
            // 处理心跳ACK
            TJPLOG_INFO(@"[TJPConcreteSession] 处理心跳ACK，序列号: %u", sequence);
@@ -1562,4 +1539,3 @@ static const NSTimeInterval kDefaultRetryInterval = 10;
 
 
 @end
-

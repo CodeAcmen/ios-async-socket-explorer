@@ -60,11 +60,11 @@ static const NSTimeInterval kDefaultRetryInterval = 10;
 }
 
 #pragma mark - Public Method
-- (NSString *)sendMessage:(NSData *)data messageType:(TJPMessageType)messageType completion:(void (^)(NSString * _Nonnull, NSError * _Nonnull))completion {
+- (NSString *)sendMessage:(NSData *)data messageType:(TJPMessageType)messageType completion:(void (^)(NSString *messageId, NSError *error))completion {
     return [self sendMessage:data messageType:messageType encryptType:TJPEncryptTypeCRC32 compressType:TJPCompressTypeNone completion:completion];
 }
 
-- (NSString *)sendMessage:(NSData *)data messageType:(TJPMessageType)messageType encryptType:(TJPEncryptType)encryptType compressType:(TJPCompressType)compressType completion:(void (^)(NSString * _Nonnull, NSError * _Nonnull))completion {
+- (NSString *)sendMessage:(NSData *)data messageType:(TJPMessageType)messageType encryptType:(TJPEncryptType)encryptType compressType:(TJPCompressType)compressType completion:(void (^)(NSString *messageId, NSError *error))completion {
     __block NSString *messageId = nil;
     __block NSError *validationError = nil;
     

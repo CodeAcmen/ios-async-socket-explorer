@@ -13,8 +13,10 @@ NS_ASSUME_NONNULL_BEGIN
 @protocol TJPMessageProtocol <NSObject>
 
 @required
-
+// 内容类型
 @property (nonatomic, readonly) TJPContentType contentType;
+// 消息类型 如普通消息/ACK消息/控制消息
+@property (nonatomic, readonly) TJPMessageType messageType;
 
 /// 消息类型
 + (uint16_t)messageTag;

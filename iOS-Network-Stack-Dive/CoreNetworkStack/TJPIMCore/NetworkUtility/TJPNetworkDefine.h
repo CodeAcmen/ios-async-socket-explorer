@@ -48,6 +48,15 @@
 #define kHeartbeatModeChangedNotification @"kHeartbeatModeChangedNotification"
 #define kSessionNeedsReacquisitionNotification @"kSessionNeedsReacquisitionNotification"
 
+// 消息相关通知
+#define kTJPMessageSentNotification @"kTJPMessageSentNotification"
+#define kTJPMessageFailedNotification @"kTJPMessageFailedNotification"
+#define kTJPMessageReceivedNotification @"kTJPMessageReceivedNotification"
+
+
+
+
+
 
 #define TJPMAX_BODY_SIZE (10 * 1024 * 1024)  // 10MB 最大消息体大小
 #define TJPMAX_BUFFER_SIZE (20 * 1024 * 1024) // 20MB 最大缓冲区大小

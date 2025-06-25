@@ -29,6 +29,7 @@ NS_ASSUME_NONNULL_BEGIN
 
 - (void)sessionDidForceDisconnect:(id<TJPSessionProtocol>)session;
 
+
 // === 内容回调 ===
 // 接收文本
 - (void)session:(id<TJPSessionProtocol>)session didReceiveText:(NSString *)text;

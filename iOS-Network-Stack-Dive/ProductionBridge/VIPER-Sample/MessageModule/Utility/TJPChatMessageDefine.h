@@ -20,11 +20,12 @@ typedef NS_ENUM(NSUInteger, TJPChatMessageType) {
 };
 
 typedef NS_ENUM(NSUInteger, TJPChatMessageStatus) {
-    TJPChatMessageStatusSending = 0,   // 发送中
-    TJPChatMessageStatusSent = 1,      // 已发送
-    TJPChatMessageStatusDelivered = 2, // 已送达
-    TJPChatMessageStatusRead = 3,      // 已读
-    TJPChatMessageStatusFailed = 4,    // 发送失败
+    TJPChatMessageStatusNone = 0,
+    TJPChatMessageStatusSending = 1,   // 发送中
+    TJPChatMessageStatusSent = 2,      // 已发送
+    TJPChatMessageStatusDelivered = 3, // 已送达
+    TJPChatMessageStatusRead = 4,      // 已读
+    TJPChatMessageStatusFailed = 5,    // 发送失败
 };
 
 

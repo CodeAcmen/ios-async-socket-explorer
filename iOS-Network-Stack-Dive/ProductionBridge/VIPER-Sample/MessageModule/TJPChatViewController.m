@@ -13,6 +13,7 @@
 #import "TJPTextMessage.h"
 #import "TJPSessionProtocol.h"
 #import "TJPSessionDelegate.h"
+#import "TJPNetworkDefine.h"
 
 @interface TJPChatViewController () <UITableViewDelegate, UITableViewDataSource, UIImagePickerControllerDelegate, UINavigationControllerDelegate, TJPSessionDelegate>
 
@@ -32,6 +33,9 @@
 @property (nonatomic, strong) NSMutableArray<TJPChatMessage *> *messages;
 @property (nonatomic, assign) NSInteger messageIdCounter;
 
+@property (nonatomic, strong) NSMutableDictionary<NSString *, TJPChatMessage *> *messageMap;
+
+
 // 状态监控
 @property (nonatomic, strong) NSTimer *statusUpdateTimer;
 
@@ -41,6 +45,7 @@
 
 - (void)dealloc {
     [self.statusUpdateTimer invalidate];
+    [[NSNotificationCenter defaultCenter] removeObserver:self];
 }
 
 - (void)viewDidLoad {
@@ -48,12 +53,14 @@
     
     self.view.backgroundColor = [UIColor systemBackgroundColor];
     self.title = @"TCP聊天实战";
+    self.messageMap = [NSMutableDictionary dictionary];
     
     [self initializeData];
     [self setupNetwork];
     [self setupUI];
     [self startStatusMonitoring];
     [self autoConnect];
+    [self setupNotificationListeners];
 }
 
 - (void)viewWillDisappear:(BOOL)animated {
@@ -63,8 +70,8 @@
     [self.statusUpdateTimer invalidate];
 }
 
-#pragma mark - Initialization
 
+#pragma mark - Initialization
 - (void)initializeData {
     self.messages = [NSMutableArray array];
     self.messageIdCounter = 1;
@@ -124,6 +131,21 @@
     
     
 
+}
+
+- (void)setupNotificationListeners {
+    NSNotificationCenter *center = [NSNotificationCenter defaultCenter];
+    
+    // 监听消息发送成功
+    [center addObserver:self selector:@selector(handleMessageSent:) name:kTJPMessageSentNotification object:nil];
+    
+    // 监听消息发送失败
+    [center addObserver:self selector:@selector(handleMessageFailed:) name:kTJPMessageFailedNotification object:nil];
+    
+    // 监听消息接收
+    [center addObserver:self selector:@selector(handleMessageReceived:) name:kTJPMessageReceivedNotification object:nil];
+        
+    NSLog(@"[TJPChatViewController] 监听器设置完成");
 }
 
 #pragma mark - UI Setup
@@ -219,7 +241,6 @@
 }
 
 #pragma mark - Status Monitoring
-
 - (void)startStatusMonitoring {
     self.statusUpdateTimer = [NSTimer scheduledTimerWithTimeInterval:1.0
                                                               target:self
@@ -243,7 +264,6 @@
 }
 
 #pragma mark - Actions
-
 - (void)sendButtonTapped {
     NSString *messageText = [self.messageInputTextView.text stringByTrimmingCharactersInSet:[NSCharacterSet whitespaceAndNewlineCharacterSet]];
     
@@ -262,8 +282,86 @@
     [self presentViewController:picker animated:YES completion:nil];
 }
 
-#pragma mark - Message Handling
+#pragma mark - Notification
+- (void)handleMessageSent:(NSNotification *)notification {
+    NSString *messageId = notification.userInfo[@"messageId"];
+    NSNumber *sequence = notification.userInfo[@"sequence"];
+    
+    TJPChatMessage *chatMessage = self.messageMap[messageId];
+    if (chatMessage) {
+        NSLog(@"[TJPChatViewController] ✅ 消息发送成功: %@ (序列:%@)", messageId, sequence);
+        
+        chatMessage.status = TJPChatMessageStatusSent;
+        chatMessage.timestamp = [NSDate date];
+        [self updateMessageCell:chatMessage];
+        
+        // 可选：成功反馈
+        [self playMessageSentSound];
+    }
+}
 
+- (void)handleMessageReceived:(NSNotification *)notification {
+//    NSData *data = notification.userInfo[@"data"];
+//    NSNumber *sequence = notification.userInfo[@"sequence"];
+//    
+//    // 解析消息内容（这里简化为文本）
+//    NSString *text = [[NSString alloc] initWithData:data encoding:NSUTF8StringEncoding];
+//    
+//    NSLog(@"[Chat] 📥 收到消息: %@ (序列:%@)", text, sequence);
+//    
+//    // 创建接收消息
+//    TJPChatMessage *receivedMessage = [self createReceivedMessageWithContent:text];
+//    [self.messages addObject:receivedMessage];
+//    [self reloadMessagesAndScrollToBottom];
+//    
+//    // 可选：新消息提示
+//    [self playMessageReceivedSound];
+//    [self updateBadgeCount];
+}
+
+- (void)playMessageSentSound {
+    // 播放发送成功音效
+    // AudioServicesPlaySystemSound(1001);
+}
+
+- (void)playMessageReceivedSound {
+    // 播放接收消息音效
+    // AudioServicesPlaySystemSound(1002);
+}
+
+
+
+- (void)updateMessageCell:(TJPChatMessage *)message {
+    // 找到对应的cell并更新UI
+    NSUInteger index = [self.messages indexOfObject:message];
+    if (index != NSNotFound) {
+        NSIndexPath *indexPath = [NSIndexPath indexPathForRow:index inSection:0];
+        dispatch_async(dispatch_get_main_queue(), ^{
+            [self.messagesTableView reloadRowsAtIndexPaths:@[indexPath]
+                                          withRowAnimation:UITableViewRowAnimationNone];
+        });
+    }
+}
+
+
+- (void)handleMessageFailed:(NSNotification *)notification {
+    NSString *messageId = notification.userInfo[@"messageId"];
+    NSError *error = notification.userInfo[@"error"];
+    
+    TJPChatMessage *chatMessage = self.messageMap[messageId];
+    if (chatMessage) {
+        NSLog(@"[TJPChatViewController] ❌ 消息发送失败: %@ - %@", messageId, error.localizedDescription);
+        
+        chatMessage.status = TJPChatMessageStatusFailed;
+//        chatMessage.failureReason = error.localizedDescription;
+        [self updateMessageCell:chatMessage];
+        
+        // 显示重试选项
+//        [self showRetryOptionForMessage:chatMessage];
+    }
+}
+
+#pragma mark - Message Handling
 - (void)sendTextMessage:(NSString *)text {
     // 创建聊天消息对象
     TJPChatMessage *chatMessage = [self createChatMessageWithContent:text type:TJPChatMessageTypeText image:nil];
@@ -277,13 +375,16 @@
     TJPTextMessage *networkMessage = [[TJPTextMessage alloc] initWithText:text];
     
     // 使用TJPIMClient发送消息
-    [self.client sendMessage:networkMessage throughType:TJPSessionTypeChat];
+    NSString *messageId = [self.client sendMessage:networkMessage throughType:TJPSessionTypeChat encryptType:TJPEncryptTypeCRC32 compressType:TJPCompressTypeZlib completion:^(NSString * msgId, NSError *error) {
+        if (!error) {
+            self.messageMap[msgId] = chatMessage;
+            chatMessage.messageId = msgId;
+            NSLog(@"[TJPChatViewController]  消息已提交: 内容: %@ 消息ID:%@", text, msgId);
+        }
+        
+    }];
     
-    // 模拟发送成功（实际应该通过代理回调处理）
-    dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(1.0 * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
-        chatMessage.status = TJPChatMessageStatusSent;
-        [self reloadMessagesAndScrollToBottom];
-    });
+    [self reloadMessagesAndScrollToBottom];
 }
 
 - (void)sendImageMessage:(UIImage *)image {

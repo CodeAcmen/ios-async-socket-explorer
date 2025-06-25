@@ -533,25 +533,35 @@
         return NO;
     }
     
-    //序列号防重放检查
+    //根据消息类型决定是否进行重放攻击检测
+    uint16_t messageType = ntohs(header.msgType);
     uint32_t sequence = ntohl(header.sequence);
-    NSString *uniqueID = [NSString stringWithFormat:@"%u-%u", sequence, timestamp];
-    
-    @synchronized (_recentSequences) {
-        if ([_recentSequences containsObject:uniqueID]) {
-            if (error) {
-                *error = [TJPErrorUtil errorWithCode:TJPErrorSecurityReplayAttackDetected
-                                         description:@"检测到重放攻击"
-                                            userInfo:@{@"sequence": @(sequence),
-                                                       @"timestamp": @(timestamp)}];
+    // ACK包和心跳包不进行重放攻击检测
+    if (messageType == TJPMessageTypeACK) {
+        TJPLOG_DEBUG(@"[TJPMessageParser] ACK包跳过重放攻击检测，序列号: %u", sequence);
+    } else if (messageType == TJPMessageTypeHeartbeat) {
+        TJPLOG_DEBUG(@"[TJPMessageParser] 心跳包跳过重放攻击检测，序列号: %u", sequence);
+    } else {
+        //序列号防重放检查
+        NSString *uniqueID = [NSString stringWithFormat:@"%u-%u", sequence, timestamp];
+        
+        @synchronized (_recentSequences) {
+            if ([_recentSequences containsObject:uniqueID]) {
+                if (error) {
+                    *error = [TJPErrorUtil errorWithCode:TJPErrorSecurityReplayAttackDetected
+                                             description:@"检测到重放攻击"
+                                                userInfo:@{@"sequence": @(sequence),
+                                                           @"timestamp": @(timestamp)}];
+                }
+                TJPLOG_ERROR(@"检测到重放攻击: 序列号 %u, 时间戳 %u", sequence, timestamp);
+                return NO;
             }
-            TJPLOG_ERROR(@"检测到重放攻击: 序列号 %u, 时间戳 %u", sequence, timestamp);
-            return NO;
+            [_recentSequences addObject:uniqueID];
         }
-        [_recentSequences addObject:uniqueID];
     }
     
-    // 校验加密类型和压缩类型
+    
+    //校验加密类型和压缩类型
     if (![self isSupportedEncryptType:header.encrypt_type]) {
         if (error) {
             *error = [TJPErrorUtil errorWithCode:TJPErrorProtocolUnsupportedEncryption
