@@ -7,6 +7,13 @@
 
 #import "TJPChatMessageCell.h"
 #import "TJPChatMessage.h"
+#import "TJPMessageStatusIndicator.h"
+#import "TJPMessageTimeoutManager.h"
+
+
+@interface TJPChatMessageCell () <TJPMessageStatusIndicatorDelegate>
+
+@end
 
 @implementation TJPChatMessageCell
 
@@ -48,8 +55,11 @@
     [self.contentView addSubview:self.timeLabel];
     
     // 加载指示器
-    self.loadingIndicator = [[UIActivityIndicatorView alloc] initWithActivityIndicatorStyle:UIActivityIndicatorViewStyleMedium];
-    [self.bubbleView addSubview:self.loadingIndicator];
+    self.statusIndicator = [[TJPMessageStatusIndicator alloc] init];
+    self.statusIndicator.delegate = self;
+    self.statusIndicator.hidden = YES; // 默认隐藏，只对自己的消息显示
+    [self.contentView addSubview:self.statusIndicator];
+
 }
 
 - (void)configureWithMessage:(TJPChatMessage *)message {
@@ -76,23 +86,55 @@
         // 自己发送的消息 - 右侧，蓝色
         self.bubbleView.backgroundColor = [UIColor systemBlueColor];
         self.messageLabel.textColor = [UIColor whiteColor];
+        // 配置状态指示器
+        [self configureStatusIndicatorForMessage:message];
     } else {
         // 接收的消息 - 左侧，灰色
         self.bubbleView.backgroundColor = [UIColor systemGray5Color];
         self.messageLabel.textColor = [UIColor blackColor];
-    }
-    
-    // 发送状态指示
-    if (message.status == TJPChatMessageStatusSending) {
-        [self.loadingIndicator startAnimating];
-        self.loadingIndicator.hidden = NO;
-    } else {
-        [self.loadingIndicator stopAnimating];
-        self.loadingIndicator.hidden = YES;
+        
+        self.statusIndicator.hidden = YES;
     }
     
     [self setNeedsLayout];
 }
+
+- (void)configureStatusIndicatorForMessage:(TJPChatMessage *)message {
+    self.statusIndicator.hidden = NO;
+    self.statusIndicator.messageId = message.messageId;
+    
+    // 根据消息状态配置指示器
+    TJPMessageIndicatorStatus indicatorStatus;
+    BOOL animated = YES;
+    
+    switch (message.status) {
+        case TJPChatMessageStatusSending:
+            indicatorStatus = TJPMessageIndicatorStatusSending;
+            break;
+        case TJPChatMessageStatusSent:
+            indicatorStatus = TJPMessageIndicatorStatusSent;
+            break;
+        case TJPChatMessageStatusFailed:
+            indicatorStatus = TJPMessageIndicatorStatusFailed;
+            break;
+        case TJPChatMessageStatusRead:
+            indicatorStatus = TJPMessageIndicatorStatusRead;
+            break;
+        default:
+            indicatorStatus = TJPMessageIndicatorStatusSending;
+            animated = NO;
+            break;
+    }
+    
+    [self.statusIndicator updateStatus:indicatorStatus animated:animated];
+    
+    // 启动超时检查
+    if (message.status == TJPChatMessageStatusSending) {
+        [[TJPMessageTimeoutManager sharedManager] addMessageForTimeoutCheck:message];
+    }
+}
+
+
 
 - (void)layoutSubviews {
     [super layoutSubviews];
@@ -118,9 +160,14 @@
     // 气泡位置
     CGFloat bubbleY = CGRectGetMaxY(self.timeLabel.frame) + 5;
     if (self.chatMessage.isFromSelf) {
-        // 右侧
         self.bubbleView.frame = CGRectMake(self.contentView.frame.size.width - messageSize.width - margin,
                                           bubbleY, messageSize.width, messageSize.height);
+        
+        // 状态指示器位置（在气泡右侧）
+        if (!self.statusIndicator.hidden) {
+                    CGSize indicatorSize = [TJPMessageStatusIndicator indicatorSize];
+                    self.statusIndicator.frame = CGRectMake(CGRectGetMinX(self.bubbleView.frame) - indicatorSize.width - 8, CGRectGetMaxY(self.bubbleView.frame) - indicatorSize.height - 5, indicatorSize.width, indicatorSize.height);
+                }
     } else {
         // 左侧
         self.bubbleView.frame = CGRectMake(margin, bubbleY, messageSize.width, messageSize.height);
@@ -133,10 +180,6 @@
     if (!self.messageImageView.hidden) {
         self.messageImageView.frame = CGRectMake(10, 10, messageSize.width - 20, messageSize.height - 20);
     }
-    
-    // 加载指示器位置
-    self.loadingIndicator.center = CGPointMake(CGRectGetMaxX(self.bubbleView.frame) + 15,
-                                              CGRectGetMidY(self.bubbleView.frame));
 }
 
 + (CGFloat)heightForMessage:(TJPChatMessage *)message inWidth:(CGFloat)width {
@@ -156,15 +199,29 @@
     return height + 15; // 底部间距
 }
 
-- (void)awakeFromNib {
-    [super awakeFromNib];
-    // Initialization code
+#pragma mark - TJPMessageStatusIndicatorDelegate
+
+- (void)messageStatusIndicatorDidTapRetry:(TJPMessageStatusIndicator *)sender {
+    if (self.chatMessage && self.chatMessage.status == TJPChatMessageStatusFailed && [self.delegate respondsToSelector:@selector(chatMessageCell:didRequestRetryForMessage:)]) {
+        [self.delegate chatMessageCell:self didRequestRetryForMessage:self.chatMessage];
+    }
 }
 
-- (void)setSelected:(BOOL)selected animated:(BOOL)animated {
-    [super setSelected:selected animated:animated];
 
-    // Configure the view for the selected state
+#pragma mark - Reuse
+- (void)prepareForReuse {
+    [super prepareForReuse];
+    
+    // 重置状态指示器
+    self.statusIndicator.hidden = YES;
+    [self.statusIndicator stopSendingAnimation];
+    
+    // 重置其他UI状态
+    self.messageLabel.hidden = NO;
+    self.messageImageView.hidden = YES;
+    
+    [[TJPMessageTimeoutManager sharedManager] removeMessageFromTimeoutCheck:self.chatMessage];
+
 }
 
 @end

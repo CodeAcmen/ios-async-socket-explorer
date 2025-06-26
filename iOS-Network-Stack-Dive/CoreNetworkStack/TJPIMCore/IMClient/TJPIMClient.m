@@ -196,10 +196,14 @@
 
 
 #pragma mark - State Management
-
 - (BOOL)isConnectedForType:(TJPSessionType)type {
     TJPConnectState state = [self getConnectionStateForType:type];
     return [self isStateConnected:state];
+}
+
+- (BOOL)isDisConnectedForType:(TJPSessionType)type {
+    TJPConnectState state = [self getConnectionStateForType:type];
+    return [self isStateDisconnected:state];
 }
 
 - (TJPConnectState)getConnectionStateForType:(TJPSessionType)type {

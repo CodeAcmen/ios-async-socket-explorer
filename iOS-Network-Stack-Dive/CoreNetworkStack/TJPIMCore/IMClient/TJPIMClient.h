@@ -67,6 +67,11 @@ NS_ASSUME_NONNULL_BEGIN
 - (BOOL)isConnectedForType:(TJPSessionType)type;
 
 /**
+ * 检查指定类型的会话是否已断开连接
+ */
+- (BOOL)isDisConnectedForType:(TJPSessionType)type;
+
+/**
  * 获取指定类型会话的连接状态
  */
 - (TJPConnectState)getConnectionStateForType:(TJPSessionType)type;
