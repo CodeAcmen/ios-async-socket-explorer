@@ -21,12 +21,16 @@
 @interface TJPNetworkCoordinator () <TJPSessionDelegate>
 @property (nonatomic, strong) TJPNetworkConfig *currConfig;
 
-//上次报告的状态
+// 上次报告的状态
 @property (nonatomic, assign) NetworkStatus lastReportedStatus;
 
-//网络防抖
+// 网络防抖
 @property (nonatomic, strong) NSDate *lastNetworkChangeTime;
 @property (nonatomic, assign) NSTimeInterval networkChangeDebounceInterval; // 默认设为2秒
+
+// 验证网络状态
+@property (nonatomic, assign) BOOL isVerifyingConnectivity;
+@property (nonatomic, strong) NSTimer *connectivityVerifyTimer;
 
 
 @end
@@ -61,6 +65,7 @@
 }
 
 - (void)dealloc {
+    [self cancelConnectivityVerification];
     TJPLogDealloc();
 }
 
@@ -108,19 +113,42 @@
     TJPNetworkConfig *chatConfig = [self defaultConfigForSessionType:TJPSessionTypeChat];
     [self.sessionPool warmupPoolForType:TJPSessionTypeChat count:2 withConfig:chatConfig];
     
-    TJPLOG_INFO(@"会话池初始化完成");
+    TJPLOG_INFO(@"[TJPNetworkCoordinator] 会话池初始化完成");
 }
 
 - (void)handleNetworkStateChange:(Reachability *)reachability {
     NetworkStatus status = [reachability currentReachabilityStatus];
     
     dispatch_async(self.monitorQueue, ^{
-        // 检查是否在防抖动时间内
+        
         NSDate *now = [NSDate date];
+        NSTimeInterval timeSinceLastChange = 0;
+
+        // 计算时间间隔
+        if (self.lastNetworkChangeTime) {
+            timeSinceLastChange = [now timeIntervalSinceDate:self.lastNetworkChangeTime];
+        }
+        
+        // 详细记录网络变化信息
+        NSString *statusStr = [self networkStatusToString:status];
+        NSString *oldStatusStr = [self networkStatusToString:self.lastReportedStatus];
+
+        TJPLOG_INFO(@"=== 网络状态变化检测 === \n 当前状态: %@ (%d) \n 上次状态: %@ (%d) \n 时间间隔: %.2f秒 \n 是否在验证中: %@", statusStr, (int)status, oldStatusStr, (int)self.lastReportedStatus, timeSinceLastChange, self.isVerifyingConnectivity ? @"是" : @"否");
+        
+        // 对WiFi连接使用更短的防抖时间
+        NSTimeInterval debounceInterval = (status == ReachableViaWiFi) ? 1.0 : self.networkChangeDebounceInterval;
+                
+        // 检查是否在防抖动时间内
         if (self.lastNetworkChangeTime &&
-            [now timeIntervalSinceDate:self.lastNetworkChangeTime] < self.networkChangeDebounceInterval) {
-            TJPLOG_INFO(@"网络状态频繁变化，忽略当前变化");
+            [now timeIntervalSinceDate:self.lastNetworkChangeTime] < debounceInterval) {
+            TJPLOG_INFO(@"[TJPNetworkCoordinator] 网络状态频繁变化，忽略当前变化");
             return;
+        }
+        
+        // 如果正在验证连通性，先取消之前的验证
+        if (self.isVerifyingConnectivity) {
+            TJPLOG_INFO(@"[TJPNetworkCoordinator] 取消之前的连通性验证，开始新的验证");
+            [self cancelConnectivityVerification];
         }
         
         // 更新最后变化时间
@@ -137,77 +165,177 @@
         self.lastReportedStatus = status;
         
         // 记录状态变化
-        TJPLOG_INFO(@"网络状态变更: %d -> %d", (int)oldStatus, (int)status);
+        TJPLOG_INFO(@"[TJPNetworkCoordinator] 网络状态变更: %d -> %d", (int)oldStatus, (int)status);
         
         // 发送全局网络状态通知
-        [[NSNotificationCenter defaultCenter] postNotificationName:kNetworkStatusChangedNotification
-                                                          object:self
-                                                        userInfo:@{@"status": @(status)}];
+        [[NSNotificationCenter defaultCenter] postNotificationName:kNetworkStatusChangedNotification object:self userInfo:@{ @"status": @(status), @"oldStatus": @(oldStatus), @"statusString": statusStr }];
         
-        switch (status) {
-            case NotReachable:
-                TJPLOG_INFO(@"网络不可达，断开所有会话连接");
-                [self notifySessionsOfNetworkStatus:NO];
-                break;
-                
-            case ReachableViaWiFi:
-            case ReachableViaWWAN:
-                TJPLOG_INFO(@"网络恢复，尝试自动重连");
-                // 如果是从不可达状态变为可达状态，则进行连通性验证
-                if (oldStatus == NotReachable) {
-                    [self verifyNetworkConnectivity:^(BOOL isConnected) {
-                        if (isConnected) {
-                            TJPLOG_INFO(@"网络连通性验证成功，尝试自动重连");
-                            dispatch_async(self.monitorQueue, ^{
-                                [self notifySessionsOfNetworkStatus:YES];
-                            });
-                        } else {
-                            TJPLOG_INFO(@"网络报告可达但实际不通，暂不重连");
-                            // 可选：延迟再次尝试
-                            dispatch_after(dispatch_time(DISPATCH_TIME_NOW, 5 * NSEC_PER_SEC), self.monitorQueue, ^{
-                                [self handleNetworkStateChange:reachability];
-                            });
-                        }
-                    }];
-                } else {
-                    // 如果只是WiFi和移动网络之间的切换，直接通知
+        
+        // 根据网络状态进行处理
+        [self handleNetworkStatusTransition:oldStatus toStatus:status];
+    });
+}
+
+- (void)handleNetworkStatusTransition:(NetworkStatus)oldStatus toStatus:(NetworkStatus)newStatus {
+    
+    switch (newStatus) {
+        case NotReachable:
+            TJPLOG_INFO(@"[TJPNetworkCoordinator] 网络不可达，断开所有会话连接");
+            [self notifySessionsOfNetworkStatus:NO];
+            break;
+        case ReachableViaWiFi:
+            [self handleWiFiConnection:oldStatus];
+            break;
+        case ReachableViaWWAN:
+            [self handleCellularConnection:oldStatus];
+            break;
+    }
+    
+}
+
+- (void)handleWiFiConnection:(NetworkStatus)oldStatus {
+    TJPLOG_INFO(@"[TJPNetworkCoordinator] WiFi网络连接，开始连通性验证");
+    
+    // WiFi连接总是需要验证连通性，因为可能存在：
+    // 1. 需要网页认证的WiFi
+    // 2. DNS解析问题
+    // 3. 代理设置问题
+    [self verifyNetworkConnectivityWithRetry:^(BOOL isConnected) {
+        if (isConnected) {
+            TJPLOG_INFO(@"[TJPNetworkCoordinator] WiFi连通性验证成功，通知会话恢复连接");
+            dispatch_async(self.monitorQueue, ^{
+                [self notifySessionsOfNetworkStatus:YES];
+            });
+        } else {
+            TJPLOG_WARN(@"[TJPNetworkCoordinator] WiFi连通性验证失败，可能需要认证或存在其他问题");
+            // WiFi连接但无法访问外网的情况  3秒后重试
+            [self scheduleConnectivityRetry:3.0];
+        }
+    }];
+}
+
+- (void)handleCellularConnection:(NetworkStatus)oldStatus {
+    TJPLOG_INFO(@"[TJPNetworkCoordinator] 蜂窝网络连接");
+    
+    if (oldStatus == NotReachable) {
+        // 从无网络恢复到蜂窝网络，验证连通性
+        TJPLOG_INFO(@"[TJPNetworkCoordinator] 从无网络恢复到蜂窝网络，验证连通性");
+        [self verifyNetworkConnectivityWithRetry:^(BOOL isConnected) {
+            if (isConnected) {
+                TJPLOG_INFO(@"[TJPNetworkCoordinator] 蜂窝网络连通性验证成功");
+                dispatch_async(self.monitorQueue, ^{
                     [self notifySessionsOfNetworkStatus:YES];
-                }
-                break;
+                });
+            }
+        }];
+    } else {
+        // WiFi切换到蜂窝网络，蜂窝网络通常比较稳定
+        TJPLOG_INFO(@"[TJPNetworkCoordinator] WiFi切换到蜂窝网络，直接通知连接恢复");
+        [self notifySessionsOfNetworkStatus:YES];
+    }
+}
+
+- (void)verifyNetworkConnectivityWithRetry:(void(^)(BOOL isConnected))completion {
+    if (self.isVerifyingConnectivity) {
+        TJPLOG_WARN(@"[TJPNetworkCoordinator] 已在进行连通性验证，跳过重复请求");
+        return;
+    }
+    
+    self.isVerifyingConnectivity = YES;
+    
+    dispatch_async(dispatch_get_global_queue(QOS_CLASS_UTILITY, 0), ^{
+        // 使用多个测试点，提高准确性
+        NSArray *testUrls = @[
+            // 国内基础站点（检测基础网络）
+            @"https://www.baidu.com",
+            @"https://www.qq.com",
+            
+            // 运营商服务检测（检测强制门户/WiFi认证）
+            @"http://connect.rom.miui.com",
+            @"http://www.msftconnecttest.com",
+            @"http://captive.apple.com/hotspot-detect.html"
+        ];
+        
+        __block NSInteger successCount = 0;
+        __block NSInteger completedCount = 0;
+        NSInteger totalCount = testUrls.count;
+        NSTimeInterval timeout = 8.0; // 增加超时时间
+        
+        dispatch_group_t group = dispatch_group_create();
+        
+        for (NSString *urlString in testUrls) {
+            dispatch_group_enter(group);
+            
+            NSURL *url = [NSURL URLWithString:urlString];
+            NSURLRequest *request = [NSURLRequest requestWithURL:url cachePolicy:NSURLRequestReloadIgnoringLocalCacheData timeoutInterval:timeout];
+            
+            NSURLSessionDataTask *task = [[NSURLSession sharedSession] dataTaskWithRequest:request
+                completionHandler:^(NSData *data, NSURLResponse *response, NSError *error) {
+                    
+                    BOOL thisTestSuccess = NO;
+                    if (error == nil) {
+                        NSHTTPURLResponse *httpResponse = (NSHTTPURLResponse *)response;
+                        thisTestSuccess = (httpResponse.statusCode >= 200 && httpResponse.statusCode < 400);
+                        if (thisTestSuccess) {
+                            @synchronized(self) {
+                                successCount++;
+                            }
+                        }
+                        TJPLOG_INFO(@"[TJPNetworkCoordinator] 连通性测试 %@ - 状态码:%ld %@", urlString, (long)httpResponse.statusCode, thisTestSuccess ? @"✓" : @"✗");
+                    } else {
+                        TJPLOG_WARN(@"[TJPNetworkCoordinator] 连通性测试 %@ - 错误:%@", urlString, error.localizedDescription);
+                    }
+                    
+                    @synchronized(self) {
+                        completedCount++;
+                    }
+                    dispatch_group_leave(group);
+                }];
+            
+            [task resume];
+        }
+        
+        // 等待所有请求完成或超时
+        dispatch_time_t timeout_time = dispatch_time(DISPATCH_TIME_NOW, (timeout + 2) * NSEC_PER_SEC);
+        dispatch_group_wait(group, timeout_time);
+        
+        // 至少50%的测试成功才认为网络连通
+        BOOL isConnected = (successCount >= (totalCount / 2));
+        
+        TJPLOG_INFO(@"[TJPNetworkCoordinator] 连通性验证完成: %ld/%ld 成功, 结果:%@ %@", (long)successCount, (long)totalCount, isConnected ? @"连通" : @"不连通", isConnected ? @"🟢" : @"🔴");
+        
+        self.isVerifyingConnectivity = NO;
+        
+        if (completion) {
+            dispatch_async(dispatch_get_main_queue(), ^{
+                completion(isConnected);
+            });
         }
     });
 }
 
-- (void)verifyNetworkConnectivity:(void(^)(BOOL isConnected))completion {
-    // 避免在主线程上执行网络请求
-    dispatch_async(dispatch_get_global_queue(QOS_CLASS_UTILITY, 0), ^{
-        // 选择一个稳定、响应快的服务进行连通性检测
-        NSURL *url = [NSURL URLWithString:@"https://www.baidu.com"];
-        NSURLRequest *request = [NSURLRequest requestWithURL:url
-                                                cachePolicy:NSURLRequestReloadIgnoringLocalCacheData
-                                            timeoutInterval:5.0];
-        
-        NSURLSessionDataTask *task = [[NSURLSession sharedSession] dataTaskWithRequest:request
-            completionHandler:^(NSData * _Nullable data, NSURLResponse * _Nullable response, NSError * _Nullable error) {
-                BOOL isConnected = NO;
-                
-                if (error == nil) {
-                    NSHTTPURLResponse *httpResponse = (NSHTTPURLResponse *)response;
-                    isConnected = (httpResponse.statusCode >= 200 && httpResponse.statusCode < 300);
-                }
-                
-                TJPLOG_INFO(@"网络连通性检测结果: %@", isConnected ? @"可连接" : @"不可连接");
-                
-                // 在主队列回调
-                if (completion) {
-                    dispatch_async(dispatch_get_main_queue(), ^{
-                        completion(isConnected);
-                    });
-                }
-            }];
-        
-        [task resume];
-    });
+- (void)cancelConnectivityVerification {
+    self.isVerifyingConnectivity = NO;
+    if (self.connectivityVerifyTimer) {
+        [self.connectivityVerifyTimer invalidate];
+        self.connectivityVerifyTimer = nil;
+    }
+}
+
+- (void)scheduleConnectivityRetry:(NSTimeInterval)delay {
+    TJPLOG_INFO(@"[TJPNetworkCoordinator] 安排 %.1f 秒后重试连通性验证", delay);
+    
+    // 取消之前的定时器
+    if (self.connectivityVerifyTimer) {
+        [self.connectivityVerifyTimer invalidate];
+    }
+    
+    self.connectivityVerifyTimer = [NSTimer scheduledTimerWithTimeInterval:delay
+                                                                   repeats:NO
+                                                                     block:^(NSTimer * _Nonnull timer) {
+        TJPLOG_INFO(@"[TJPNetworkCoordinator] 定时器触发，重新检查网络状态");
+        [self handleNetworkStateChange:self.reachability];
+    }];
 }
 
 
@@ -215,7 +343,7 @@
 
 - (void)handleSessionDisconnection:(id<TJPSessionProtocol>)session {
     if (!session) {
-        TJPLOG_ERROR(@"处理断开连接的会话为空");
+        TJPLOG_ERROR(@"[TJPNetworkCoordinator] 处理断开连接的会话为空");
         return;
     }
     TJPDisconnectReason reason = [(TJPConcreteSession *)session disconnectReason];
@@ -230,20 +358,20 @@
             case TJPDisconnectReasonHeartbeatTimeout:
             case TJPDisconnectReasonIdleTimeout:
                 // 这些原因是需要尝试重连的
-                TJPLOG_INFO(@"会话 %@ 因 %@ 断开，尝试自动重连", sessionId, [self reasonToString:reason]);
+                TJPLOG_INFO(@"[TJPNetworkCoordinator] 会话 %@ 因 %@ 断开，尝试自动重连", sessionId, [self reasonToString:reason]);
                 [self scheduleReconnectForSession:session];
                 break;
                 
             case TJPDisconnectReasonUserInitiated:
             case TJPDisconnectReasonForceReconnect:
                 // 这些原因是不需要重连的，应直接移除会话
-                TJPLOG_INFO(@"会话 %@ 因 %@ 断开，不会重连", sessionId, [self reasonToString:reason]);
+                TJPLOG_INFO(@"[TJPNetworkCoordinator] 会话 %@ 因 %@ 断开，不会重连", sessionId, [self reasonToString:reason]);
                 [self removeSession:session];
                 break;
                 
             case TJPDisconnectReasonSocketError: {
                 // 服务器关闭连接，需要根据业务策略决定是否重连
-                TJPLOG_WARN(@"会话 %@ 因套接字错误断开，检查是否重连", sessionId);
+                TJPLOG_WARN(@"[TJPNetworkCoordinator] 会话 %@ 因套接字错误断开，检查是否重连", sessionId);
                 
                 // 获取会话配置，决定是否重连
                 TJPConcreteSession *concreteSession = (TJPConcreteSession *)session;
@@ -257,7 +385,7 @@
                 
             case TJPDisconnectReasonAppBackgrounded: {
                 // 应用进入后台，根据配置决定是否保持连接
-                TJPLOG_INFO(@"会话 %@ 因应用进入后台而断开", sessionId);
+                TJPLOG_INFO(@"[TJPNetworkCoordinator] 会话 %@ 因应用进入后台而断开", sessionId);
                 TJPConcreteSession *concreteSessionBackground = (TJPConcreteSession *)session;
                 if (concreteSessionBackground.config.shouldReconnectAfterBackground) {
                     // 标记为需要在回到前台时重连
@@ -268,7 +396,7 @@
                 break;
             }
             default:
-                TJPLOG_WARN(@"会话 %@ 断开原因未知: %d，默认不重连", sessionId, (int)reason);
+                TJPLOG_WARN(@"[TJPNetworkCoordinator] 会话 %@ 断开原因未知: %d，默认不重连", sessionId, (int)reason);
                 [self removeSession:session];
                 break;
         }
@@ -294,7 +422,15 @@
         default:
             return @"未知原因";
     }
-    
+}
+
+- (NSString *)networkStatusToString:(NetworkStatus)status {
+    switch (status) {
+        case NotReachable: return @"不可达";
+        case ReachableViaWiFi: return @"WiFi";
+        case ReachableViaWWAN: return @"蜂窝数据";
+        default: return [NSString stringWithFormat:@"未知(%d)", (int)status];
+    }
 }
 
 - (NSArray *)safeGetAllSessions {
@@ -348,7 +484,7 @@
 
 - (id<TJPSessionProtocol>)createSessionWithConfiguration:(TJPNetworkConfig *)config type:(TJPSessionType)type {
     if (!config) {
-        TJPLOG_ERROR(@"[NetworkCoordinator] 配置参数为空");
+        TJPLOG_ERROR(@"[TJPNetworkCoordinator] 配置参数为空");
         return nil;
     }
     _currConfig = config;
@@ -359,7 +495,7 @@
     
     // 验证获取到的会话是否有效
     if (!session) {
-        TJPLOG_ERROR(@"[NetworkCoordinator] 从会话池获取会话失败，类型: %lu", (unsigned long)type);
+        TJPLOG_ERROR(@"[TJPNetworkCoordinator] 从会话池获取会话失败，类型: %lu", (unsigned long)type);
         return nil;
     }
     
@@ -373,7 +509,7 @@
         concreteSession.sessionType = type;
         // 验证会话内部状态
         if (!concreteSession.sessionId || concreteSession.sessionId.length == 0) {
-            TJPLOG_ERROR(@"[NetworkCoordinator] 会话sessionId无效，无法继续");
+            TJPLOG_ERROR(@"[TJPNetworkCoordinator] 会话sessionId无效，无法继续");
             return nil;
         }
         
@@ -381,9 +517,9 @@
         
         // 验证代理设置成功
         if (concreteSession.delegate != self) {
-            TJPLOG_WARN(@"[NetworkCoordinator] 会话代理设置失败: %@", concreteSession.sessionId);
+            TJPLOG_WARN(@"[TJPNetworkCoordinator] 会话代理设置失败: %@", concreteSession.sessionId);
         } else {
-            TJPLOG_INFO(@"[NetworkCoordinator] 会话代理设置成功: %@", concreteSession.sessionId);
+            TJPLOG_INFO(@"[TJPNetworkCoordinator] 会话代理设置成功: %@", concreteSession.sessionId);
         }
     }
     
@@ -391,14 +527,14 @@
     dispatch_sync(self->_sessionQueue, ^{
         // 再次验证 sessionId（防止在异步操作中被修改）
         if (!session.sessionId || session.sessionId.length == 0) {
-            TJPLOG_ERROR(@"[NetworkCoordinator] 会话ID在队列操作中变为无效");
+            TJPLOG_ERROR(@"[TJPNetworkCoordinator] 会话ID在队列操作中变为无效");
             return;
         }
         
         // 检查是否已存在相同 sessionId 的会话
         id<TJPSessionProtocol> existingSession = [self.sessionMap objectForKey:session.sessionId];
         if (existingSession) {
-            TJPLOG_WARN(@"[NetworkCoordinator] 发现重复sessionId: %@，移除旧会话", session.sessionId);
+            TJPLOG_WARN(@"[TJPNetworkCoordinator] 发现重复sessionId: %@，移除旧会话", session.sessionId);
             [self.sessionMap removeObjectForKey:session.sessionId];
         }
         
@@ -408,14 +544,14 @@
         // 记录会话类型映射
         NSString *previousSessionId = self.sessionTypeMap[@(type)];
         if (previousSessionId) {
-            TJPLOG_INFO(@"[NetworkCoordinator] 类型 %lu 的会话映射从 %@ 更新为 %@", (unsigned long)type, previousSessionId, session.sessionId);
+            TJPLOG_INFO(@"[TJPNetworkCoordinator] 类型 %lu 的会话映射从 %@ 更新为 %@", (unsigned long)type, previousSessionId, session.sessionId);
         }
         
         // 记录会话类型映射
         self.sessionTypeMap[@(type)] = session.sessionId;
         
         
-        TJPLOG_INFO(@"[NetworkCoordinator] 成功从池中获得会话: %@, 总活跃数 : %lu", session.sessionId, (unsigned long)self.sessionMap.count);
+        TJPLOG_INFO(@"[TJPNetworkCoordinator] 成功从池中获得会话: %@, 总活跃数 : %lu", session.sessionId, (unsigned long)self.sessionMap.count);
     });
     return session;
 }
@@ -467,7 +603,7 @@
         }
 
         
-        TJPLOG_INFO(@"移除活跃会话: %@, 剩下数量: %lu",  session.sessionId, (unsigned long)self.sessionMap.count);
+        TJPLOG_INFO(@"[TJPNetworkCoordinator] 移除活跃会话: %@, 剩下数量: %lu",  session.sessionId, (unsigned long)self.sessionMap.count);
         
         // 新增归还到会话池逻辑
         [self.sessionPool releaseSession:session];
@@ -494,7 +630,7 @@
         // 强制从池中移除（不复用）
         [self.sessionPool removeSession:session];
         
-        TJPLOG_INFO(@"强制移除会话: %@", session.sessionId);
+        TJPLOG_INFO(@"[TJPNetworkCoordinator] 强制移除会话: %@", session.sessionId);
     });
 }
 
