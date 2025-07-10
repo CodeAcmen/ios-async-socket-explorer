@@ -32,7 +32,7 @@ NS_ASSUME_NONNULL_BEGIN
 /// 重试策略
 @property (nonatomic, strong) TJPReconnectPolicy *reconnectPolicy;
 
-/// 待确认消息  改为以消息ID为key
+/// 待ACK确认消息  改为以消息ID为key
 @property (nonatomic, strong) NSMutableDictionary<NSString *, TJPMessageContext *> *pendingMessages;
 
 /// 序列号到消息ID映射 仅用于接收ACK时反向查找

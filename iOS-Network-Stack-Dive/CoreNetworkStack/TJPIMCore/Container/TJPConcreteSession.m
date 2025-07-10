@@ -699,28 +699,28 @@ static const NSTimeInterval kDefaultRetryInterval = 10;
     
 #warning //构建版本协商TLV数据 - 这里使用我构建的数据  实际环境需要替换成你需要的
     NSMutableData *tlvData = [NSMutableData data];
-    //版本信息标签
-    uint16_t versionTag = htons(0x0001);
+    //版本协商请求标签
+    uint16_t versionTag = htons(TJP_TLV_TAG_VERSION_REQUEST);
     //版本信息长度
     uint32_t versionLength = htonl(4);
     // 版本值(Value第一部分): 将主版本号和次版本号打包为一个16位整数
     // 主版本占用高8位，次版本占用低8位
     uint16_t versionValue = htons((majorVersion << 8) | minorVersion);
     
-    // 使用定义的特性标志
+    // 使用定义的特性标志  启用已读回执功能
     uint16_t featureFlags = htons(TJP_FEATURE_BASIC | TJP_FEATURE_READ_RECEIPT | TJP_FEATURE_ENCRYPTION);
     
-    // 记录日志，便于调试
-    TJPLOG_INFO(@"[TJPConcreteSession] 发送版本协商: 版本=%d.%d, 特性=0x%04X", majorVersion, minorVersion, TJP_SUPPORTED_FEATURES);
+    [tlvData appendBytes:&versionTag length:sizeof(uint16_t)];          //Tag
+    [tlvData appendBytes:&versionLength length:sizeof(uint32_t)];       //Length
+    [tlvData appendBytes:&versionValue length:sizeof(uint16_t)];        // Value: 版本
+    [tlvData appendBytes:&featureFlags length:sizeof(uint16_t)];        // Value: 特性
     
-    [tlvData appendBytes:&versionTag length:sizeof(uint16_t)];
-    [tlvData appendBytes:&versionLength length:sizeof(uint32_t)];
-    [tlvData appendBytes:&versionValue length:sizeof(uint16_t)];
-    [tlvData appendBytes:&featureFlags length:sizeof(uint16_t)];
+    // 记录日志，便于调试
+    TJPLOG_INFO(@"[TJPConcreteSession] 发送版本协商: 版本=%d.%d, 特性=0x%04X, TLV标签=0x%04X", majorVersion, minorVersion, (TJP_FEATURE_BASIC | TJP_FEATURE_READ_RECEIPT | TJP_FEATURE_ENCRYPTION), TJP_TLV_TAG_VERSION_REQUEST);
     
     header.bodyLength = htonl((uint32_t)tlvData.length);
     
-    // CRC32计算校验和
+    // CRC32计算校验和  客户端标准htonl
     uint32_t checksum = [TJPNetworkUtil crc32ForData:tlvData];
     header.checksum = htonl(checksum);
     
@@ -1222,7 +1222,7 @@ static const NSTimeInterval kDefaultRetryInterval = 10;
         flags = ntohs(flags);
         
         // 检查是否是版本协商响应
-        if (tag == 0x0001) { // 版本标签
+        if (tag == TJP_TLV_TAG_VERSION_RESPONSE) { // 此处是版本协商响应标签
             // 提取版本信息
             uint8_t majorVersion = (value >> 8) & 0xFF;
             uint8_t minorVersion = value & 0xFF;
@@ -1289,7 +1289,7 @@ static const NSTimeInterval kDefaultRetryInterval = 10;
     TJPFinalAdavancedHeader header;
     memset(&header, 0, sizeof(TJPFinalAdavancedHeader));
     
-    // 注意：需要转换为网络字节序
+    // 注意：包头字段需要转换为网络字节序
     header.magic = htonl(kProtocolMagic);
     header.version_major = kProtocolVersionMajor;
     header.version_minor = kProtocolVersionMinor;
@@ -1310,10 +1310,10 @@ static const NSTimeInterval kDefaultRetryInterval = 10;
     
     // 计算校验和
     uint32_t checksum = [TJPNetworkUtil crc32ForData:ackData];
-    header.checksum = htonl(checksum);
+    header.checksum = htonl(checksum); // 客户端标准：校验和转网络字节序
     
-    TJPLOG_INFO(@"[TJPConcreteSession] sendAckForPacket方法中计算的校验和 CRC32: %u", checksum);
-    
+    TJPLOG_INFO(@"[TJPConcreteSession] 客户端ACK校验和: 原值=%u, 网络序=0x%08X", checksum, ntohl(header.checksum));
+
     
     // 构建完整的ACK数据包
     NSMutableData *ackPacket = [NSMutableData dataWithBytes:&header length:sizeof(TJPFinalAdavancedHeader)];
@@ -1353,7 +1353,6 @@ static const NSTimeInterval kDefaultRetryInterval = 10;
                            
            // 从待确认消息列表中移除
            [self.pendingMessages removeObjectForKey:messageId];
-           [self.sequenceToMessageId removeObjectForKey:@(sequence)];
            
            // 取消对应的重传计时器
            dispatch_source_t timer = self.retransmissionTimers[messageId];
@@ -1362,6 +1361,14 @@ static const NSTimeInterval kDefaultRetryInterval = 10;
                dispatch_source_cancel(timer);
                [self.retransmissionTimers removeObjectForKey:messageId];
            }
+           // 对于普通消息，启动延迟清理（等待已读回执）
+           if (context.messageType == TJPMessageTypeNormalData) {
+               [self scheduleSequenceMappingCleanupForSequence:sequence messageId:messageId];
+           } else {
+               // 控制消息等不需要已读回执，直接清理
+               [self.sequenceToMessageId removeObjectForKey:@(sequence)];
+           }
+           
        } else if ([self.heartbeatManager isHeartbeatSequence:sequence]) {
            // 处理心跳ACK
            TJPLOG_INFO(@"[TJPConcreteSession] 处理心跳ACK，序列号: %u", sequence);
@@ -1370,6 +1377,16 @@ static const NSTimeInterval kDefaultRetryInterval = 10;
            TJPLOG_INFO(@"[TJPConcreteSession] 收到未知消息的ACK，序列号: %u", sequence);
        }
    });
+}
+
+- (void)scheduleSequenceMappingCleanupForSequence:(uint32_t)sequence messageId:(NSString *)messageId {
+    // 30秒后清理映射（如果还没收到已读回执）
+    dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(30.0 * NSEC_PER_SEC)), self.sessionQueue, ^{
+        if (self.sequenceToMessageId[@(sequence)]) {
+            TJPLOG_INFO(@"[TJPConcreteSession] 超时清理序列号映射: %u -> %@", sequence, messageId);
+            [self.sequenceToMessageId removeObjectForKey:@(sequence)];
+        }
+    });
 }
 
 - (void)handleHeartbeatTimeout:(NSNotification *)notification {
@@ -1405,7 +1422,7 @@ static const NSTimeInterval kDefaultRetryInterval = 10;
     originalSequence = ntohl(originalSequence);
     
     // 验证TLV格式
-    if (tag == 0x0001 && length == 4) { // 已读回执标签，长度为4字节
+    if (tag == TJP_TLV_TAG_READ_RECEIPT && length == 4) { // 已读回执标签，长度为4字节
         TJPLOG_INFO(@"[TJPConcreteSession] 消息序列号 %u 已被对方阅读", originalSequence);
         
         // 查找对应的消息ID
@@ -1413,6 +1430,9 @@ static const NSTimeInterval kDefaultRetryInterval = 10;
         if (messageId) {
             // 更新消息状态为已读
             [self.messageManager updateMessage:messageId toState:TJPMessageStateRead];
+            
+            // 收到已读回执后，立即清理序列号映射
+            [self.sequenceToMessageId removeObjectForKey:@(originalSequence)];
             
             // 发送已读回执接收通知
             dispatch_async(dispatch_get_main_queue(), ^{
@@ -1444,10 +1464,23 @@ static const NSTimeInterval kDefaultRetryInterval = 10;
         // 获取已读回执的序列号
         uint32_t readReceiptSeq = [self.seqManager nextSequenceForCategory:TJPMessageCategoryNormal];
         
-        // 构建已读回执数据：只包含原消息序列号
+        // 构建TLV格式的已读回执数据
         NSMutableData *readReceiptData = [NSMutableData data];
+
+        // Tag: 已读回执标签 (网络字节序)
+        uint16_t tag = htons(TJP_TLV_TAG_READ_RECEIPT);
+        [readReceiptData appendBytes:&tag length:sizeof(uint16_t)];
+
+        // Length: 数据长度 (网络字节序)
+        uint32_t length = htonl(4);
+        [readReceiptData appendBytes:&length length:sizeof(uint32_t)];
+        
+        // Value: 原消息序列号 (网络字节序)
         uint32_t networkSequence = htonl(messageSequence);
         [readReceiptData appendBytes:&networkSequence length:sizeof(uint32_t)];
+        
+        TJPLOG_INFO(@"[TJPConcreteSession] 构建TLV已读回执TLV: Tag=0x%04X, Length=4, Value=%u", TJP_TLV_TAG_READ_RECEIPT, messageSequence);
+
         
         // 构建协议包
         NSData *packet = [TJPMessageBuilder buildPacketWithMessageType:TJPMessageTypeReadReceipt

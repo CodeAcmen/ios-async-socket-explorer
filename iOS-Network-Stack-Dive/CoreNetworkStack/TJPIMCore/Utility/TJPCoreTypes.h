@@ -8,15 +8,6 @@
 #ifndef TJPCoreTypes_h
 #define TJPCoreTypes_h
 
-typedef NS_ENUM(NSUInteger, TJPSessionType) {
-    TJPSessionTypeDefault = 0,       // 默认通用会话
-    TJPSessionTypeChat = 1,          // 聊天会话
-    TJPSessionTypeMedia = 2,         // 媒体传输会话
-    TJPSessionTypeSignaling = 3,     // 信令会话
-    TJPSessionTypeFile = 4           // 文件传输
-
-};
-
 // 协议支持的特性定义
 typedef enum {
     // 基本消息能力 (必须支持)
@@ -38,6 +29,33 @@ typedef enum {
 // 当前客户端支持的特性组合
 // 这里表示支持: 基本消息 + 加密 + 压缩
 #define TJP_SUPPORTED_FEATURES (TJP_FEATURE_BASIC | TJP_FEATURE_ENCRYPTION | TJP_FEATURE_COMPRESSION)
+
+
+typedef enum {
+    // 版本协商相关
+    TJP_TLV_TAG_VERSION_REQUEST    = 0x0001,    // 版本协商请求
+    TJP_TLV_TAG_VERSION_RESPONSE   = 0x0002,    // 版本协商响应
+    
+    // 业务消息相关
+    TJP_TLV_TAG_READ_RECEIPT       = 0x0010,    // 已读回执
+    TJP_TLV_TAG_GROUP_MESSAGE      = 0x0011,    // 群聊消息
+    TJP_TLV_TAG_FILE_TRANSFER      = 0x0012,    // 文件传输
+    
+    // 状态相关
+    TJP_TLV_TAG_USER_STATUS        = 0x0020,    // 用户状态
+    TJP_TLV_TAG_TYPING_INDICATOR   = 0x0021,    // 正在输入
+} TJPTLVTag;
+
+
+
+typedef NS_ENUM(NSUInteger, TJPSessionType) {
+    TJPSessionTypeDefault = 0,       // 默认通用会话
+    TJPSessionTypeChat = 1,          // 聊天会话
+    TJPSessionTypeMedia = 2,         // 媒体传输会话
+    TJPSessionTypeSignaling = 3,     // 信令会话
+    TJPSessionTypeFile = 4           // 文件传输
+
+};
 
 
 typedef NS_ENUM(NSUInteger, TJPTLVTagPolicy) {

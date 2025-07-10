@@ -464,7 +464,7 @@
     // 查找对应的聊天消息
     TJPChatMessage *chatMessage = self.messageMap[messageId];
     if (chatMessage && chatMessage.isFromSelf) {
-        NSLog(@"[Chat] 消息已被对方阅读: %@ (序列:%@)", messageId, originalSequence);
+        NSLog(@"[TJPChatViewController] 消息已被对方阅读: %@ (序列:%@)", messageId, originalSequence);
         
         // 更新消息状态
         chatMessage.status = TJPChatMessageStatusRead;

@@ -303,7 +303,7 @@ static const NSUInteger kHeaderLength = sizeof(TJPFinalAdavancedHeader);
         NSLog(@"[MOCK SERVER] 版本协商：Tag=%u, Length=%u, Value=0x%04X, Flags=0x%04X",
               tag, length, value, flags);
         
-        if (tag == 0x0001) {
+        if (tag == TJP_TLV_TAG_VERSION_REQUEST) {
             uint8_t clientMajorVersion = (value >> 8) & 0xFF;
             uint8_t clientMinorVersion = value & 0xFF;
             
@@ -364,7 +364,7 @@ static const NSUInteger kHeaderLength = sizeof(TJPFinalAdavancedHeader);
     NSMutableData *tlvData = [NSMutableData data];
     
     // 版本协商响应TLV
-    uint16_t versionResponseTag = htons(0x0002); // 响应标签
+    uint16_t versionResponseTag = htons(TJP_TLV_TAG_VERSION_RESPONSE); // 版本协商响应标签
     uint32_t versionResponseLength = htonl(4);
     uint16_t versionResponseValue = htons(serverVersion);
     uint16_t agreedFeaturesValue = htons(agreedFeatures);
@@ -424,8 +424,8 @@ static const NSUInteger kHeaderLength = sizeof(TJPFinalAdavancedHeader);
     NSMutableData *readReceiptData = [NSMutableData data];
     
     // 构建TLV格式的已读回执
-    // Tag: 已读回执标签 (假设使用 0x0001)
-    uint16_t tag = htons(0x0001);
+    // Tag: 已读回执标签
+    uint16_t tag = htons(TJP_TLV_TAG_READ_RECEIPT);
     [readReceiptData appendBytes:&tag length:sizeof(uint16_t)];
     
     // Length: 数据长度 (4字节序列号)
@@ -440,8 +440,6 @@ static const NSUInteger kHeaderLength = sizeof(TJPFinalAdavancedHeader);
     NSLog(@"[MOCK SERVER] 🔍 统一网络字节序调试：");
     NSLog(@"[MOCK SERVER] 🔍   原序列号(主机序): %u (0x%08X)", originalSequence, originalSequence);
     NSLog(@"[MOCK SERVER] 🔍   网络字节序: 0x%08X", networkSequence);
-    NSLog(@"[MOCK SERVER] 🔍   逆向验证: %u", ntohl(networkSequence));
-    NSLog(@"[MOCK SERVER] 🔍   数据长度: %lu", (unsigned long)readReceiptData.length);
     
     // 以十六进制打印网络字节序数据
     const unsigned char *bytes = readReceiptData.bytes;
@@ -449,7 +447,7 @@ static const NSUInteger kHeaderLength = sizeof(TJPFinalAdavancedHeader);
     for (NSUInteger i = 0; i < readReceiptData.length; i++) {
         [hexString appendFormat:@"%02X ", bytes[i]];
     }
-    NSLog(@"[MOCK SERVER] 🔍   TLV十六进制: %@", hexString);
+//    NSLog(@"[MOCK SERVER] 🔍   TLV十六进制: %@", hexString);
     
     // 🔧 关键：对网络字节序数据计算校验和
     uint32_t checksum = [TJPNetworkUtil crc32ForData:readReceiptData];
@@ -470,15 +468,15 @@ static const NSUInteger kHeaderLength = sizeof(TJPFinalAdavancedHeader);
     header.checksum = checksum;  // 🔧 关键修复：校验和不做字节序转换！
     
     // 🔍 调试包头信息
-    NSLog(@"[MOCK SERVER] 🔍 包头调试信息：");
-    NSLog(@"[MOCK SERVER] 🔍   magic: 0x%08X", ntohl(header.magic));
-    NSLog(@"[MOCK SERVER] 🔍   msgType: %hu", ntohs(header.msgType));
-    NSLog(@"[MOCK SERVER] 🔍   sequence: %u", ntohl(header.sequence));
-    NSLog(@"[MOCK SERVER] 🔍   timestamp: %u", ntohl(header.timestamp));
-    NSLog(@"[MOCK SERVER] 🔍   sessionId: %hu", ntohs(header.session_id));
-    NSLog(@"[MOCK SERVER] 🔍   bodyLength: %u", ntohl(header.bodyLength));
-    NSLog(@"[MOCK SERVER] 🔍   checksum(网络序): 0x%08X", ntohl(header.checksum));
-    NSLog(@"[MOCK SERVER] 🔍   checksum(主机序): %u", checksum);
+//    NSLog(@"[MOCK SERVER] 🔍 包头调试信息：");
+//    NSLog(@"[MOCK SERVER] 🔍   magic: 0x%08X", ntohl(header.magic));
+//    NSLog(@"[MOCK SERVER] 🔍   msgType: %hu", ntohs(header.msgType));
+//    NSLog(@"[MOCK SERVER] 🔍   sequence: %u", ntohl(header.sequence));
+//    NSLog(@"[MOCK SERVER] 🔍   timestamp: %u", ntohl(header.timestamp));
+//    NSLog(@"[MOCK SERVER] 🔍   sessionId: %hu", ntohs(header.session_id));
+//    NSLog(@"[MOCK SERVER] 🔍   bodyLength: %u", ntohl(header.bodyLength));
+//    NSLog(@"[MOCK SERVER] 🔍   checksum(网络序): 0x%08X", ntohl(header.checksum));
+//    NSLog(@"[MOCK SERVER] 🔍   checksum(主机序): %u", checksum);
     
     // 构建完整的已读回执包
     NSMutableData *readReceiptPacket = [NSMutableData dataWithBytes:&header length:sizeof(header)];
