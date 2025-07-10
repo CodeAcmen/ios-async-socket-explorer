@@ -14,6 +14,7 @@
 #import "TJPCustomTableViewDemoViewController.h"
 #import "TJPVIPERDemoViewController.h"
 #import "TJPNetworkMonitorViewController.h"
+#import "TJPChatViewController.h"
 
 
 
@@ -46,7 +47,7 @@
             @"viewControllers": @[
                 @{ @"title": @"粘包问题演示", @"viewController": [StickPacketDemoController class] },
                 @{ @"title": @"粘包问题解决方案", @"viewController": [StickPacketSolutionController class] },
-                @{ @"title": @"TCP通信框架+数据监控演示", @"viewController": [TJPNetworkMonitorViewController class] }
+                @{ @"title": @"TCP通信框架监控演示", @"viewController": [TJPNetworkMonitorViewController class] }
             ]
         },
         @{
@@ -59,7 +60,8 @@
             @"title": @"UI实现",
             @"viewControllers": @[
                 @{ @"title": @"封装VIPER-TableView演示", @"viewController": [TJPCustomTableViewDemoViewController class] },
-                @{ @"title": @"VIPER架构演示", @"viewController": @"VIPERDemo" }
+                @{ @"title": @"VIPER架构演示", @"viewController": @"VIPERDemo" },
+                @{ @"title": @"聊天界面实战", @"viewController": [TJPChatViewController class] }
             ]
         }
     ];

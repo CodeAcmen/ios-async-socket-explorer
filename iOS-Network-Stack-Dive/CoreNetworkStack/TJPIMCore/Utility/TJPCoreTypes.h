@@ -8,15 +8,6 @@
 #ifndef TJPCoreTypes_h
 #define TJPCoreTypes_h
 
-typedef NS_ENUM(NSUInteger, TJPSessionType) {
-    TJPSessionTypeDefault = 0,       // 默认通用会话
-    TJPSessionTypeChat = 1,          // 聊天会话
-    TJPSessionTypeMedia = 2,         // 媒体传输会话
-    TJPSessionTypeSignaling = 3,     // 信令会话
-    TJPSessionTypeFile = 4           // 文件传输
-
-};
-
 // 协议支持的特性定义
 typedef enum {
     // 基本消息能力 (必须支持)
@@ -40,6 +31,33 @@ typedef enum {
 #define TJP_SUPPORTED_FEATURES (TJP_FEATURE_BASIC | TJP_FEATURE_ENCRYPTION | TJP_FEATURE_COMPRESSION)
 
 
+typedef enum {
+    // 版本协商相关
+    TJP_TLV_TAG_VERSION_REQUEST    = 0x0001,    // 版本协商请求
+    TJP_TLV_TAG_VERSION_RESPONSE   = 0x0002,    // 版本协商响应
+    
+    // 业务消息相关
+    TJP_TLV_TAG_READ_RECEIPT       = 0x0010,    // 已读回执
+    TJP_TLV_TAG_GROUP_MESSAGE      = 0x0011,    // 群聊消息
+    TJP_TLV_TAG_FILE_TRANSFER      = 0x0012,    // 文件传输
+    
+    // 状态相关
+    TJP_TLV_TAG_USER_STATUS        = 0x0020,    // 用户状态
+    TJP_TLV_TAG_TYPING_INDICATOR   = 0x0021,    // 正在输入
+} TJPTLVTag;
+
+
+
+typedef NS_ENUM(NSUInteger, TJPSessionType) {
+    TJPSessionTypeDefault = 0,       // 默认通用会话
+    TJPSessionTypeChat = 1,          // 聊天会话
+    TJPSessionTypeMedia = 2,         // 媒体传输会话
+    TJPSessionTypeSignaling = 3,     // 信令会话
+    TJPSessionTypeFile = 4           // 文件传输
+
+};
+
+
 typedef NS_ENUM(NSUInteger, TJPTLVTagPolicy) {
     TJPTLVTagPolicyAllowDuplicates,         //允许重复Tag
     TJPTLVTagPolicyRejectDuplicates         //不允许重复Tag
@@ -56,14 +74,14 @@ typedef NS_ENUM(NSUInteger, TJPTLVParseError) {
 };
 
 typedef NS_ENUM(uint8_t, TJPEncryptType) {
-    TJPEncryptTypeNone = 0,
-    TJPEncryptTypeCRC32,
-    TJPEncryptTypeAES256,
+    TJPEncryptTypeNone = 0,     // 不使用加密
+    TJPEncryptTypeCRC32,        // CRC32校验
+    TJPEncryptTypeAES256,       // AES256加密
 };
 
 typedef NS_ENUM(uint8_t, TJPCompressType) {
-    TJPCompressTypeNone = 0,
-    TJPCompressTypeZlib,
+    TJPCompressTypeNone = 0,        // 不使用压缩
+    TJPCompressTypeZlib,            // Zlib方式压缩
 };
 
 
@@ -82,7 +100,26 @@ typedef NS_ENUM(uint16_t, TJPMessageType) {
     TJPMessageTypeNormalData = 0,      // 普通数据消息
     TJPMessageTypeHeartbeat = 1,       // 心跳消息
     TJPMessageTypeACK = 2,             // 确认消息
-    TJPMessageTypeControl = 3          // 控制消息
+    TJPMessageTypeControl = 3,         // 控制消息
+    TJPMessageTypeReadReceipt          // 已读回执
+};
+
+typedef NS_ENUM(NSUInteger, TJPMessageState) {
+    TJPMessageStateCreated = 0,     // 已创建
+    TJPMessageStateSending,         // 发送中
+    TJPMessageStateSent,            // 已发送
+    TJPMessageStateDelivered,       // 已送达
+    TJPMessageStateRead,            // 已读
+    TJPMessageStateFailed,          // 发送失败
+    TJPMessageStateRetrying,        // 重试中
+    TJPMessageStateCancelled        // 已取消
+};
+
+typedef NS_ENUM(NSUInteger, TJPMessagePriority) {
+    TJPMessagePriorityLow = 0,
+    TJPMessagePriorityNormal,
+    TJPMessagePriorityHigh,
+    TJPMessagePriorityUrgent
 };
 
 
@@ -90,7 +127,8 @@ typedef NS_ENUM(uint8_t, TJPMessageCategory) {
     TJPMessageCategoryNormal = 0,    // 普通消息
     TJPMessageCategoryHeartbeat = 1, // 心跳消息
     TJPMessageCategoryControl = 2,   // 控制消息
-    TJPMessageCategoryMedia = 3      // 媒体消息
+    TJPMessageCategoryMedia = 3,     // 媒体消息
+    TJPMessageCategoryBroadcast = 4  // 广播消息
 };
 
 

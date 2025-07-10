@@ -45,6 +45,9 @@ NS_ASSUME_NONNULL_BEGIN
 
 /// 发送消息
 - (void)sendData:(NSData *)data;
+/// 带回调的发送消息
+- (NSString *)sendData:(NSData *)data messageType:(TJPMessageType)messageType encryptType:(TJPEncryptType)encryptType compressType:(TJPCompressType)compressType completion:(void(^)(NSString *msgId, NSError *error))completion;
+
 /// 发送心跳包
 - (void)sendHeartbeat:(NSData *)heartbeatData;
 

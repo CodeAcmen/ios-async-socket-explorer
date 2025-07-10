@@ -57,9 +57,19 @@ NS_ASSUME_NONNULL_BEGIN
 - (void)sendMessageWithAutoRoute:(id<TJPMessageProtocol>)message;
 
 /**
+ * 带回调的发送方法
+ */
+- (NSString *)sendMessage:(id<TJPMessageProtocol>)message throughType:(TJPSessionType)type completion:(void(^)(NSString *msgId, NSError *error))completion;
+- (NSString *)sendMessage:(id<TJPMessageProtocol>)message throughType:(TJPSessionType)type encryptType:(TJPEncryptType)encryptType compressType:(TJPCompressType)compressType completion:(void (^)(NSString *msgId, NSError *error))completion;
+/**
  * 检查指定类型的会话是否已连接
  */
 - (BOOL)isConnectedForType:(TJPSessionType)type;
+
+/**
+ * 检查指定类型的会话是否已断开连接
+ */
+- (BOOL)isDisConnectedForType:(TJPSessionType)type;
 
 /**
  * 获取指定类型会话的连接状态

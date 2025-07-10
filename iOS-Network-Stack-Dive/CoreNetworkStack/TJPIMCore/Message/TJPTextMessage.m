@@ -28,6 +28,10 @@ static const char *kTJPTextMessageRegistration = "TJPTextMessage";
     return TJPContentTypeText;
 }
 
+- (TJPMessageType)messageType {
+    return TJPMessageTypeNormalData;
+}
+
 - (NSData *)tlvData {
     return [TJPMessageSerializer serializeText:self.text tag:[self.class messageTag]];
 }

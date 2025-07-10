@@ -48,6 +48,16 @@
 #define kHeartbeatModeChangedNotification @"kHeartbeatModeChangedNotification"
 #define kSessionNeedsReacquisitionNotification @"kSessionNeedsReacquisitionNotification"
 
+// 消息相关通知
+#define kTJPMessageSentNotification @"kTJPMessageSentNotification"
+#define kTJPMessageFailedNotification @"kTJPMessageFailedNotification"
+#define kTJPMessageReceivedNotification @"kTJPMessageReceivedNotification"
+#define kTJPMessageStatusUpdateNotification @"kTJPMessageStatusUpdateNotification"
+#define kTJPMessageReadNotification @"kTJPMessageReadNotification"
+
+
+
+
 
 #define TJPMAX_BODY_SIZE (10 * 1024 * 1024)  // 10MB 最大消息体大小
 #define TJPMAX_BUFFER_SIZE (20 * 1024 * 1024) // 20MB 最大缓冲区大小
@@ -62,10 +72,14 @@
 #define TJPSCREEN_HEIGHT ([UIScreen mainScreen].bounds.size.height)
 
 
-#define TJPSEQUENCE_BODY_MASK 0x00FFFFFF
-#define TJPSEQUENCE_CATEGORY_MASK 0xFF
-#define TJPSEQUENCE_WARNING_THRESHOLD 0xFFFFF0  // 接近最大值的警告阈值
-#define TJPSEQUENCE_MAX_MASK 0xFFFFFF
+static const uint32_t TJPSEQUENCE_CATEGORY_BITS = 8;              // 类别占用位数
+static const uint32_t TJPSEQUENCE_BODY_BITS = 24;                 // 序列号占用位数
+static const uint32_t TJPSEQUENCE_BODY_MASK = 0x00FFFFFF;         // 24位掩码
+static const uint32_t TJPSEQUENCE_CATEGORY_MASK = 0xFF;           // 8位掩码
+static const uint32_t TJPSEQUENCE_MAX_VALUE = 0x00FFFFFF;         // 最大序列号
+static const uint32_t TJPSEQUENCE_WARNING_THRESHOLD = 0x00F00000; // 警告阈值(15M)
+static const uint32_t TJPSEQUENCE_RESET_THRESHOLD = 0x00FF0000;   // 重置阈值(16M-1M)
+
 
 
 
