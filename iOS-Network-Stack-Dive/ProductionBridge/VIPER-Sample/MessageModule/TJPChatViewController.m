@@ -140,21 +140,21 @@
     
     // 监听消息发送成功
     [center addObserver:self selector:@selector(handleMessageSent:) name:kTJPMessageSentNotification object:nil];
-    
     // 监听消息发送失败
     [center addObserver:self selector:@selector(handleMessageFailed:) name:kTJPMessageFailedNotification object:nil];
-    
     // 监听消息接收
     [center addObserver:self selector:@selector(handleMessageReceived:) name:kTJPMessageReceivedNotification object:nil];
+    // 状态更新
+    [center addObserver:self selector:@selector(handleMessageStatusUpdated:) name:kTJPMessageStatusUpdateNotification object:nil];
         
     
     // 新增键盘通知监听
     [center addObserver:self selector:@selector(keyboardWillShow:) name:UIKeyboardWillShowNotification object:nil];
     [center addObserver:self selector:@selector(keyboardWillHide:) name:UIKeyboardWillHideNotification object:nil];
     
-    // 状态
-    [center addObserver:self selector:@selector(handleMessageStatusUpdated:) name:kTJPMessageStatusUpdateNotification object:nil];
 
+    // 消息已读处理
+    [center addObserver:self selector:@selector(handleMessageRead:) name:kTJPMessageReadNotification object:nil];
     
           
     NSLog(@"[TJPChatViewController] 监听器设置完成");
@@ -343,14 +343,6 @@
         
         // 从超时队列中移除
         [[TJPMessageTimeoutManager sharedManager] removeMessageFromTimeoutCheck:chatMessage];
-        
-        // 模拟一段时间后变为已读状态
-        dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(2.0 * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
-            if (chatMessage.status == TJPChatMessageStatusSent) {
-                chatMessage.status = TJPChatMessageStatusRead;
-                [self updateMessageCell:chatMessage];
-            }
-        });
     }
 }
 
@@ -371,6 +363,17 @@
 //    // 可选：新消息提示
 //    [self playMessageReceivedSound];
 //    [self updateBadgeCount];
+}
+
+// 标记消息已读 手动发送已读回执
+- (void)markMessageAsRead:(uint32_t)messageSequence {
+//    id<TJPSessionProtocol> session = [self.client getSessionForType:TJPSessionTypeChat];
+//    if (session && [session respondsToSelector:@selector(sendReadReceiptForMessageSequence:)]) {
+//        [session performSelector:@selector(sendReadReceiptForMessageSequence:)
+//                      withObject:@(messageSequence)];
+//        
+//        NSLog(@"[Chat] 📖 手动发送已读回执，消息序列号: %u", messageSequence);
+//    }
 }
 
 - (void)keyboardWillShow:(NSNotification *)notification {
@@ -451,6 +454,29 @@
         
         // 显示失败提示
         [self showTemporaryFailureNotification];
+    }
+}
+
+- (void)handleMessageRead:(NSNotification *)notification {
+    NSString *messageId = notification.userInfo[@"messageId"];
+    NSNumber *originalSequence = notification.userInfo[@"originalSequence"];
+    
+    // 查找对应的聊天消息
+    TJPChatMessage *chatMessage = self.messageMap[messageId];
+    if (chatMessage && chatMessage.isFromSelf) {
+        NSLog(@"[Chat] 消息已被对方阅读: %@ (序列:%@)", messageId, originalSequence);
+        
+        // 更新消息状态
+        chatMessage.status = TJPChatMessageStatusRead;
+        chatMessage.readTime = [NSDate date];
+        
+        // 更新UI
+        dispatch_async(dispatch_get_main_queue(), ^{
+            [self updateMessageCell:chatMessage];
+            
+            // 可选：播放已读提示音
+            AudioServicesPlaySystemSound(1000);
+        });
     }
 }
 

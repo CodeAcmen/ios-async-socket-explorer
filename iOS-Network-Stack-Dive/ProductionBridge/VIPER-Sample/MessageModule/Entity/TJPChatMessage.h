@@ -20,6 +20,11 @@ NS_ASSUME_NONNULL_BEGIN
 @property (nonatomic, strong) UIImage *image; // 图片消息
 @property (nonatomic, assign) TJPChatMessageStatus status; // 发送中、已发送、失败
 
+
+@property (nonatomic, assign) uint32_t sequence;       // 消息序列号
+@property (nonatomic, strong) NSDate *readTime; // 消息已读时间
+
+
 @end
 
 NS_ASSUME_NONNULL_END

@@ -82,7 +82,8 @@ typedef NS_ENUM(uint16_t, TJPMessageType) {
     TJPMessageTypeNormalData = 0,      // 普通数据消息
     TJPMessageTypeHeartbeat = 1,       // 心跳消息
     TJPMessageTypeACK = 2,             // 确认消息
-    TJPMessageTypeControl = 3          // 控制消息
+    TJPMessageTypeControl = 3,         // 控制消息
+    TJPMessageTypeReadReceipt          // 已读回执
 };
 
 typedef NS_ENUM(NSUInteger, TJPMessageState) {
@@ -108,7 +109,8 @@ typedef NS_ENUM(uint8_t, TJPMessageCategory) {
     TJPMessageCategoryNormal = 0,    // 普通消息
     TJPMessageCategoryHeartbeat = 1, // 心跳消息
     TJPMessageCategoryControl = 2,   // 控制消息
-    TJPMessageCategoryMedia = 3      // 媒体消息
+    TJPMessageCategoryMedia = 3,     // 媒体消息
+    TJPMessageCategoryBroadcast = 4  // 广播消息
 };
 
 

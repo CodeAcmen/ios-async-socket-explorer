@@ -53,7 +53,7 @@
 #define kTJPMessageFailedNotification @"kTJPMessageFailedNotification"
 #define kTJPMessageReceivedNotification @"kTJPMessageReceivedNotification"
 #define kTJPMessageStatusUpdateNotification @"kTJPMessageStatusUpdateNotification"
-
+#define kTJPMessageReadNotification @"kTJPMessageReadNotification"
 
 
 

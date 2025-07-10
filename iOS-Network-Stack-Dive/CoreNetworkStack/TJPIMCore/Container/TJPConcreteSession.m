@@ -708,7 +708,7 @@ static const NSTimeInterval kDefaultRetryInterval = 10;
     uint16_t versionValue = htons((majorVersion << 8) | minorVersion);
     
     // 使用定义的特性标志
-    uint16_t featureFlags = htons(TJP_SUPPORTED_FEATURES);
+    uint16_t featureFlags = htons(TJP_FEATURE_BASIC | TJP_FEATURE_READ_RECEIPT | TJP_FEATURE_ENCRYPTION);
     
     // 记录日志，便于调试
     TJPLOG_INFO(@"[TJPConcreteSession] 发送版本协商: 版本=%d.%d, 特性=0x%04X", majorVersion, minorVersion, TJP_SUPPORTED_FEATURES);
@@ -1150,6 +1150,10 @@ static const NSTimeInterval kDefaultRetryInterval = 10;
            TJPLOG_INFO(@"[TJPConcreteSession] 处理控制包，序列号: %u", packet.sequence);
            [self handleControlPacket:packet];
            break;
+       case TJPMessageTypeReadReceipt:
+           TJPLOG_INFO(@"[TJPConcreteSession] 收到已读回执，序列号: %u", packet.sequence);
+           [self handleReadReceiptPacket:packet];
+       break;
        default:
            TJPLOG_WARN(@"[TJPConcreteSession] 收到未知消息类型 %hu", packet.messageType);
            break;
@@ -1184,8 +1188,13 @@ static const NSTimeInterval kDefaultRetryInterval = 10;
        });
    }
    
-   // 发送ACK确认 - 确认接收到的数据包
+    // 发送ACK确认 - 确认接收到的数据包
     [self sendAckForPacket:packet messageCategory:TJPMessageCategoryNormal];
+    
+    // 简单策略：延迟2秒自动发送已读回执（应用层） 实际项目中可以根据需要手动调用
+    dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(2.0 * NSEC_PER_SEC)), self.sessionQueue, ^{
+        [self sendReadReceiptForMessageSequence:packet.sequence];
+    });
 }
 
 - (void)handleControlPacket:(TJPParsedPacket *)packet {
@@ -1332,6 +1341,9 @@ static const NSTimeInterval kDefaultRetryInterval = 10;
                case TJPMessageTypeControl:
                    TJPLOG_INFO(@"[TJPConcreteSession] 收到控制消息ACK, ID: %@, 序列号: %u", messageId ?: @"unknown", sequence);
                    break;
+               case TJPMessageTypeReadReceipt:
+                   TJPLOG_INFO(@"[TJPConcreteSession] 收到已读回执ACK, ID: %@, 序列号: %u", messageId ?: @"unknown", sequence);
+                   break;
                default:
                    TJPLOG_INFO(@"[TJPConcreteSession] 收到ACK, ID: %@, 序列号: %u", messageId ?: @"unknown", sequence);
                    break;
@@ -1368,6 +1380,88 @@ static const NSTimeInterval kDefaultRetryInterval = 10;
            [self disconnectWithReason:TJPDisconnectReasonHeartbeatTimeout];
        });
    }
+}
+
+- (void)handleReadReceiptPacket:(TJPParsedPacket *)packet {
+    if (!packet.payload || packet.payload.length < 10) { // TLV最小长度: 2+4+4=10字节
+        TJPLOG_ERROR(@"[TJPConcreteSession] 已读回执数据格式错误");
+        return;
+    }
+    
+    // 解析TLV格式的已读回执数据
+    const void *bytes = packet.payload.bytes;
+    uint16_t tag = 0;
+    uint32_t length = 0;
+    uint32_t originalSequence = 0;
+    
+    // 提取TLV字段
+    memcpy(&tag, bytes, sizeof(uint16_t));
+    memcpy(&length, bytes + 2, sizeof(uint32_t));
+    memcpy(&originalSequence, bytes + 6, sizeof(uint32_t)); // 跳过Tag(2) + Length(4) = 6字节
+    
+    // 转换网络字节序到主机字节序
+    tag = ntohs(tag);
+    length = ntohl(length);
+    originalSequence = ntohl(originalSequence);
+    
+    // 验证TLV格式
+    if (tag == 0x0001 && length == 4) { // 已读回执标签，长度为4字节
+        TJPLOG_INFO(@"[TJPConcreteSession] 消息序列号 %u 已被对方阅读", originalSequence);
+        
+        // 查找对应的消息ID
+        NSString *messageId = self.sequenceToMessageId[@(originalSequence)];
+        if (messageId) {
+            // 更新消息状态为已读
+            [self.messageManager updateMessage:messageId toState:TJPMessageStateRead];
+            
+            // 发送已读回执接收通知
+            dispatch_async(dispatch_get_main_queue(), ^{
+                [[NSNotificationCenter defaultCenter] postNotificationName:kTJPMessageReadNotification
+                                                                    object:nil
+                                                                  userInfo:@{
+                    @"messageId": messageId,
+                    @"originalSequence": @(originalSequence),
+                    @"sessionId": self.sessionId ?: @""
+                }];
+            });
+        }
+    } else {
+        TJPLOG_WARN(@"[TJPConcreteSession] 已读回执TLV格式不正确: tag=0x%04X, length=%u", tag, length);
+    }
+    
+    // 发送ACK确认（传输层确认）
+    [self sendAckForPacket:packet messageCategory:TJPMessageCategoryNormal];
+}
+
+// 发送已读回执
+- (void)sendReadReceiptForMessageSequence:(uint32_t)messageSequence {
+    dispatch_async(self.sessionQueue, ^{
+        if (![self.stateMachine.currentState isEqualToString:TJPConnectStateConnected]) {
+            TJPLOG_WARN(@"[TJPConcreteSession] 连接状态异常，无法发送已读回执");
+            return;
+        }
+        
+        // 获取已读回执的序列号
+        uint32_t readReceiptSeq = [self.seqManager nextSequenceForCategory:TJPMessageCategoryNormal];
+        
+        // 构建已读回执数据：只包含原消息序列号
+        NSMutableData *readReceiptData = [NSMutableData data];
+        uint32_t networkSequence = htonl(messageSequence);
+        [readReceiptData appendBytes:&networkSequence length:sizeof(uint32_t)];
+        
+        // 构建协议包
+        NSData *packet = [TJPMessageBuilder buildPacketWithMessageType:TJPMessageTypeReadReceipt
+                                                              sequence:readReceiptSeq
+                                                               payload:readReceiptData
+                                                           encryptType:TJPEncryptTypeNone
+                                                          compressType:TJPCompressTypeNone
+                                                             sessionID:self.sessionId];
+        
+        if (packet) {
+            [self.connectionManager sendData:packet withTimeout:-1 tag:readReceiptSeq];
+            TJPLOG_INFO(@"[TJPConcreteSession] 已读回执已发送，确认消息序列号: %u", messageSequence);
+        }
+    });
 }
 
 - (TJPConnectEvent)eventForTargetState:(TJPConnectState)targetState {
