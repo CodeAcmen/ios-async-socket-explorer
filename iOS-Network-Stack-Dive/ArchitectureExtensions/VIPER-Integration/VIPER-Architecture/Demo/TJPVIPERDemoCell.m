@@ -15,7 +15,7 @@
 }
 
 
-- (void)configureWithModel:(id<TJPViperBaseCellModelProtocol>)cellModel {
+- (void)configureWithModel:(id<TJPBaseCellModelProtocol>)cellModel {
     [super configureWithModel:cellModel];
     self.titleLabel.text = self.cellModel.title;
 }

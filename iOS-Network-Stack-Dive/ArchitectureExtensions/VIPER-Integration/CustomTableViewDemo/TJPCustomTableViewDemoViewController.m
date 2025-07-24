@@ -8,11 +8,12 @@
 #import "TJPCustomTableViewDemoViewController.h"
 #import <Masonry/Masonry.h>
 
-#import "TJPViperBaseTableView.h"
-#import "TJPViperBaseCellModel.h"
-#import "TJPViperBaseTableViewCell.h"
+#import "TJPBaseTableView.h"
+#import "TJPBaseSectionModel.h"
+#import "TJPBaseCellModel.h"
+#import "TJPBaseTableViewCell.h"
 
-@interface TJPViperDemoCellModel : TJPViperBaseCellModel
+@interface TJPViperDemoCellModel : TJPBaseCellModel
 
 @property (nonatomic, copy) NSString *title;
 @property (nonatomic, copy) NSString *subTitle;
@@ -29,7 +30,7 @@
 
 @end
 
-@interface TJPViperDemoTableViewCell : TJPViperBaseTableViewCell
+@interface TJPViperDemoTableViewCell : TJPBaseTableViewCell
 
 @property (nonnull, strong) UILabel *titleLabel;
 @property (nonatomic, weak) TJPViperDemoCellModel *cellModel;
@@ -48,7 +49,7 @@
     }];
 }
 
-- (void)configureWithModel:(id<TJPViperBaseCellModelProtocol>)cellModel {
+- (void)configureWithModel:(id<TJPBaseCellModelProtocol>)cellModel {
     [super configureWithModel:cellModel];
     self.titleLabel.text = self.cellModel.title;
 }
@@ -57,8 +58,8 @@
 @end
 
 
-@interface TJPCustomTableViewDemoViewController () <TJPViperBaseTableViewDelegate>
-@property (nonatomic, strong) TJPViperBaseTableView *tableView;
+@interface TJPCustomTableViewDemoViewController () <TJPBaseTableViewDelegate>
+@property (nonatomic, strong) TJPBaseTableView *tableView;
 @property (nonatomic, strong) NSArray *demoData; 
 
 @property (nonatomic, strong) RACCommand<TJPViperDemoCellModel *, NSObject *> *selectCommand;
@@ -72,7 +73,7 @@
     [super viewDidLoad];
     
     self.view.backgroundColor = [UIColor whiteColor];
-    self.title = @"VIPER-TableView Demo";
+    self.title = @"模块化TableView 实践";
 
     self.demoData = @[
         @{@"title": @"Item 1", @"subtitle": @"Description 1"},
@@ -82,9 +83,11 @@
         @{@"title": @"Item 5", @"subtitle": @"Description 5"}
     ];
     
-    self.tableView = [[TJPViperBaseTableView alloc] initWithFrame:CGRectZero style:UITableViewStylePlain];
-    self.tableView.tjpViperBaseTableViewDelegate = self;
-    self.tableView.cellModels = [[self createCellModelsFromData:self.demoData] mutableCopy];
+    self.tableView = [[TJPBaseTableView alloc] initWithFrame:CGRectZero style:UITableViewStylePlain];
+    self.tableView.tjpBaseTableViewDelegate = self;
+    id<TJPBaseSectionModelProtocol> section = [[TJPBaseSectionModel alloc] initWithCellModels:[self createCellModelsFromData:self.demoData]];
+    self.tableView.sectionModels = @[section];
+//    self.tableView.cellModels = [[self createCellModelsFromData:self.demoData] mutableCopy];
     [self.view addSubview:self.tableView];
     [self.tableView mas_makeConstraints:^(MASConstraintMaker *make) {
         make.left.right.equalTo(self.view);

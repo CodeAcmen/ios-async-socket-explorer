@@ -12,6 +12,7 @@
 #import "StickPacketSolutionController.h"
 #import "TJPLoggerViewController.h"
 #import "TJPCustomTableViewDemoViewController.h"
+#import "TJPSectionTableViewDemoViewController.h"
 #import "TJPVIPERDemoViewController.h"
 #import "TJPNetworkMonitorViewController.h"
 #import "TJPChatViewController.h"
@@ -33,7 +34,7 @@
     [super viewDidLoad];
     self.view.backgroundColor = [UIColor whiteColor];
     
-    self.title = @"iOS-Network";
+    self.title = @"iOS-Network-Stack";
     
     [self initData];
     
@@ -43,24 +44,25 @@
 - (void)initData {
     self.sectionsData = @[
         @{
-            @"title": @"Socket实践",
+            @"title": @"网络通信",
             @"viewControllers": @[
-                @{ @"title": @"粘包问题演示", @"viewController": [StickPacketDemoController class] },
+                @{ @"title": @"TCP粘包问题演示", @"viewController": [StickPacketDemoController class] },
                 @{ @"title": @"粘包问题解决方案", @"viewController": [StickPacketSolutionController class] },
-                @{ @"title": @"TCP通信框架监控演示", @"viewController": [TJPNetworkMonitorViewController class] }
+                @{ @"title": @"TCP通信监控分析", @"viewController": [TJPNetworkMonitorViewController class] }
             ]
         },
+//        @{
+//            @"title": @"AOP实现",
+//            @"viewControllers": @[
+//                @{ @"title": @"轻量级切面日志", @"viewController": [TJPLoggerViewController class] },
+//            ]
+//        },
         @{
-            @"title": @"AOP实现",
+            @"title": @"架构与解耦",
             @"viewControllers": @[
-                @{ @"title": @"轻量级切面日志", @"viewController": [TJPLoggerViewController class] },
-            ]
-        },
-        @{
-            @"title": @"UI实现",
-            @"viewControllers": @[
-                @{ @"title": @"封装VIPER-TableView演示", @"viewController": [TJPCustomTableViewDemoViewController class] },
-                @{ @"title": @"VIPER架构演示", @"viewController": @"VIPERDemo" },
+                @{ @"title": @"模块化TableView实践", @"viewController": [TJPCustomTableViewDemoViewController class] },
+                @{ @"title": @"模块化TableView多Section列表", @"viewController": [TJPSectionTableViewDemoViewController class] },
+                @{ @"title": @"VIPER完整架构演示", @"viewController": @"VIPERDemo" },
                 @{ @"title": @"聊天界面实战", @"viewController": [TJPChatViewController class] }
             ]
         }

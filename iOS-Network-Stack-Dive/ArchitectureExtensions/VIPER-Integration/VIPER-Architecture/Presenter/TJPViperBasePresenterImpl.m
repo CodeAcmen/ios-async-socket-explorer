@@ -9,7 +9,7 @@
 #import "TJPNetworkDefine.h"
 #import "TJPViperBaseInteractorProtocol.h"
 #import "TJPViperBaseRouterHandlerProtocol.h"
-#import "TJPViperBaseCellModelProtocol.h"
+#import "TJPBaseCellModelProtocol.h"
 
 
 
@@ -37,9 +37,9 @@
     [[[[self.baseInteractor.navigateToPageSubject
       takeUntil:self.rac_willDeallocSignal]
       deliverOnMainThread]
-      map:^id _Nullable(id<TJPViperBaseCellModelProtocol> model) {
+      map:^id _Nullable(id<TJPBaseCellModelProtocol> model) {
           // 安全类型转换
-          if (![model conformsToProtocol:@protocol(TJPViperBaseCellModelProtocol)]) {
+          if (![model conformsToProtocol:@protocol(TJPBaseCellModelProtocol)]) {
               [NSException raise:NSInvalidArgumentException format:@"Invalid model type"];
           }
           return [model navigationModelForCell];

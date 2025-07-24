@@ -1,5 +1,5 @@
 //
-//  TJPViperBaseCellModelProtocol.h
+//  TJPBaseCellModelProtocol.h
 //  iOS-Network-Stack-Dive
 //
 //  Created by 唐佳鹏 on 2025/3/29.
@@ -13,9 +13,9 @@ NS_ASSUME_NONNULL_BEGIN
 
 @class TJPNavigationModel;
 
-@protocol TJPViperBaseCellModelProtocol <NSObject>
+@protocol TJPBaseCellModelProtocol <NSObject>
 
-@property (nonatomic, strong) RACCommand<id<TJPViperBaseCellModelProtocol>, NSObject*>* selectedCommand;
+@property (nonatomic, strong) RACCommand<id<TJPBaseCellModelProtocol>, NSObject*>* selectedCommand;
 
 // 新增导航元数据方法   使用示例见TJPViperBaseCellModel.m
 - (TJPNavigationModel *)navigationModelForCell;

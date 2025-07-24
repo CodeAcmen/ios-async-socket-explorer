@@ -20,7 +20,7 @@
 - (void)viewDidLoad {
     [super viewDidLoad];
     
-    self.title = @"VIPERDemo演示";
+    self.title = @"VIPER 完整架构演示";
     self.view.backgroundColor = [UIColor whiteColor];
 }
 

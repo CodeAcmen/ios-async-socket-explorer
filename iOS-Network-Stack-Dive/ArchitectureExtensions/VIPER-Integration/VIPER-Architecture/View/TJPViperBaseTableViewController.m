@@ -12,7 +12,7 @@
 #import "TJPToast.h"
 
 
-@interface TJPViperBaseTableViewController () <TJPViperBaseTableViewDelegate>
+@interface TJPViperBaseTableViewController () <TJPBaseTableViewDelegate>
 
 /// 当前页数
 @property (nonatomic, assign) NSInteger currentPage;
@@ -76,10 +76,10 @@
 - (void)initializationUI {
     self.view.backgroundColor = [UIColor whiteColor];
 
-    self.tableView = [[TJPViperBaseTableView alloc] initWithFrame:CGRectZero style:UITableViewStylePlain];
+    self.tableView = [[TJPBaseTableView alloc] initWithFrame:CGRectZero style:UITableViewStylePlain];
     self.tableView.autoresizingMask = UIViewAutoresizingFlexibleWidth | UIViewAutoresizingFlexibleHeight;
     self.tableView.separatorStyle = UITableViewCellSeparatorStyleNone;
-    self.tableView.tjpViperBaseTableViewDelegate = self;
+    self.tableView.tjpBaseTableViewDelegate = self;
     [self.view addSubview:self.tableView];
 
     [self layOutTableView];
@@ -99,12 +99,9 @@
     [self.basePresenter bindInteractorToPageSubjectWithView:self];
     //绑定数据更新信号
     [self.basePresenter bindInteractorDataUpdateSubject];
+    // throttle防抖动处理
     @weakify(self)
-    [[[[[self.basePresenter viewUpdatedDataSignal]
-        takeUntil:self.rac_willDeallocSignal]
-       throttle:0.3] // 防抖动处理
-      deliverOnMainThread]
-     subscribeNext:^(NSDictionary * _Nullable updateDict) {
+    [[[[[self.basePresenter viewUpdatedDataSignal] takeUntil:self.rac_willDeallocSignal] throttle:0.3] deliverOnMainThread] subscribeNext:^(NSDictionary * _Nullable updateDict) {
         TJPLOG_INFO(@"VIPER 中的VC层------收到Interactor透传过来的数据源更新信号");
         @strongify(self)
         if (updateDict) {
@@ -174,7 +171,7 @@
 
 - (void)handleDataFetchSuccess:(NSArray *)data error:(NSError *)error {
     dispatch_async(dispatch_get_main_queue(), ^{
-        [self updateEmptyDataViewForServiceData:data error:nil];
+        [self updateEmptyDataViewForSectionModels:data error:nil];
         [self.tableView endRefreshing];
     });
 }
@@ -184,17 +181,17 @@
         NSString *errorMessage = [self getErrorMessageForError:error];
 
         [self showError:errorMessage];
-        [self updateEmptyDataViewForServiceData:nil error:error];
+        [self updateEmptyDataViewForSectionModels:nil error:error];
         [self.tableView endRefreshing];
     });
 }
 
-- (void)updateEmptyDataViewForServiceData:(NSArray *)data error:(NSError *)error {
-    if (error || data == nil || data.count == 0) {
+- (void)updateEmptyDataViewForSectionModels:(NSArray *)sections error:(NSError *)error {
+    if (error || sections.count == 0) {
         [self.tableView showEmptyData];
     } else {
         [self.tableView hideEmptyData];
-        [self.tableView reloadDataWithCellModels:data];
+        [self.tableView reloadDataWithSectionModels:sections];
     }
     //对tableView进行额外扩展操作
     [self updateTableViewUIForExtensionOperate];
