@@ -10,6 +10,8 @@
 #import "TJPVIPERDemoCellModel.h"
 #import "TJPCacheManager.h"
 #import "TJPMemoryCache.h"
+#import "TJPBaseSectionModel.h"
+
 
 
 @interface TJPVIPERDemoInteractorImpl ()
@@ -51,25 +53,26 @@
     }
     
     //网络请求类 请求服务器数据
-    sleep(0.5);
-    
-    
-    NSMutableArray *itemsArray = [NSMutableArray array];
+    dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(1.0 * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
+        
+        NSMutableArray *itemsArray = [NSMutableArray array];
+        for (int i = 0; i < 10; i++) {
+            TJPVIPERDemoCellModel *model = [TJPVIPERDemoCellModel new];
+            model.detailId = @(i + 1 + (page - 1) * 10);
+            model.title = [NSString stringWithFormat:@"标题 --- %i", i];
+            model.selectedCommand = self.selectedDemoDetilCommand;
+            [itemsArray addObject:model];
+        }
+        
+        TJPBaseSectionModel *section = [[TJPBaseSectionModel alloc] initWithCellModels:itemsArray];
+        NSArray *sections = @[section];
+        self->_totalCount = 50;
+        
+        [self.cacheManager saveCacheWithData:sections forKey:cacheKey expireTime:TJPCacheExpireTimeShort];
+        
+        if (success) success(sections, self->_totalCount);
+    });
 
-    for (int i = 0; i < 10; i++) {
-        TJPVIPERDemoCellModel *model = [TJPVIPERDemoCellModel new];
-        model.detailId = @(i + 1);
-        model.title = [NSString stringWithFormat:@"标题 --- %i", i];
-        model.selectedCommand = self.selectedDemoDetilCommand;
-        [itemsArray addObject:model];
-    }
-    
-    _totalCount = 50;
-    [self.cacheManager saveCacheWithData:itemsArray forKey:cacheKey expireTime:TJPCacheExpireTimeShort];
-
-    if (success) {
-        success(itemsArray, _totalCount);
-    }
 }
 
 - (RACCommand<TJPVIPERDemoCellModel *,NSObject *> *)selectedDemoDetilCommand {

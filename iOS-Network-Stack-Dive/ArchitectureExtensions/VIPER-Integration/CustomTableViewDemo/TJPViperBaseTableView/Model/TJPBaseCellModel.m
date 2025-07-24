@@ -1,21 +1,21 @@
 //
-//  TJPViperBaseCellModel.m
+//  TJPBaseCellModel.m
 //  iOS-Network-Stack-Dive
 //
 //  Created by 唐佳鹏 on 2025/3/29.
 //
 
-#import "TJPViperBaseCellModel.h"
+#import "TJPBaseCellModel.h"
 #import "TJPNavigationModel.h"
 
-@interface TJPViperBaseCellModel ()
+@interface TJPBaseCellModel ()
 
 // 用于缓存 cell 高度
 @property (nonatomic, assign) CGFloat cachedHeight;
 
 @end
 
-@implementation TJPViperBaseCellModel
+@implementation TJPBaseCellModel
 
 #pragma mark -
 #pragma mark Object Constructors
@@ -32,7 +32,7 @@
 }
 //**************************************************
 - (NSString *)cellName {
-    return @"TJPViperBaseTableViewCell";
+    return @"TJPBaseTableViewCell";
 }
 
 - (CGFloat)cellHeight {

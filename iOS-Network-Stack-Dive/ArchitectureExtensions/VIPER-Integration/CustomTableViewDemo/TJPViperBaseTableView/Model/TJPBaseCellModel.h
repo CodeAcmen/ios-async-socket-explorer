@@ -1,16 +1,16 @@
 //
-//  TJPViperBaseCellModel.h
+//  TJPBaseCellModel.h
 //  iOS-Network-Stack-Dive
 //
 //  Created by 唐佳鹏 on 2025/3/29.
 //
 
 #import <Foundation/Foundation.h>
-#import "TJPViperBaseCellModelProtocol.h"
+#import "TJPBaseCellModelProtocol.h"
 
 NS_ASSUME_NONNULL_BEGIN
 
-@interface TJPViperBaseCellModel : NSObject <TJPViperBaseCellModelProtocol>
+@interface TJPBaseCellModel : NSObject <TJPBaseCellModelProtocol>
 
 @property (nonatomic, strong) RACCommand<id, NSObject*>* selectedCommand;
 

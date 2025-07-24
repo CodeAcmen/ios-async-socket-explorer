@@ -1,12 +1,12 @@
 //
-//  TJPViperBaseTableViewCell.m
+//  TJPBaseTableViewCell.m
 //  iOS-Network-Stack-Dive
 //
 //  Created by 唐佳鹏 on 2025/3/29.
 //
 
-#import "TJPViperBaseTableViewCell.h"
-#import "TJPViperBaseCellModel.h"
+#import "TJPBaseTableViewCell.h"
+#import "TJPBaseCellModel.h"
 
 #import <Masonry/Masonry.h>
 #import "UIColor+TJPColor.h"
@@ -27,13 +27,13 @@
 //**********************************************************************************************************
 //
 //    Private Interface
-@interface TJPViperBaseTableViewCell () 
+@interface TJPBaseTableViewCell () 
 
 @end
 //
 //**********************************************************************************************************
 
-@implementation TJPViperBaseTableViewCell
+@implementation TJPBaseTableViewCell
 //@synthesize cellModel = _cellModel;
 #pragma mark -
 #pragma mark Object Constructors
@@ -78,19 +78,19 @@
 }
 
 
-- (void)configureWithModel:(id<TJPViperBaseCellModelProtocol>)cellModel {
+- (void)configureWithModel:(id<TJPBaseCellModelProtocol>)cellModel {
     if (self.cellModel == cellModel) {
         return;
     }
     self.cellModel = cellModel;
-    if ([self.cellModel isKindOfClass:[TJPViperBaseCellModel class]]) {
-        TJPViperBaseCellModel *cellViewModel = self.cellModel;
+    if ([self.cellModel isKindOfClass:[TJPBaseCellModel class]]) {
+        TJPBaseCellModel *cellViewModel = self.cellModel;
         
         self.tjp_bottomLineView.hidden = !cellViewModel.tjp_showBottomLine;
     }
 }
 
-- (void)cellWillDisplay:(id<TJPViperBaseCellModelProtocol>)cellModel {
+- (void)cellWillDisplay:(id<TJPBaseCellModelProtocol>)cellModel {
     if (self.cellModel == cellModel) {
         return;
     }

@@ -7,7 +7,7 @@
 
 #import <UIKit/UIKit.h>
 #import "TJPViperBaseTableVCProtocol.h"
-#import "TJPViperBaseTableView.h"
+#import "TJPBaseTableView.h"
 
 
 NS_ASSUME_NONNULL_BEGIN
@@ -16,7 +16,7 @@ NS_ASSUME_NONNULL_BEGIN
 
 
 @interface TJPViperBaseTableViewController : UIViewController <TJPViperBaseTableVCProtocol>
-@property (nonatomic, strong) TJPViperBaseTableView *tableView;
+@property (nonatomic, strong) TJPBaseTableView *tableView;
 
 
 //vc->强引用presenter

@@ -5,11 +5,11 @@
 //  Created by 唐佳鹏 on 2025/4/1.
 //
 
-#import "TJPViperBaseCellModel.h"
+#import "TJPBaseCellModel.h"
 
 NS_ASSUME_NONNULL_BEGIN
 
-@interface TJPVIPERDemoCellModel : TJPViperBaseCellModel
+@interface TJPVIPERDemoCellModel : TJPBaseCellModel
 
 @property (nonatomic, copy) NSString *title;
 @property (nonatomic, copy) NSNumber *detailId;
