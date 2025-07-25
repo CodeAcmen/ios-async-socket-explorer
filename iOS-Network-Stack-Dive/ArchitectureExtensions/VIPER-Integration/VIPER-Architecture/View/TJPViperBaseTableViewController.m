@@ -6,13 +6,18 @@
 //
 
 #import "TJPViperBaseTableViewController.h"
+#import <Masonry/Masonry.h>
+
 #import "TJPViperBasePresenterProtocol.h"
 #import "TJPNetworkDefine.h"
-#import <Masonry/Masonry.h>
 #import "TJPToast.h"
+#import "TJPViperDefaultErrorHandler.h"
 
 
 @interface TJPViperBaseTableViewController () <TJPBaseTableViewDelegate>
+
+/// 错误处理器
+@property (nonatomic, strong) id<TJPViperErrorHandlerProtocol> errorHandler;
 
 /// 当前页数
 @property (nonatomic, assign) NSInteger currentPage;
@@ -50,6 +55,8 @@
 //**************************************************
 - (void)viewDidLoad {
     [super viewDidLoad];
+    
+    self.errorHandler = [TJPViperDefaultErrorHandler sharedHandler];
     
     self.currentPage = 1;
     if (@available(iOS 11.0, *)) {
@@ -129,6 +136,9 @@
 }
 
 - (void)pullDownRefresh {
+    // 重置错误处理状态
+    [self.errorHandler resetErrorState];
+
     self.currentPage = 1;
     [self fetchDataForPageWithCompletion:self.currentPage withCompletion:nil];
 }
@@ -165,7 +175,23 @@
     } failure:^(NSError * _Nonnull error) {
         @strongify(self)
         TJPLOG_INFO(@"Failed to fetch data for page: %ld, error: %@", (long)page, error.localizedDescription);
-        [self handleDataFetchError:error];
+        // 新错误处理机制
+        [self handleDataFetchErrorWithRetry:error];
+    }];
+}
+
+- (void)handleDataFetchErrorWithRetry:(NSError *)error {
+    @weakify(self)
+    [self.errorHandler handleError:error inContext:self completion:^(BOOL shouldRetry) {
+        @strongify(self)
+        if (shouldRetry) {
+            // 用户选择重试，重新请求数据
+            TJPLOG_INFO(@"User chose to retry, fetching data again for page: %ld", (long)self.currentPage);
+            [self fetchDataForPageWithCompletion:self.currentPage withCompletion:nil];
+        } else {
+            // 用户取消重试或达到最大重试次数，显示空白页
+            [self handleDataFetchError:error];
+        }
     }];
 }
 

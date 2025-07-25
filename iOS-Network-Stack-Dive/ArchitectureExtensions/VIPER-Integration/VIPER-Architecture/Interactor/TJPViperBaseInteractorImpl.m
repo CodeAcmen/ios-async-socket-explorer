@@ -7,6 +7,7 @@
 
 #import "TJPViperBaseInteractorImpl.h"
 #import "TJPNetworkDefine.h"
+#import "TJPViperDefaultErrorHandler.h"
 
 @implementation TJPViperBaseInteractorImpl
 @synthesize navigateToPageSubject = _navigateToPageSubject, dataListUpdatedSignal = _dataListUpdatedSignal;
@@ -39,12 +40,33 @@
     //提供标准接口 子类需要重写此方法并实现具体的业务逻辑
     TJPLOG_INFO(@"BaseInteractor provide a standard interface - fetchDataForPageWithCompletion.");
     
-    if ([self isMemberOfClass:[TJPViperBaseInteractorImpl class]]) {
-        NSAssert(NO, @"Subclass must override");
-        failure([NSError errorWithDomain:@"VIPER" code:500 userInfo:nil]);
+    // 参数验证
+    if (page <= 0) {
+        NSError *error = [NSError errorWithDomain:TJPViperErrorDomain
+                                             code:TJPViperErrorBusinessLogicFailed
+                                         userInfo:@{NSLocalizedDescriptionKey: @"页码必须大于0"}];
+        failure(error);
+        return;
     }
-
     
+    
+    
+    if ([self isMemberOfClass:[TJPViperBaseInteractorImpl class]]) {
+        // 如果是基类被直接调用，抛出标准的TJPNetworkError
+        if ([self isMemberOfClass:[TJPViperBaseInteractorImpl class]]) {
+            NSError *error = [NSError errorWithDomain:TJPViperErrorDomain
+                                                 code:TJPViperErrorBusinessLogicFailed
+                                             userInfo:@{NSLocalizedDescriptionKey: @"子类必须重写此方法"}];
+            failure(error);
+            return;
+        }
+    }
+}
+
+- (NSError *)createErrorWithCode:(TJPViperError)errorCode description:(NSString *)description {
+    return [NSError errorWithDomain:TJPViperErrorDomain
+                               code:errorCode
+                           userInfo:@{NSLocalizedDescriptionKey: description ?: @"未知错误"}];
 }
 
 

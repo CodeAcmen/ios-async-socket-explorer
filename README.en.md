@@ -6,7 +6,7 @@ A production-ready TCP communication framework for iOS, designed for high-concur
 
 `ios-async-socket-explorer` is an industrial-grade TCP socket framework built on CocoaAsyncSocket, abstracted from real-world enterprise IM systems.
 
-- Supports **3000+ concurrent connections**, handling **100,000+ messages daily**
+- Supports **3000+ concurrent connections**, handling **10,000+ messages daily**
 - Implements **TLV binary protocol**, **CRC32 checksum**, and **ACK-based reliability mechanism**
 - Equipped with **RTT-adaptive heartbeat** and **exponential backoff reconnection**, optimized for complex weak network conditions
 - Features **enterprise-level VIPER architecture**, with **unit test coverage over 85%**
