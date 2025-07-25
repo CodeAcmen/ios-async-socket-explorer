@@ -9,7 +9,6 @@
 #import "TJPNetworkDefine.h"
 #import "TJPVIPERDemoCellModel.h"
 #import "TJPCacheManager.h"
-#import "TJPMemoryCache.h"
 #import "TJPBaseSectionModel.h"
 
 
@@ -18,7 +17,6 @@
 
 @property (nonatomic, assign) NSInteger totalCount;
 
-@property (nonatomic, strong) TJPCacheManager *cacheManager;
 
 @property (nonatomic, strong) RACCommand <TJPVIPERDemoCellModel *, NSObject *>*selectedDemoDetilCommand;
 
@@ -31,8 +29,6 @@
     self = [super init];
     if (self) {
         _totalCount = 0;
-        // 初始化缓存管理器，选择使用内存缓存策略
-        _cacheManager = [[TJPCacheManager alloc] initWithCacheStrategy:[[TJPMemoryCache alloc] init]];
     }
     return self;
 }

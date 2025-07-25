@@ -46,6 +46,7 @@
 
 - (void)dealloc {
     TJPLogDealloc();
+    [self teardownPresenter];
 }
 
 
