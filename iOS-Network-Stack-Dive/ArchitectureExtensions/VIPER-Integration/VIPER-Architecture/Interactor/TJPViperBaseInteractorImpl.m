@@ -31,9 +31,6 @@
     return _dataListUpdatedSignal;
 }
 
-- (void)imSendMessage:(id)message {
-    
-}
 
 
 - (void)fetchDataForPageWithCompletion:(NSInteger)page success:(void (^)(NSArray * _Nullable, NSInteger))success failure:(void (^)(NSError * _Nullable))failure {
