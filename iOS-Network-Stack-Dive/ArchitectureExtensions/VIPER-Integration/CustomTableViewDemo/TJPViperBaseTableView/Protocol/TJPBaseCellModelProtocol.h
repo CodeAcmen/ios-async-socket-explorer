@@ -11,17 +11,14 @@
 
 NS_ASSUME_NONNULL_BEGIN
 
-@class TJPNavigationModel;
+//@class TJPNavigationModel;
 
 @protocol TJPBaseCellModelProtocol <NSObject>
 
 @property (nonatomic, strong) RACCommand<id<TJPBaseCellModelProtocol>, NSObject*>* selectedCommand;
 
-// 新增导航元数据方法   使用示例见TJPViperBaseCellModel.m
-- (TJPNavigationModel *)navigationModelForCell;
-
-// 返回要跳转的类型 (已废弃)
-- (TJPNavigationType)navigationTypeForModel __deprecated_msg("请使用navigationModelForCell方法");
+//// 返回要跳转的类型 (已废弃)
+//- (TJPNavigationType)navigationTypeForModel __deprecated_msg("请使用navigationModelForCell方法");
 
 - (NSString *)cellName;
 - (CGFloat)cellHeight;

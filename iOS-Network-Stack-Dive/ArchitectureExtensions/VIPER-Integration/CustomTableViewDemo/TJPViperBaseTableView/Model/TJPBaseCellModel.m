@@ -49,7 +49,7 @@
 }
 
 // 示例
-- (TJPNavigationModel *)navigationModelForCell {
+//- (TJPNavigationModel *)navigationModelForCell {
 //    NSDictionary *params = @{
 //        @"viewControllerClass": @"MessageDetailViewController",
 //        @"navigationType": @(TJPNavigationTypePush),
@@ -60,14 +60,14 @@
 //    return [TJPNavigationModel modelWithRouteID:@"message/detail"
 //                                    parameters:params];
     
-    return [TJPNavigationModel modelWithRouteId:@"" parameters:@{}];
-}
+//    return [TJPNavigationModel modelWithRouteId:@"" parameters:@{}];
+//}
 
 
-// 已废弃
-- (TJPNavigationType)navigationTypeForModel {
-    return TJPNavigationTypePush;
-}
+//// 已废弃
+//- (TJPNavigationType)navigationTypeForModel {
+//    return TJPNavigationTypePush;
+//}
 
 
 

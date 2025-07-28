@@ -7,6 +7,7 @@
 
 #import "TJPErrorUtil.h"
 
+// 实现网络层错误域
 NSString * const TJPNetworkErrorDomain = @"com.tjp.network.error";
 
 

@@ -1,5 +1,5 @@
 //
-//  TJPErrorDefine.h
+//  TJPNetworkErrorDefine.h
 //  iOS-Network-Stack-Dive
 //
 //  Created by 唐佳鹏 on 2025/5/10.

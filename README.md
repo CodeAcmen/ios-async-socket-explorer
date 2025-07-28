@@ -20,7 +20,7 @@
 `ios-async-socket-explorer` 是一套基于 CocoaAsyncSocket 封装的生产级通信框架，源自真实企业级 IM 项目实践，致力于提升 iOS 在弱网、高并发场景下的 TCP 通信稳定性、可维护性和扩展能力。
 
 **主要特性:**
--  支持 **3000+并发连接**，**日均处理10w+消息**
+-  支持 **3000+并发连接**，**日均处理万级消息**
 -  实现 **TLV二进制协议 + CRC32校验 + ACK确认机制**
 -  搭载 **RTT自适应心跳**、**指数退避重连**，支持复杂弱网环境
 -  企业级 **VIPER分层架构设计**，单元测试覆盖率>85%
@@ -109,7 +109,7 @@ client.sendMessageWithAutoRoute(mediaMsg) // 自动路由到媒体会话
 - **弱网表现**: 30%丢包环境下消息可达率>92%，平均延迟<800ms
 - **响应速度**: 网络恢复后连接重建平均耗时<2秒
 - **资源占用**: 相比NSURLSession方案，内存占用减少35%，CPU使用降低28%
-- **生产验证**: 日均处理10万+消息，真实服务于企业客户
+- **生产验证**: 日均处理万+消息，真实服务于企业客户
 
 ## 🔥 技术亮点
 
@@ -280,6 +280,7 @@ iOS-Network-Stack-Dive/
 │   │   ├── NetworkService/        # 网络服务层
 │   │   │   ├── ConnectionManager/ # 连接池管理
 │   │   │   └── ProtocolAdapter/   # 协议适配器
+│   │   ├── VIPER-Demo/       		 # VIPER架构演示
 │   │   └── DI Container/          # 依赖注入实现
 │   └── AOP/                       
 │   │   └── LoggingAspect/         # 日志追踪切面

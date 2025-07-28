@@ -16,6 +16,9 @@ NS_ASSUME_NONNULL_BEGIN
 /// VIPER示例VC
 - (UIViewController *)viperDemoViewController;
 
+
+- (UIViewController *)viperDemoDetailViewController;
+
 @end
 
 NS_ASSUME_NONNULL_END

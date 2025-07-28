@@ -16,8 +16,11 @@
 #import "TJPViperBaseRouterImpl.h"
 
 
+#import "TJPVIPERDemoRouter.h"
+#import "TJPVIPERDemoPresenter.h"
 #import "TJPVIPERDemoViewController.h"
 #import "TJPVIPERDemoInteractorImpl.h"
+#import "TJPVIPERDemoDetailViewController.h"
 
 
 @interface TJPViperModuleAssembly () <TJPViperModuleProvider>
@@ -59,13 +62,14 @@
 }
 
 - (id)viperDemoRouter {
-    return [TyphoonDefinition withClass:[TJPViperBaseRouterImpl class] configuration:^(TyphoonDefinition *definition) {
+    return [TyphoonDefinition withClass:[TJPVIPERDemoRouter class] configuration:^(TyphoonDefinition *definition) {
         //路由一般注入Typhoon不同模块定义类的接口 如TJPViperModuleProvider
+        [definition injectProperty:@selector(viperModuleProvider) with:self];
     }];
 }
 
 - (id)viperDemoPresenter {
-    return [TyphoonDefinition withClass:[TJPViperBasePresenterImpl class] configuration:^(TyphoonDefinition *definition) {
+    return [TyphoonDefinition withClass:[TJPVIPERDemoPresenter class] configuration:^(TyphoonDefinition *definition) {
         [definition injectProperty:@selector(baseInteractor) with:self.viperDemoInteractor];
         [definition injectProperty:@selector(baseRouter) with:self.viperDemoRouter];
     }];
@@ -77,5 +81,11 @@
     }];
 }
 
+
+- (UIViewController *)viperDemoDetailViewController {
+    return [TyphoonDefinition withClass:[TJPVIPERDemoDetailViewController class] configuration:^(TyphoonDefinition *definition) {
+    }];
+    
+}
 
 @end

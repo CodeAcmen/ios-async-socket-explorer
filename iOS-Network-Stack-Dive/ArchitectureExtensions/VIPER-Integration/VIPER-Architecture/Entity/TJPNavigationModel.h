@@ -5,19 +5,12 @@
 //  Created by 唐佳鹏 on 2025/3/31.
 //
 
-#import <Foundation/Foundation.h>
+#import <UIKit/UIKit.h>
+#import "TJPNavigationDefines.h"
 
 NS_ASSUME_NONNULL_BEGIN
 
 @interface TJPNavigationModel : NSObject
-
-/*
- // 路由ID命名规则示例
- static NSString * const TJPRouteIDMessageDetail = @"message/detail";
- static NSString * const TJPRouteIDUserProfile = @"user/profile";
- static NSString * const TJPRouteIDSettings = @"app/settings";
- 
- */
 
 /// 路由id
 @property (nonatomic, copy) NSString *routeId;
@@ -25,9 +18,16 @@ NS_ASSUME_NONNULL_BEGIN
 @property (nonatomic, strong) NSDictionary *parameters;
 /// 时间戳
 @property (nonatomic, assign) NSTimeInterval timestamp;
+/// 跳转类型
+@property (nonatomic, assign) TJPNavigationRouteType routeType;
+/// 是否显示动画
+@property (nonatomic, assign) BOOL animated;
+
+@property (nonatomic, strong) UIViewController *targetVC;
 
 
-+ (instancetype)modelWithRouteId:(NSString *)routeId parameters:(NSDictionary *)params;
+
++ (instancetype)modelWithRouteId:(NSString *)routeId parameters:(NSDictionary *)params routeType:(TJPNavigationRouteType)routeType;
 
 @end
 

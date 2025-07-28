@@ -12,30 +12,21 @@
 
 @implementation TJPViewPresentHandler
 
-
 - (BOOL)handleRequestWithModel:(TJPNavigationModel *)model context:(UIViewController *)context {
-    // 参数解析
-    NSString *vcClassName = model.parameters[@"viewControllerClass"];
-    if (!vcClassName) return NO;
+    UIViewController *targetVC = model.targetVC;
     
-    Class vcClass = NSClassFromString(vcClassName);
-    if (![vcClass isSubclassOfClass:[UIViewController class]]) {
-        TJPLOG_ERROR(@"Invalid view controller class: %@", vcClassName);
+    if (!targetVC) {
+        NSLog(@"[ViewPresentHandler] Router 未提供 targetVC，跳转失败：%@", model.routeId);
         return NO;
     }
-    
-    // 创建实例
-    UIViewController *targetVC = [[vcClass alloc] init];
-    if (!targetVC) return NO;
-    
-    // 执行跳转
+
     if (context) {
         [context presentViewController:targetVC animated:YES completion:nil];
         return YES;
+    } else {
+        NSLog(@"[ViewPresentHandler] 当前上下文无 NavigationController");
+        return NO;
     }
-    
-    return NO;
 }
-
 
 @end

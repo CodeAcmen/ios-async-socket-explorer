@@ -6,7 +6,7 @@
 //
 
 #import <Foundation/Foundation.h>
-#import "TJPErrorDefine.h"
+#import "TJPNetworkErrorDefine.h"
 #import "TJPCoreTypes.h"
 
 NS_ASSUME_NONNULL_BEGIN

@@ -12,15 +12,16 @@ NS_ASSUME_NONNULL_BEGIN
 
 @interface TJPBaseCellModel : NSObject <TJPBaseCellModelProtocol>
 
+/// 选中Cell信号
 @property (nonatomic, strong) RACCommand<id, NSObject*>* selectedCommand;
-
-
+/// 是否显示底部线条
 @property (nonatomic, assign) BOOL tjp_showBottomLine;
 
 
-- (TJPNavigationModel *)navigationModelForCell;
-
-
+/// Cell名称
+- (NSString *)cellName;
+/// Cell高度
+- (CGFloat)cellHeight;
 /// 子类实现的计算Cell高度方法
 - (CGFloat)calculateCellHeight;
 
