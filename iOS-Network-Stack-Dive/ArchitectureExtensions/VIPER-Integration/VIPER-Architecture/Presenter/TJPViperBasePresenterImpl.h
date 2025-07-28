@@ -11,8 +11,8 @@
 
 NS_ASSUME_NONNULL_BEGIN
 
-@protocol TJPViperBaseInteractorProtocol, TJPViperBaseRouterHandlerProtocol;
-@class TJPViperDefaultErrorHandler;
+@protocol TJPViperBaseInteractorProtocol, TJPViperBaseRouterHandlerProtocol, TJPBaseCellModelProtocol, TJPViperBaseViewControllerProtocol;
+@class TJPViperDefaultErrorHandler, TJPNavigationModel;
 
 @interface TJPViperBasePresenterImpl : NSObject <TJPViperBasePresenterProtocol>
 
@@ -20,6 +20,10 @@ NS_ASSUME_NONNULL_BEGIN
 //presenter->强引用Interactor和router 防止提前释放
 @property (nonatomic, strong) id<TJPViperBaseInteractorProtocol> baseInteractor;
 @property (nonatomic, strong) id<TJPViperBaseRouterHandlerProtocol> baseRouter;
+
+// 此处用weak （避免循环引用）
+@property (nonatomic, weak) id<TJPViperBaseViewControllerProtocol> contextProvider;
+
 
 // 错误处理
 @property (nonatomic, strong, readonly) TJPViperDefaultErrorHandler *errorHandler;
@@ -30,10 +34,15 @@ NS_ASSUME_NONNULL_BEGIN
 @property (nonatomic, strong, readonly) NSMutableDictionary *businessStateStorage;
 
 
-// 弱引用的ViewController（避免循环引用）
-@property (nonatomic, weak) UIViewController *currentViewController;
 
-
+/**
+ * 抽象方法：子类必须实现
+ * 根据CellModel构建NavigationModel
+ *
+ * @param cellModel 被点击的CellModel
+ * @return 构建的NavigationModel，如果返回nil表示不处理该类型的Cell
+ */
+- (TJPNavigationModel *)buildNavigationModelFromCellModel:(id<TJPBaseCellModelProtocol>)cellModel;
 
 // 子类可重写的业务逻辑方法
 - (void)preprocessRequestForPage:(NSInteger)page;

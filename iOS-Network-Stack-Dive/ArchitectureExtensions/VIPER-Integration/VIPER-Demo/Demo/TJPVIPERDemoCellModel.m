@@ -21,16 +21,16 @@
 }
 
 
-- (TJPNavigationModel *)navigationModelForCell {
-    NSDictionary *params = @{
-        @"viewControllerClass": @"TJPVIPERDemoDetailViewController",
-        @"navigationType": @(TJPNavigationTypePush),
-        @"detailId": self.detailId,
-        @"timestamp": @([[NSDate date] timeIntervalSince1970])
-    };
-
-    return [TJPNavigationModel modelWithRouteId:@"demo/detail"
-                                    parameters:params];
-}
+//- (TJPNavigationModel *)navigationModelForCell {
+//    NSDictionary *params = @{
+//        @"viewControllerClass": @"TJPVIPERDemoDetailViewController",
+//        @"navigationType": @(TJPNavigationTypePush),
+//        @"detailId": self.detailId,
+//        @"timestamp": @([[NSDate date] timeIntervalSince1970])
+//    };
+//
+//    return [TJPNavigationModel modelWithRouteId:@"demo/detail"
+//                                    parameters:params];
+//}
 
 @end

@@ -9,7 +9,6 @@
 #import "TJPViperBaseRouterHandlerProtocol.h"
 #import "TJPNavigationModel.h"
 #import "TJPNetworkDefine.h"
-#import "TJPNavigationValidator.h"
 
 
 @interface TJPNavigationCoordinator ()
@@ -63,19 +62,22 @@
     return handler;
 }
 
-- (BOOL)dispatchRequestWithModel:(TJPNavigationModel *)model routeType:(TJPNavigationRouteType)routeType inContext:(UIViewController *)context {
-    if (![TJPNavigationValidator isValidModel:model]) {
-        TJPLOG_ERROR(@"当前模型检查出错  model:%@", model);
+- (BOOL)dispatchRequestWithModel:(TJPNavigationModel *)model inContext:(UIViewController *)context{
+    if (!model || model.routeId.length == 0) {
+        NSLog(@"[NavigationCoordinator] 无效的 NavigationModel");
         return NO;
     }
     
     __block id<TJPViperBaseRouterHandlerProtocol> handler = nil;
     dispatch_sync(self.syncQueue, ^{
-        handler = [self.handlers objectForKey:@(routeType)];
+        handler = [self.handlers objectForKey:@(model.routeType)];
     });
     
     if (!handler) {
-        TJPLOG_WARN(@"No handler for route type: %ld", (long)routeType);
+        NSLog(@"[NavigationCoordinator] 未找到对应的 Handler：routeType = %ld", (long)model.routeType);
+//        if ([self.delegate respondsToSelector:@selector(coordinator:didFailWithUnregisteredRouteType:)]) {
+//            [self.delegate coordinator:self didFailWithUnregisteredRouteType:model.routeType];
+//        }
         return NO;
     }
     

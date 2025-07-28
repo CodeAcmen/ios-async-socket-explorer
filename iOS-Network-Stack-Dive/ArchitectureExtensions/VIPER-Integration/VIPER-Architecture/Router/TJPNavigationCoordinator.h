@@ -21,9 +21,7 @@ NS_ASSUME_NONNULL_BEGIN
 //Coordinator弱引用持有handler
 @property (nonatomic, strong) NSMapTable<NSNumber *, id> *handlers;
 
-
-
-
+/// 单例方法
 + (instancetype)sharedInstance;
 
 /// 注册处理器 建议应用启动时注册
@@ -35,7 +33,8 @@ NS_ASSUME_NONNULL_BEGIN
 - (id<TJPViperBaseRouterHandlerProtocol>)handlerForRouteType:(TJPNavigationRouteType)routeType;
 
 
-- (BOOL)dispatchRequestWithModel:(TJPNavigationModel *)model routeType:(TJPNavigationRouteType)routeType inContext:(UIViewController *)context;
+/// 协调器进行跳转分发
+- (BOOL)dispatchRequestWithModel:(TJPNavigationModel *)model inContext:(UIViewController *)context;
 
 @end
 

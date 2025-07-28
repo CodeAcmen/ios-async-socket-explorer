@@ -9,10 +9,11 @@
 
 @implementation TJPNavigationModel
 
-+ (instancetype)modelWithRouteId:(NSString *)routeId parameters:(NSDictionary *)params {
++ (instancetype)modelWithRouteId:(NSString *)routeId parameters:(NSDictionary *)params routeType:(TJPNavigationRouteType)routeType {
     TJPNavigationModel *model = [[TJPNavigationModel alloc] init];
     model.routeId = routeId;
     model.parameters = params ?: @{};
+    model.routeType = routeType;
     model.timestamp = [[NSDate date] timeIntervalSince1970];
     
     return model;

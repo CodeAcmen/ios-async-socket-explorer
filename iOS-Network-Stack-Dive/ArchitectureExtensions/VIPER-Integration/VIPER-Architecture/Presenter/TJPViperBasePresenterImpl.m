@@ -6,11 +6,13 @@
 //
 
 #import "TJPViperBasePresenterImpl.h"
+#import "TJPViperBaseViewControllerProtocol.h"
 #import "TJPNetworkDefine.h"
 #import "TJPViperDefaultErrorHandler.h"
 #import "TJPViperBaseInteractorProtocol.h"
 #import "TJPViperBaseRouterHandlerProtocol.h"
 #import "TJPBaseCellModelProtocol.h"
+#import "TJPNavigationModel.h"
 
 
 @interface TJPViperBasePresenterImpl ()
@@ -60,53 +62,62 @@
 }
 
 
-- (void)bindInteractorToPageSubjectWithView:(UIViewController *)vc {
-    if (!vc || !self.baseInteractor) {
-        TJPLOG_ERROR(@"无法绑定信号: vc=%@, interactor=%@", vc, self.baseInteractor);
+- (void)bindInteractorToPageSubjectWithContextProvider:(id<TJPViperBaseViewControllerProtocol>)contextProvider {
+    self.contextProvider = contextProvider;
+
+    if (!contextProvider || !self.baseInteractor) {
+        TJPLOG_ERROR(@"无法绑定信号: contextProvider=%@, interactor=%@", contextProvider, self.baseInteractor);
         return;
     }
     
-    // 保存ViewController的弱引用
-    self.currentViewController = vc;
-    
-    //此处vc使用weak修饰 防止循环引用出现
-    __weak typeof(UIViewController *)weakVC = vc;
     @weakify(self)
-    [[[[[self.baseInteractor.navigateToPageSubject takeUntil:self.rac_willDeallocSignal] deliverOnMainThread] map:^id _Nullable(id<TJPBaseCellModelProtocol> model) {
-        // 安全类型转换
-        if (![model conformsToProtocol:@protocol(TJPBaseCellModelProtocol)]) {
-            [NSException raise:NSInvalidArgumentException format:@"Invalid model type"];
-        }
-        return [model navigationModelForCell];
-    }]
-      filter:^BOOL(TJPNavigationModel *model) {
-        return model != nil;
-    }]
-     subscribeNext:^(TJPNavigationModel * _Nullable model) {
+    [[[self.baseInteractor.navigateToPageSubject takeUntil:self.rac_willDeallocSignal] deliverOnMainThread] subscribeNext:^(id<TJPBaseCellModelProtocol> cellModel) {
         @strongify(self)
-        if (!weakVC) {
-            TJPLOG_ERROR(@"ViewController在跳转期间已被释放");
+        if (!self.contextProvider) {
+            TJPLOG_ERROR(@"contextProvider在跳转期间已被释放");
+            return;
+        }
+        TJPLOG_INFO(@"接收到Cell模型信号: %@", NSStringFromClass([cellModel class]));
+        
+        // ===== 从CellModel构建TJPNavigationModel 模板方法：基类定义流程，子类实现具体逻辑 =====
+        TJPNavigationModel *navigationModel = [self buildNavigationModelFromCellModel:cellModel];
+                
+        if (!navigationModel) {
+            TJPLOG_ERROR(@"无法从CellModel构建NavigationModel: %@", NSStringFromClass([cellModel class]));
             return;
         }
         
-        //信号订阅成功 交给路由管理
-        TJPLOG_INFO(@"接收到页面的模型: %@", model);
-
-        BOOL navigationSuccess = [self.baseRouter handleNavigationLogicWithModel:model context:weakVC];
+        UIViewController *fromVC = [self.contextProvider currentViewController];
+        if (!fromVC) {
+            TJPLOG_ERROR(@"无法获取当前上下文 VC，跳转终止");
+            return;
+        }
+        
+        // 信号订阅成功 交给路由管理
+        BOOL navigationSuccess = [self.baseRouter navigateToRouteWithNavigationModel:navigationModel fromContext:fromVC animated:YES];
         
         if (!navigationSuccess) {
-            TJPLOG_ERROR(@"模型导航失败: %@", model);
+            TJPLOG_ERROR(@"模型导航失败: %@", cellModel);
 
             // 使用错误处理器处理导航失败
             NSError *navError = [NSError errorWithDomain:TJPViperErrorDomain
                                                     code:TJPViperErrorNavigationFailed
                                                 userInfo:@{NSLocalizedDescriptionKey: @"页面跳转失败"}];
-            [self.errorHandler handleError:navError inContext:weakVC completion:^(BOOL shouldRetry) {
+            [self.errorHandler handleError:navError inContext:fromVC completion:^(BOOL shouldRetry) {
                 
             }];
             
         }
     }];
+}
+
+
+- (TJPNavigationModel *)buildNavigationModelFromCellModel:(id<TJPBaseCellModelProtocol>)cellModel {
+    // 基类提供默认实现，但建议子类重写
+    TJPLOG_WARN(@"[%@] 子类应该重写 buildNavigationModelFromCellModel: 方法", NSStringFromClass([self class]));
+    
+    // 基类提供最基础的默认实现
+    return [self defaultNavigationModelFromCellModel:cellModel];
 }
 
 - (void)bindInteractorDataUpdateSubject {
@@ -352,6 +363,45 @@
     // 子类可重写此方法进行清理工作
 }
 
+
+#pragma mark - Private Method
+- (TJPNavigationModel *)defaultNavigationModelFromCellModel:(id<TJPBaseCellModelProtocol>)cellModel {
+    if (!cellModel) {
+        return nil;
+    }
+    
+    // 基于类名约定生成routeId
+    NSString *className = NSStringFromClass([cellModel class]);
+    NSString *routeId = nil;
+    
+    if ([className hasSuffix:@"CellModel"]) {
+        NSString *prefix = [className substringToIndex:className.length - 9]; // 去掉"CellModel"
+        if ([prefix hasPrefix:@"TJP"]) {
+            prefix = [prefix substringFromIndex:3]; // 去掉"TJP"前缀
+        }
+        routeId = [prefix lowercaseString];
+    } else {
+        routeId = @"unknown";
+    }
+    
+    // 构建基础参数
+    NSMutableDictionary *parameters = [NSMutableDictionary dictionary];
+    parameters[@"cellType"] = className;
+    parameters[@"timestamp"] = @([[NSDate date] timeIntervalSince1970]);
+    
+    // 尝试提取一些通用属性
+    if ([cellModel respondsToSelector:@selector(title)]) {
+        id title = [(NSObject *)cellModel valueForKey:@"title"];
+        if (title) parameters[@"title"] = title;
+    }
+    
+    TJPNavigationModel *model = [TJPNavigationModel modelWithRouteId:routeId parameters:[parameters copy] routeType:TJPNavigationRouteTypeViewPush];
+    model.animated = YES;
+    
+    TJPLOG_INFO(@"[%@] 使用默认实现构建NavigationModel: %@ -> %@", NSStringFromClass([self class]), className, routeId);
+    
+    return model;
+}
 
 
 @end

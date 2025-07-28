@@ -9,6 +9,7 @@
 #import <ReactiveObjC/ReactiveObjC.h>
 
 NS_ASSUME_NONNULL_BEGIN
+@protocol TJPViperBaseViewControllerProtocol;
 
 @protocol TJPViperBasePresenterProtocol <NSObject>
 
@@ -26,9 +27,9 @@ NS_ASSUME_NONNULL_BEGIN
 
 /**
  * 绑定Interactor的页面跳转信号
- * @param vc 当前View Controller
+ * @param contextProvider controller上下文
  */
-- (void)bindInteractorToPageSubjectWithView:(UIViewController *)vc;
+- (void)bindInteractorToPageSubjectWithContextProvider:(id<TJPViperBaseViewControllerProtocol>)contextProvider;
 
 /**
  * 绑定Interactor的数据更新信号

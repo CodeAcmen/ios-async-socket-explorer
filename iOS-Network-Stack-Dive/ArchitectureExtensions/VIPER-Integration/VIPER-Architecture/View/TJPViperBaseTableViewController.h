@@ -6,7 +6,7 @@
 //
 
 #import <UIKit/UIKit.h>
-#import "TJPViperBaseTableVCProtocol.h"
+#import "TJPViperBaseViewControllerProtocol.h"
 #import "TJPBaseTableView.h"
 
 
@@ -25,7 +25,7 @@ typedef NS_ENUM(NSInteger, TJPViewControllerState) {
 };
 
 
-@interface TJPViperBaseTableViewController : UIViewController <TJPViperBaseTableVCProtocol>
+@interface TJPViperBaseTableViewController : UIViewController <TJPViperBaseViewControllerProtocol>
 // 核心组件
 @property (nonatomic, strong) TJPBaseTableView *tableView;
 //vc->强引用presenter

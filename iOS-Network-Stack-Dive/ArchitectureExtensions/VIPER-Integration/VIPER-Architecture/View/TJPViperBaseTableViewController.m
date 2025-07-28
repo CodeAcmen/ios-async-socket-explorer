@@ -223,7 +223,7 @@
 
 - (void)bindInteractorSignals {
     
-    [self.basePresenter bindInteractorToPageSubjectWithView:self];
+    [self.basePresenter bindInteractorToPageSubjectWithContextProvider:self];
     // 绑定数据更新信号
     [self.basePresenter bindInteractorDataUpdateSubject];
     // throttle防抖动处理
@@ -237,6 +237,11 @@
             });
         }
     }];
+}
+
+#pragma mark - TJPViperBaseViewControllerProtocol
+- (UIViewController *)currentViewController {
+    return self;
 }
 
 #pragma mark - State Management
