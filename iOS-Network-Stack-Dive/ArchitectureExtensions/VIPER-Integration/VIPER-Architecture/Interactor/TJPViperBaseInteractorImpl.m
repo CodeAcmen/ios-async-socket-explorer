@@ -45,7 +45,7 @@
         [self setupInteractor];
         _isInitialized = YES;
         
-        TJPLOG_INFO(@"[%@] Interactor initialized", NSStringFromClass([self class]));
+        TJPLOG_INFO(@"[%@] Interactor 初始化完成", NSStringFromClass([self class]));
     }
     return self;
 }
@@ -75,8 +75,8 @@
 #pragma mark - Load Data
 - (void)fetchDataForPageWithCompletion:(NSInteger)page success:(void (^)(NSArray * _Nullable, NSInteger))success failure:(void (^)(NSError * _Nullable))failure {
     //提供标准接口 子类需要重写此方法并实现具体的业务逻辑
-    TJPLOG_INFO(@"BaseInteractor provide a standard interface - fetchDataForPageWithCompletion.");
-    
+    TJPLOG_INFO(@"[%@] BaseInteractor 提供了一个标准接口 - fetchDataForPageWithCompletion", NSStringFromClass([self class]));
+
     // 参数验证
     if (page <= 0) {
         NSError *error = [NSError errorWithDomain:TJPViperErrorDomain
@@ -97,16 +97,16 @@
         return;
     }
     
-    TJPLOG_INFO(@"[%@] Starting data request for page %ld", NSStringFromClass([self class]), (long)page);
-    
+    TJPLOG_INFO(@"[%@] 正在请求第 %ld 页的数据", NSStringFromClass([self class]), (long)page);
+
     // 执行具体的数据请求（由子类实现）
     [self performDataRequestForPage:page completion:^(NSArray *data, NSInteger totalPage, NSError *error) {
         if (error) {
-            TJPLOG_ERROR(@"Data request failed: %@", error.localizedDescription);
+            TJPLOG_ERROR(@"数据请求失败: %@", error.localizedDescription);
             if (failure) failure(error);
         } else {
-            TJPLOG_INFO(@"Data request success: %lu items", (unsigned long)data.count);
-            
+            TJPLOG_INFO(@"数据请求成功: %lu 条数据", (unsigned long)data.count);
+
             // 缓存数据
             if ([self shouldCacheDataForPage:page] && data.count > 0) {
                 NSString *cacheKey = [self cacheKeyForPage:page];
@@ -120,8 +120,8 @@
 
 #pragma mark - Manage Data
 - (void)createData:(NSDictionary *)data completion:(void (^)(id _Nullable, NSError * _Nullable))completion {
-    TJPLOG_INFO(@"[%@] Creating data: %@", NSStringFromClass([self class]), data);
-    
+    TJPLOG_INFO(@"[%@] 创建数据: %@", NSStringFromClass([self class]), data);
+
     // 业务规则验证
     NSError *validationError = [self validateBusinessRules:data];
     if (validationError) {
@@ -146,8 +146,8 @@
 }
 
 - (void)updateDataWithId:(NSString *)dataId updateData:(NSDictionary *)updateData completion:(void (^)(id _Nullable, NSError * _Nullable))completion {
-    TJPLOG_INFO(@"[%@] Updating data with ID: %@", NSStringFromClass([self class]), dataId);
-    
+    TJPLOG_INFO(@"[%@] 更新数据，ID: %@", NSStringFromClass([self class]), dataId);
+
     if (!dataId || dataId.length == 0) {
         NSError *error = [NSError errorWithDomain:TJPViperErrorDomain
                                              code:TJPViperErrorDataInvalid
@@ -172,8 +172,8 @@
 }
 
 - (void)deleteDataWithId:(NSString *)dataId completion:(void (^)(BOOL, NSError * _Nullable))completion {
-    TJPLOG_INFO(@"[%@] Deleting data with ID: %@", NSStringFromClass([self class]), dataId);
-    
+    TJPLOG_INFO(@"[%@] 删除数据，ID: %@", NSStringFromClass([self class]), dataId);
+
     if (!dataId || dataId.length == 0) {
         NSError *error = [NSError errorWithDomain:TJPViperErrorDomain
                                              code:TJPViperErrorDataInvalid
@@ -192,8 +192,8 @@
 }
 
 - (void)searchDataWithKeyword:(NSString *)keyword filters:(NSDictionary *)filters completion:(void (^)(NSArray * _Nullable, NSError * _Nullable))completion {
-    TJPLOG_INFO(@"[%@] Searching data with keyword: %@, filters: %@",  NSStringFromClass([self class]), keyword, filters);
-    
+    TJPLOG_INFO(@"[%@] 搜索数据，关键词: %@, 筛选条件: %@",  NSStringFromClass([self class]), keyword, filters);
+
     // 基类提供默认实现，子类可重写
     dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(0.8 * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
         // 模拟搜索结果
@@ -214,12 +214,12 @@
 #pragma mark - Manage Cache
 
 - (void)clearCache:(NSString *)cacheKey {
-    TJPLOG_INFO(@"[%@] Clearing cache for key: %@", NSStringFromClass([self class]), cacheKey);
+    TJPLOG_INFO(@"[%@] 清理缓存，缓存键: %@", NSStringFromClass([self class]), cacheKey);
     [self.cacheManager removeCacheForKey:cacheKey];
 }
 
 - (void)clearAllCache {
-    TJPLOG_INFO(@"[%@] Clearing all cache", NSStringFromClass([self class]));
+    TJPLOG_INFO(@"[%@] 清理所有缓存", NSStringFromClass([self class]));
     [self.cacheManager clearAllCache];
 }
 
@@ -231,8 +231,8 @@
 #pragma mark - Manage State
 
 - (void)syncDataToServer:(void (^)(BOOL, NSError * _Nullable))completion {
-    TJPLOG_INFO(@"[%@] Syncing data to server", NSStringFromClass([self class]));
-    
+    TJPLOG_INFO(@"[%@] 正在同步数据到服务器", NSStringFromClass([self class]));
+
     // 基类提供默认实现，子类可重写
     dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(1.5 * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
         if (completion) completion(YES, nil);
@@ -243,8 +243,8 @@
 }
 
 - (void)syncDataFromServer:(void (^)(BOOL, NSError * _Nullable))completion {
-    TJPLOG_INFO(@"[%@] Syncing data from server", NSStringFromClass([self class]));
-    
+    TJPLOG_INFO(@"[%@] 正在同步数据从服务器", NSStringFromClass([self class]));
+
     // 基类提供默认实现，子类可重写
     dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(2.0 * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
         if (completion) completion(YES, nil);
@@ -256,8 +256,8 @@
 
 #pragma mark - Option Method
 - (void)subscribeToRealTimeData:(NSString *)topic completion:(void (^)(BOOL, NSError * _Nullable))completion {
-    TJPLOG_INFO(@"[%@] Subscribing to real-time data: %@", NSStringFromClass([self class]), topic);
-    
+    TJPLOG_INFO(@"[%@] 订阅实时数据: %@", NSStringFromClass([self class]), topic);
+
     if (!topic || topic.length == 0) {
         NSError *error = [NSError errorWithDomain:TJPViperErrorDomain
                                              code:TJPViperErrorDataInvalid
@@ -278,13 +278,13 @@
 }
 
 - (void)unsubscribeFromRealTimeData:(NSString *)topic {
-    TJPLOG_INFO(@"[%@] Unsubscribing from real-time data: %@", NSStringFromClass([self class]), topic);
+    TJPLOG_INFO(@"[%@] 取消订阅实时数据: %@", NSStringFromClass([self class]), topic);
     [self.subscribedTopics removeObject:topic];
 }
 
 - (void)uploadFile:(NSData *)fileData fileName:(NSString *)fileName progress:(void (^)(CGFloat))progress completion:(void (^)(NSString * _Nullable, NSError * _Nullable))completion {
-    TJPLOG_INFO(@"[%@] Uploading file: %@, size: %lu bytes", NSStringFromClass([self class]), fileName, (unsigned long)fileData.length);
-    
+    TJPLOG_INFO(@"[%@] 正在上传文件: %@, 大小: %lu 字节", NSStringFromClass([self class]), fileName, (unsigned long)fileData.length);
+
     if (!fileData || !fileName) {
         NSError *error = [NSError errorWithDomain:TJPViperErrorDomain
                                              code:TJPViperErrorDataInvalid

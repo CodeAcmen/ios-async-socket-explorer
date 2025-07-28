@@ -62,7 +62,7 @@
 
 - (void)bindInteractorToPageSubjectWithView:(UIViewController *)vc {
     if (!vc || !self.baseInteractor) {
-        TJPLOG_ERROR(@"Cannot bind signals: vc=%@, interactor=%@", vc, self.baseInteractor);
+        TJPLOG_ERROR(@"无法绑定信号: vc=%@, interactor=%@", vc, self.baseInteractor);
         return;
     }
     
@@ -85,18 +85,18 @@
      subscribeNext:^(TJPNavigationModel * _Nullable model) {
         @strongify(self)
         if (!weakVC) {
-            TJPLOG_ERROR(@"ViewController has been deallocated during navigation");
+            TJPLOG_ERROR(@"ViewController在跳转期间已被释放");
             return;
         }
         
         //信号订阅成功 交给路由管理
-        TJPLOG_INFO(@"Received model for page: %@", model);
-        
+        TJPLOG_INFO(@"接收到页面的模型: %@", model);
+
         BOOL navigationSuccess = [self.baseRouter handleNavigationLogicWithModel:model context:weakVC];
         
         if (!navigationSuccess) {
-            TJPLOG_ERROR(@"Navigation failed for model: %@", model);
-            
+            TJPLOG_ERROR(@"模型导航失败: %@", model);
+
             // 使用错误处理器处理导航失败
             NSError *navError = [NSError errorWithDomain:TJPViperErrorDomain
                                                     code:TJPViperErrorNavigationFailed
@@ -111,14 +111,14 @@
 
 - (void)bindInteractorDataUpdateSubject {
     if (!self.baseInteractor) {
-        TJPLOG_ERROR(@"Cannot bind data update signals: interactor is nil");
+        TJPLOG_ERROR(@"无法绑定数据更新信号: interactor 为空");
         return;
     }
     
     @weakify(self)
     [[self.baseInteractor.dataListUpdatedSignal takeUntil:self.rac_willDeallocSignal] subscribeNext:^(NSDictionary *  _Nullable x) {
         @strongify(self)
-        TJPLOG_INFO(@"[%@] Received data update signal from Interactor", NSStringFromClass([self class]));
+        TJPLOG_INFO(@"[%@] 接收到来自Interactor的数据更新信号", NSStringFromClass([self class]));
         [self.viewUpdatedDataSignal sendNext:x];
     }];
 }
@@ -138,7 +138,7 @@
     // 检查是否有相同页码的请求正在进行
     NSNumber *pageKey = @(page);
     if ([self.activeRequests containsObject:pageKey]) {
-        TJPLOG_INFO(@"Request for page %ld already in progress", (long)page);
+        TJPLOG_INFO(@"第 %ld 页的请求已经在进行中", (long)page);
         return;
     }
     
@@ -172,8 +172,7 @@
         // 后处理响应数据
         [self postprocessResponseData:data];
         
-        TJPLOG_INFO(@"✅ [%@] Data fetch success for page %ld",
-                    NSStringFromClass([self class]), (long)page);
+        TJPLOG_INFO(@"[%@] 第 %ld 页数据请求成功", NSStringFromClass([self class]), (long)page);
         
         if (success) success(data, totalPage);
         
@@ -188,8 +187,7 @@
         // 处理业务错误
         [self handleBusinessError:error];
         
-        TJPLOG_ERROR(@"❌ [%@] Data fetch failed for page %ld: %@",
-                     NSStringFromClass([self class]), (long)page, error.localizedDescription);
+        TJPLOG_ERROR(@"[%@] 第 %ld 页数据请求失败: %@", NSStringFromClass([self class]), (long)page, error.localizedDescription);
         
         if (failure) failure(error);
     }];
@@ -199,13 +197,13 @@
 
 - (void)presenterDidInitialize {
     if (self.isInitialized) {
-        TJPLOG_WARN(@"Presenter already initialized");
+        TJPLOG_WARN(@"Presenter 已经初始化过");
         return;
     }
     
     self.isInitialized = YES;
-    TJPLOG_INFO(@"[%@] Presenter initialized", NSStringFromClass([self class]));
-    
+    TJPLOG_INFO(@"[%@] Presenter 初始化完成", NSStringFromClass([self class]));
+
     // 初始化业务状态
     [self resetBusinessState];
 }
@@ -263,15 +261,14 @@
     // 设置默认状态
     self.businessStateStorage[@"initialized"] = @YES;
     
-    TJPLOG_INFO(@"[%@] Business state reset", NSStringFromClass([self class]));
+    TJPLOG_INFO(@"[%@] 业务状态已重置", NSStringFromClass([self class]));
 }
 
 #pragma mark - User Interactor
 
 - (void)handleUserInteraction:(NSString *)event withData:(nullable id)data {
-    TJPLOG_INFO(@"[%@] Handling user interaction: %@ with data: %@",
-                NSStringFromClass([self class]), event, data);
-    
+    TJPLOG_INFO(@"[%@] 处理用户交互事件: %@，数据: %@", NSStringFromClass([self class]), event, data);
+
     // 基类提供默认实现，子类可重写
     // 这里可以添加通用的用户交互处理逻辑
 }
@@ -289,29 +286,27 @@
 }
 
 - (BOOL)handleDeepLink:(NSURL *)url parameters:(NSDictionary *)parameters {
-    TJPLOG_INFO(@"[%@] Handling deep link: %@ with parameters: %@",
-                NSStringFromClass([self class]), url, parameters);
-    
+    TJPLOG_INFO(@"[%@] 处理深度链接: %@，参数: %@", NSStringFromClass([self class]), url, parameters);
+
     // 基类提供默认实现，子类可重写
     return NO; // 默认不处理
 }
 
 - (void)handlePushNotification:(NSDictionary *)notification {
-    TJPLOG_INFO(@"[%@] Handling push notification: %@",
-                NSStringFromClass([self class]), notification);
-    
+    TJPLOG_INFO(@"[%@] 处理推送通知: %@", NSStringFromClass([self class]), notification);
+
     // 基类提供默认实现，子类可重写
 }
 
 - (void)preloadData {
-    TJPLOG_INFO(@"[%@] Preloading data", NSStringFromClass([self class]));
-    
+    TJPLOG_INFO(@"[%@] 预加载数据", NSStringFromClass([self class]));
+
     // 基类提供默认实现，子类可重写
 }
 
 - (void)cleanup {
-    TJPLOG_INFO(@"[%@] Cleaning up resources", NSStringFromClass([self class]));
-    
+    TJPLOG_INFO(@"[%@] 清理资源", NSStringFromClass([self class]));
+
     // 清理业务状态
     [self.businessStateStorage removeAllObjects];
     
@@ -326,14 +321,12 @@
 #pragma mark - 子类可重写的业务逻辑方法
 
 - (void)preprocessRequestForPage:(NSInteger)page {
-    TJPLOG_INFO(@"[%@] Preprocessing request for page %ld",
-                NSStringFromClass([self class]), (long)page);
+    TJPLOG_INFO(@"[%@] 正在预处理第 %ld 页的请求", NSStringFromClass([self class]), (long)page);
     // 子类可重写
 }
 
 - (void)postprocessResponseData:(NSArray *)data {
-    TJPLOG_INFO(@"[%@] Postprocessing response data with %lu items",
-                NSStringFromClass([self class]), (unsigned long)data.count);
+    TJPLOG_INFO(@"[%@] 正在后处理 %lu 条响应数据", NSStringFromClass([self class]), (unsigned long)data.count);
     // 子类可重写
 }
 
@@ -345,8 +338,7 @@
 }
 
 - (void)handleBusinessError:(NSError *)error {
-    TJPLOG_ERROR(@"[%@] Business error occurred: %@",
-                 NSStringFromClass([self class]), error.localizedDescription);
+    TJPLOG_ERROR(@"[%@] 发生业务错误: %@", NSStringFromClass([self class]), error.localizedDescription);
     // 子类可重写
 }
 

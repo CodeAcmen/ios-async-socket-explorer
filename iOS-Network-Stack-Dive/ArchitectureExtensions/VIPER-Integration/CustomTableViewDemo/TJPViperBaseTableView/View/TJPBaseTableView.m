@@ -199,7 +199,7 @@
     }
 
     // 多 section 情况：暂时使用全量刷新（未来可支持 diff）
-    TJPLOG_INFO(@"Full reload with %lu sections", (unsigned long)sections.count);
+    TJPLOG_INFO(@"[TJPBaseTableView] 全量刷新，section 数量: %lu", (unsigned long)sections.count);
     [self reloadData];
 }
 
@@ -231,11 +231,11 @@
             self.cellModels = [cellModels mutableCopy];
             // 如果是第一次加载数据或没有有效的 indexPathsToReload，进行全量刷新
                 if (indexPathsToReload.count > 5 || indexPathsToReload.count == 0) {
-                    TJPLOG_INFO(@"Performing full reload with %lu cell models", (unsigned long)cellModels.count);
+                    TJPLOG_INFO(@"执行全量刷新，cell 数量: %lu", (unsigned long)cellModels.count);
                     [self reloadData]; // 全量刷新
                 } else {
                     // 如果是局部刷新，确保 indexPathsToReload 是有效的
-                    TJPLOG_INFO(@"Performing partial update with %lu updated rows", (unsigned long)indexPathsToReload.count);
+                    TJPLOG_INFO(@"执行局部更新，更新的行数: %lu", (unsigned long)indexPathsToReload.count);
                     [self beginUpdates];
                     [self reloadRowsAtIndexPaths:indexPathsToReload withRowAnimation:UITableViewRowAnimationAutomatic]; // 局部刷新
                     [self endUpdates];
@@ -276,12 +276,12 @@
     header.lastUpdatedTimeLabel.hidden = YES;
     self.mj_header = header;
     
-    TJPLOG_INFO(@"Configured pull-down refresh control");
+    TJPLOG_INFO(@"配置下拉刷新控件");
 }
 
 - (void)configurePullUpRefreshControlWithTarget:(id)target pullUpAction:(SEL)pullUpAction {
     self.mj_footer = [MJRefreshBackNormalFooter footerWithRefreshingTarget:target refreshingAction:pullUpAction];
-    TJPLOG_INFO(@"Configured pull-up refresh control");
+    TJPLOG_INFO(@"配置上拉加载更多控件");
 }
 
 - (void)endRefreshing {
@@ -363,7 +363,7 @@
     id<TJPBaseSectionModelProtocol> section = self.internalSections[indexPath.section];
     id<TJPBaseCellModelProtocol> model = section.cellModels[indexPath.row];
     
-    TJPLOG_INFO(@"Row %ld selected with model: %@", (long)indexPath.row, model);
+    TJPLOG_INFO(@"第 %ld 行被选中，模型: %@", (long)indexPath.row, model);
     if (model.selectedCommand) {
         [model.selectedCommand execute:model];
     }
@@ -406,7 +406,7 @@
 }
 
 - (void)emptyDataSet:(UIScrollView *)scrollView didTapView:(UIView *)view {
-    TJPLOG_INFO(@"tap empty data set");
+    TJPLOG_INFO(@"点击了空数据视图");
     [self hideEmptyData];
     if (self.tjpBaseTableViewDelegate && [self.tjpBaseTableViewDelegate respondsToSelector:@selector(tjpEmptyViewDidTapped:)]) {
         [self.tjpBaseTableViewDelegate tjpEmptyViewDidTapped:view];
