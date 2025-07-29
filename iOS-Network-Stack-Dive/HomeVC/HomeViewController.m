@@ -62,7 +62,7 @@
             @"viewControllers": @[
                 @{ @"title": @"模块化TableView实践", @"viewController": [TJPCustomTableViewDemoViewController class] },
                 @{ @"title": @"模块化TableView多Section列表", @"viewController": [TJPSectionTableViewDemoViewController class] },
-                @{ @"title": @"VIPER完整架构演示", @"viewController": @"VIPERDemo" },
+                @{ @"title": @"多类型Feed流应用 - VIPER架构实战", @"viewController": @"VIPERDemo" },
                 @{ @"title": @"聊天界面实战", @"viewController": [TJPChatViewController class] }
             ]
         }

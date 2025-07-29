@@ -33,6 +33,7 @@
 @property (nonatomic, assign) NSInteger currentPage;
 @property (nonatomic, assign) NSInteger totalPage;
 @property (nonatomic, strong) NSMutableArray *dataArray;
+@property (nonatomic, assign) NSInteger requestingPage;
 
 // 请求管理
 @property (nonatomic, strong) NSMutableSet<NSNumber *> *activeRequests;
@@ -110,8 +111,10 @@
 - (void)commonInit {
     // 初始化状态
     _currentState = TJPViewControllerStateIdle;
-    _currentPage = 1;
+    // 初始化为0，表示还没有加载任何页面
+    _currentPage = 0;
     _totalPage = 1;
+    _requestingPage = 0;
     _dataArray = [NSMutableArray array];
     _activeRequests = [NSMutableSet set];
     
@@ -360,6 +363,7 @@
 - (void)loadMoreData {
     if (self.currentPage >= self.totalPage) {
         [self.tableView endRefreshing];
+        [self.tableView noMoreData];
         return;
     }
     
@@ -367,6 +371,9 @@
 }
 
 - (void)fetchDataForPage:(NSInteger)page {
+    // 记录当前请求的页码
+    self.requestingPage = page;
+
     NSDate *startTime = [NSDate date];
     NSNumber *pageKey = @(page);
     
@@ -388,8 +395,9 @@
             [self.cacheManager saveCacheWithData:data forKey:cacheKey expireTime:self.cacheExpiration];
         }
         
-        [self handleDataFetchSuccess:data totalPage:totalPage];
-        
+        // 传递请求的页码
+        [self handleDataFetchSuccess:data totalPage:totalPage forPage:page];
+
     } failure:^(NSError *error) {
         @strongify(self)
         
@@ -402,18 +410,19 @@
         [self handleDataFetchError:error forPage:page];
     }];
 }
-
-- (void)handleDataFetchSuccess:(NSArray *)data totalPage:(NSInteger)totalPage {
-    // 更新数据
-    if (self.currentPage == 1 || self.currentState == TJPViewControllerStateRefreshing) {
+- (void)handleDataFetchSuccess:(NSArray *)data totalPage:(NSInteger)totalPage forPage:(NSInteger)requestPage {
+    // 只有请求的是第1页或者处于刷新状态时才重置数据
+    if (requestPage == 1 || self.currentState == TJPViewControllerStateRefreshing) {
         // 第一页或刷新，替换数据源
         [self.dataArray removeAllObjects];
-        self.currentPage = 1;
+        self.currentPage = 0;  // 重置为0
+        NSLog(@"[DEBUG] 重置数据，currentPage设置为0");
     }
     
     if (data.count > 0) {
         [self.dataArray addObjectsFromArray:data];
-        self.currentPage++;
+        self.currentPage = requestPage;  // 🔧 修正：直接设置为请求完成的页码
+        NSLog(@"[DEBUG] 数据添加完成，currentPage更新为: %ld", (long)self.currentPage);
     }
     
     self.totalPage = totalPage;
@@ -427,6 +436,10 @@
     
     // 结束刷新
     [self.tableView endRefreshing];
+}
+
+- (void)handleDataFetchSuccess:(NSArray *)data totalPage:(NSInteger)totalPage {
+    [self handleDataFetchSuccess:data totalPage:totalPage forPage:self.requestingPage];
 }
 
 - (void)handleDataFetchError:(NSError *)error forPage:(NSInteger)page {

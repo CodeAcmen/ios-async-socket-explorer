@@ -1,0 +1,122 @@
+{
+  "code": 200,
+  "message": "success",
+  "data": {
+    "feeds": [
+      {
+        "type": "product",
+        "id": "product_002",
+        "name": "MacBook Pro 14英寸 M3 Max芯片",
+        "price": 25999.00,
+        "originalPrice": 27999.00,
+        "imageUrl": "https://example.com/macbook.jpg",
+        "rating": 4.9,
+        "sales": 856,
+        "tags": ["新品", "高性能", "专业创作"]
+      },
+      {
+        "type": "ad",
+        "id": "ad_002",
+        "title": "双11狂欢节，全场5折起",
+        "subtitle": "错过再等一年，立即抢购",
+        "imageUrl": "https://example.com/sale_ad.jpg",
+        "actionText": "立即抢购",
+        "actionUrl": "https://shop.example.com/sale"
+      },
+      {
+        "type": "news",
+        "id": "news_003",
+        "title": "ChatGPT-5即将发布，AI能力再次飞跃",
+        "summary": "OpenAI官方透露ChatGPT-5正在最后的测试阶段，新版本在推理能力、多模态理解和创作能力方面都有显著提升...",
+        "imageUrl": "https://example.com/chatgpt_news.jpg",
+        "publishTime": "30分钟前",
+        "source": "AI科技",
+        "readCount": 5680
+      },
+      {
+        "type": "video",
+        "id": "video_003",
+        "title": "Xcode 15新特性详解 - 提升开发效率的利器",
+        "coverUrl": "https://example.com/xcode_cover.jpg",
+        "videoUrl": "https://example.com/xcode_video.mp4",
+        "duration": "12:20",
+        "playCount": 2156,
+        "author": "开发者小王"
+      },
+      {
+        "type": "userDynamic",
+        "id": "dynamic_003",
+        "userName": "产品经理老张",
+        "userAvatar": "https://example.com/avatar3.jpg",
+        "content": "产品迭代中最重要的是什么？我认为是用户反馈。今天收到了用户的建议邮件，虽然只有几行字，但每一条都很宝贵。用户的声音就是我们前进的方向。",
+        "images": [],
+        "publishTime": "6小时前",
+        "likes": 89,
+        "comments": 12
+      },
+      {
+        "type": "image",
+        "id": "img_003",
+        "title": "城市夜景延时摄影",
+        "imageUrls": [
+          "https://example.com/night1.jpg",
+          "https://example.com/night2.jpg"
+        ],
+        "likes": 756,
+        "comments": 34,
+        "description": "用延时摄影记录城市的夜晚，车水马龙中的生活节奏"
+      },
+      {
+        "type": "product",
+        "id": "product_003",
+        "name": "AirPods Pro 2代 USB-C充电版",
+        "price": 1899.00,
+        "originalPrice": 1999.00,
+        "imageUrl": "https://example.com/airpods.jpg",
+        "rating": 4.7,
+        "sales": 3420,
+        "tags": ["主动降噪", "空间音频", "长续航"]
+      },
+      {
+        "type": "news",
+        "id": "news_004",
+        "title": "微信小程序推出AI助手功能，智能客服新体验",
+        "summary": "微信团队宣布在小程序平台集成AI助手功能，开发者可以快速为自己的小程序添加智能客服能力，提升用户服务体验...",
+        "imageUrl": "https://example.com/wechat_news.jpg",
+        "publishTime": "1天前",
+        "source": "移动互联网",
+        "readCount": 4280
+      },
+      {
+        "type": "userDynamic",
+        "id": "dynamic_004",
+        "userName": "UI设计菲菲",
+        "userAvatar": "https://example.com/avatar4.jpg",
+        "content": "分享一个设计小技巧：在做移动端设计时，按钮的最小点击区域应该保持在44x44pt，这样能保证用户的操作体验。很多新手设计师容易忽略这个细节。",
+        "images": [
+          "https://example.com/design_tip.jpg"
+        ],
+        "publishTime": "1天前",
+        "likes": 234,
+        "comments": 45
+      },
+      {
+        "type": "video",
+        "id": "video_004",
+        "title": "Flutter 3.0 跨平台开发实战",
+        "coverUrl": "https://example.com/flutter_cover.jpg",
+        "videoUrl": "https://example.com/flutter_video.mp4",
+        "duration": "25:15",
+        "playCount": 1876,
+        "author": "跨平台开发专家"
+      }
+    ],
+    "pagination": {
+      "page": 2,
+      "page_size": 10,
+      "total": 30,
+      "total_pages": 3,
+      "has_more": true
+    }
+  }
+}

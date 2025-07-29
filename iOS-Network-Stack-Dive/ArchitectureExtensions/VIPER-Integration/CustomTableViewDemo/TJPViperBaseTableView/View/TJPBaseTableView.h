@@ -62,6 +62,9 @@ NS_ASSUME_NONNULL_BEGIN
 - (void)configurePullUpRefreshControlWithTarget:(id)target pullUpAction:(SEL)pullUpAction;
 /// 结束刷新
 - (void)endRefreshing;
+/// 没有更多数据
+- (void)noMoreData;
+
 
 
 /// 空白样式 允许重写

@@ -9,6 +9,7 @@
 #import "TJPNetworkDefine.h"
 #import "TJPViperDefaultErrorHandler.h"
 #import "TJPMemoryCache.h"
+#import "TJPPaginationInfo.h"
 
 @interface TJPViperBaseInteractorImpl ()
 
@@ -18,6 +19,11 @@
 @property (nonatomic, strong) NSMutableDictionary<NSString *, NSNumber *> *uploadProgressMap;
 @property (nonatomic, strong) NSMutableSet<NSString *> *subscribedTopics;
 
+
+// 分页相关属性
+@property (nonatomic, strong) TJPPaginationInfo *currentPagination;
+@property (nonatomic, assign) NSInteger currentPage;
+@property (nonatomic, assign) BOOL hasMoreData;
 
 @end
 
@@ -41,6 +47,12 @@
         _isInitialized = NO;
         _uploadProgressMap = [NSMutableDictionary dictionary];
         _subscribedTopics = [NSMutableSet set];
+        
+        // 分页相关初始化
+        _defaultPageSize = 10;
+        _currentPage = 0;
+        _hasMoreData = YES;
+        _currentPagination = nil;
         
         [self setupInteractor];
         _isInitialized = YES;
@@ -74,8 +86,20 @@
 
 #pragma mark - Load Data
 - (void)fetchDataForPageWithCompletion:(NSInteger)page success:(void (^)(NSArray * _Nullable, NSInteger))success failure:(void (^)(NSError * _Nullable))failure {
-    //提供标准接口 子类需要重写此方法并实现具体的业务逻辑
-    TJPLOG_INFO(@"[%@] BaseInteractor 提供了一个标准接口 - fetchDataForPageWithCompletion", NSStringFromClass([self class]));
+    // 调用新方法并适配旧接口
+    [self fetchDataForPageWithPagination:page success:^(NSArray * _Nullable data, TJPPaginationInfo * _Nullable pagination) {
+        if (success) {
+            NSInteger totalPage = pagination.paginationType == TJPPaginationTypePageBased ? pagination.totalPages : 0;
+            success(data, totalPage);
+        }
+    } failure:failure];
+}
+
+- (void)fetchDataForPageWithPagination:(NSInteger)page
+                               success:(void (^)(NSArray * _Nullable, TJPPaginationInfo * _Nullable))success
+                               failure:(void (^)(NSError * _Nullable))failure {
+    
+    TJPLOG_INFO(@"[%@] 开始请求第 %ld 页数据（带分页信息）", NSStringFromClass([self class]), (long)page);
 
     // 参数验证
     if (page <= 0) {
@@ -86,9 +110,30 @@
         return;
     }
     
+    // 检查是否可以加载下一页
+    if (page > 1 && _currentPagination && !_currentPagination.canLoadNextPage) {
+        NSError *error = [NSError errorWithDomain:TJPViperErrorDomain
+                                             code:TJPViperErrorBusinessLogicFailed
+                                         userInfo:@{NSLocalizedDescriptionKey: @"没有更多数据"}];
+        if (failure) failure(error);
+        return;
+    }
     
+    // 检查缓存
+    NSString *cacheKey = [self cacheKeyForPage:page];
+    NSString *paginationCacheKey = [self paginationCacheKeyForPage:page];
     
-    // 如果是基类被直接调用，抛出标准的TJPNetworkError
+    NSArray *cachedData = [self.cacheManager loadCacheForKey:cacheKey];
+    TJPPaginationInfo *cachedPagination = [self loadCachedPaginationForPage:page];
+    
+    if (cachedData && cachedPagination) {
+        TJPLOG_INFO(@"[%@] 返回第 %ld 页缓存数据", NSStringFromClass([self class]), (long)page);
+        [self updatePaginationInfo:cachedPagination];
+        if (success) success(cachedData, cachedPagination);
+        return;
+    }
+    
+    // 如果是基类被直接调用，抛出错误
     if ([self isMemberOfClass:[TJPViperBaseInteractorImpl class]]) {
         NSError *error = [NSError errorWithDomain:TJPViperErrorDomain
                                              code:TJPViperErrorBusinessLogicFailed
@@ -96,24 +141,29 @@
         if (failure) failure(error);
         return;
     }
-    
-    TJPLOG_INFO(@"[%@] 正在请求第 %ld 页的数据", NSStringFromClass([self class]), (long)page);
 
     // 执行具体的数据请求（由子类实现）
-    [self performDataRequestForPage:page completion:^(NSArray *data, NSInteger totalPage, NSError *error) {
+    [self performDataRequestForPage:page withPagination:^(NSArray *data, TJPPaginationInfo *pagination, NSError *error) {
         if (error) {
             TJPLOG_ERROR(@"数据请求失败: %@", error.localizedDescription);
             if (failure) failure(error);
         } else {
             TJPLOG_INFO(@"数据请求成功: %lu 条数据", (unsigned long)data.count);
 
-            // 缓存数据
+            // 更新分页信息
+            if (pagination) {
+                [self updatePaginationInfo:pagination];
+            }
+
+            // 缓存数据和分页信息
             if ([self shouldCacheDataForPage:page] && data.count > 0) {
-                NSString *cacheKey = [self cacheKeyForPage:page];
                 [self.cacheManager saveCacheWithData:data forKey:cacheKey expireTime:TJPCacheExpireTimeMedium];
+                if (pagination) {
+                    [self cachePaginationInfo:pagination forPage:page];
+                }
             }
             
-            if (success) success(data, totalPage);
+            if (success) success(data, pagination);
         }
     }];
 }
@@ -211,16 +261,59 @@
     });
 }
 
+- (TJPPaginationInfo * _Nullable)extractPaginationFromResponse:(id)rawData {
+    // 基类提供默认实现，子类可重写
+    if ([rawData isKindOfClass:[NSDictionary class]]) {
+        NSDictionary *dict = (NSDictionary *)rawData;
+        NSDictionary *paginationDict = dict[@"pagination"] ?: dict[@"page_info"] ?: dict[@"paging"];
+        
+        if (paginationDict) {
+            return [TJPPaginationInfo paginationWithDict:paginationDict];
+        }
+    }
+    return nil;
+}
+
 #pragma mark - Manage Cache
+- (NSString *)paginationCacheKeyForPage:(NSInteger)page {
+    return [NSString stringWithFormat:@"%@_pagination_page_%ld", NSStringFromClass([self class]), (long)page];
+}
+
+- (void)cachePaginationInfo:(TJPPaginationInfo *)pagination forPage:(NSInteger)page {
+    NSString *cacheKey = [self paginationCacheKeyForPage:page];
+    NSDictionary *paginationDict = [pagination toDictionary];
+    [self.cacheManager saveCacheWithData:paginationDict forKey:cacheKey expireTime:TJPCacheExpireTimeMedium];
+    
+    TJPLOG_INFO(@"[%@] 缓存第 %ld 页分页信息", NSStringFromClass([self class]), (long)page);
+}
+
+- (TJPPaginationInfo * _Nullable)loadCachedPaginationForPage:(NSInteger)page {
+    NSString *cacheKey = [self paginationCacheKeyForPage:page];
+    NSDictionary *cachedDict = [self.cacheManager loadCacheForKey:cacheKey];
+    
+    if (cachedDict && [cachedDict isKindOfClass:[NSDictionary class]]) {
+        TJPLOG_INFO(@"[%@] 加载第 %ld 页缓存分页信息", NSStringFromClass([self class]), (long)page);
+        return [TJPPaginationInfo paginationWithDict:cachedDict];
+    }
+    
+    return nil;
+}
 
 - (void)clearCache:(NSString *)cacheKey {
     TJPLOG_INFO(@"[%@] 清理缓存，缓存键: %@", NSStringFromClass([self class]), cacheKey);
     [self.cacheManager removeCacheForKey:cacheKey];
+    
+    // 同时清理对应的分页缓存
+    if ([cacheKey containsString:@"_page_"]) {
+        NSString *paginationCacheKey = [cacheKey stringByReplacingOccurrencesOfString:@"_page_" withString:@"_pagination_page_"];
+        [self.cacheManager removeCacheForKey:paginationCacheKey];
+    }
 }
 
 - (void)clearAllCache {
     TJPLOG_INFO(@"[%@] 清理所有缓存", NSStringFromClass([self class]));
     [self.cacheManager clearAllCache];
+    [self resetPagination]; // 同时重置分页信息
 }
 
 - (NSUInteger)getCacheSize {
@@ -354,11 +447,22 @@
 #pragma mark - Abstract Methods
 - (void)performDataRequestForPage:(NSInteger)page
                        completion:(void (^)(NSArray * _Nullable, NSInteger, NSError * _Nullable))completion {
-    // 这是抽象方法，子类必须实现
+    // 调用新的带分页信息的方法
+    [self performDataRequestForPage:page withPagination:^(NSArray * _Nullable data, TJPPaginationInfo * _Nullable pagination, NSError * _Nullable error) {
+        if (completion) {
+            NSInteger totalPage = pagination && pagination.paginationType == TJPPaginationTypePageBased ? pagination.totalPages : 0;
+            completion(data, totalPage, error);
+        }
+    }];
+}
+
+- (void)performDataRequestForPage:(NSInteger)page
+                   withPagination:(void (^)(NSArray * _Nullable, TJPPaginationInfo * _Nullable, NSError * _Nullable))completion {
+    // 这是新的抽象方法，子类必须实现
     NSError *error = [NSError errorWithDomain:TJPViperErrorDomain
                                          code:TJPViperErrorBusinessLogicFailed
-                                     userInfo:@{NSLocalizedDescriptionKey: @"子类必须实现performDataRequestForPage:completion:方法"}];
-    if (completion) completion(nil, 0, error);
+                                     userInfo:@{NSLocalizedDescriptionKey: @"子类必须实现performDataRequestForPage:withPagination:方法"}];
+    if (completion) completion(nil, nil, error);
 }
 
 #pragma mark - Methods for Subclass Override
@@ -421,8 +525,64 @@
     // 清理上传进度
     [self.uploadProgressMap removeAllObjects];
     
+    // 清理分页信息
+    [self resetPagination];
+
+    
     // 子类可重写此方法进行清理工作
 }
+
+#pragma mark - Pagination Management
+- (void)resetPagination {
+    _currentPage = 0;
+    _hasMoreData = YES;
+    _currentPagination = nil;
+    
+    TJPLOG_INFO(@"[%@] 分页信息已重置", NSStringFromClass([self class]));
+}
+
+- (void)updatePaginationInfo:(TJPPaginationInfo *)paginationInfo {
+    NSLog(@"[DEBUG] updatePaginationInfo 接收到的分页信息:");
+    NSLog(@"  - currentPage: %ld", (long)paginationInfo.currentPage);
+    NSLog(@"  - hasMore: %@", paginationInfo.hasMore ? @"YES" : @"NO");
+    NSLog(@"  - getNextPageNumber: %ld", (long)paginationInfo.getNextPageNumber);
+    NSLog(@"  - paginationType: %ld", (long)paginationInfo.paginationType);
+
+    _currentPagination = [paginationInfo copy];
+    
+    if (paginationInfo.paginationType == TJPPaginationTypePageBased) {
+        _currentPage = paginationInfo.currentPage;
+        _hasMoreData = paginationInfo.hasMore;
+    } else {
+        // 游标分页时，currentPage 用于记录已加载的页面数
+        _currentPage = _currentPage > 0 ? _currentPage : 1;
+        _hasMoreData = paginationInfo.hasMore;
+    }
+    
+    TJPLOG_INFO(@"[%@] 分页信息已更新: %@", NSStringFromClass([self class]), paginationInfo.debugDescription);
+}
+
+- (BOOL)canLoadNextPage {
+    NSLog(@"[DEBUG] canLoadNextPage: hasMoreData=%@, currentPage=%ld", _hasMoreData ? @"YES" : @"NO", (long)self.currentPage);
+    return _hasMoreData && _currentPagination.canLoadNextPage;
+}
+
+- (NSInteger)getNextPageNumber {
+    NSInteger nextPage;
+    if (!_currentPagination) {
+        nextPage = 1;
+    } else if (_currentPagination.paginationType == TJPPaginationTypePageBased) {
+        nextPage = _currentPagination.getNextPageNumber;
+    } else {
+        nextPage = _currentPage + 1;
+    }
+    
+    NSLog(@"[DEBUG] getNextPageNumber: currentPage=%ld, nextPage=%ld", (long)_currentPage, (long)nextPage);
+    NSLog(@"[DEBUG] 调用栈: %@", [NSThread callStackSymbols]);
+    
+    return nextPage;
+}
+
 
 #pragma mark - Private Methods
 

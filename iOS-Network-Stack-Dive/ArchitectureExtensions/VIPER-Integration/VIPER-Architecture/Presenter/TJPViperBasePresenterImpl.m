@@ -13,6 +13,7 @@
 #import "TJPViperBaseRouterHandlerProtocol.h"
 #import "TJPBaseCellModelProtocol.h"
 #import "TJPNavigationModel.h"
+#import "TJPPaginationInfo.h"
 
 
 @interface TJPViperBasePresenterImpl ()
@@ -23,7 +24,6 @@
 @property (nonatomic, strong) TJPViperDefaultErrorHandler *errorHandler;
 @property (nonatomic, strong) NSMutableDictionary *businessStateStorage;
 @property (nonatomic, assign) BOOL isInitialized;
-
 
 @end
 
@@ -40,7 +40,7 @@
         _errorHandler = [TJPViperDefaultErrorHandler sharedHandler];
         _businessStateStorage = [NSMutableDictionary dictionary];
         _isInitialized = NO;
-        
+                
         [self setupPresenter];
     }
     return self;
@@ -137,6 +137,16 @@
 
 #pragma mark - Load Data
 - (void)fetchInteractorDataForPage:(NSInteger)page success:(void (^)(NSArray * _Nonnull, NSInteger))success failure:(void (^)(NSError * _Nonnull))failure {
+    // 向后兼容的方法
+    [self fetchInteractorDataForPageWithPagination:page success:^(NSArray *data, TJPPaginationInfo *pagination) {
+        if (success) {
+            NSInteger totalPage = pagination && pagination.paginationType == TJPPaginationTypePageBased ? pagination.totalPages : 0;
+            success(data, totalPage);
+        }
+    } failure:failure];
+}
+
+- (void)fetchInteractorDataForPageWithPagination:(NSInteger)page success:(void (^)(NSArray * _Nonnull, TJPPaginationInfo * _Nullable))success failure:(void (^)(NSError * _Nonnull))failure {
     // 参数验证
     if (page <= 0) {
         NSError *error = [NSError errorWithDomain:TJPViperErrorDomain
@@ -161,47 +171,72 @@
     self.isProcessingRequest = YES;
     
     @weakify(self)
-    [self.baseInteractor fetchDataForPageWithCompletion:page
-                                                success:^(NSArray *data, NSInteger totalPage) {
-        @strongify(self)
-        
-        // 清理请求状态
-        [self.activeRequests removeObject:pageKey];
-        self.isProcessingRequest = self.activeRequests.count > 0;
-        self.lastError = nil;
-        
-        // 验证响应数据
-        if (![self validateResponseData:data]) {
-            NSError *error = [NSError errorWithDomain:TJPViperErrorDomain
-                                                 code:TJPViperErrorDataInvalid
-                                             userInfo:@{NSLocalizedDescriptionKey: @"服务器返回数据格式错误"}];
-            [self handleBusinessError:error];
-            if (failure) failure(error);
-            return;
-        }
-        
-        // 后处理响应数据
-        [self postprocessResponseData:data];
-        
-        TJPLOG_INFO(@"[%@] 第 %ld 页数据请求成功", NSStringFromClass([self class]), (long)page);
-        
-        if (success) success(data, totalPage);
-        
-    } failure:^(NSError *error) {
-        @strongify(self)
-        
-        // 清理请求状态
-        [self.activeRequests removeObject:pageKey];
-        self.isProcessingRequest = self.activeRequests.count > 0;
-        self.lastError = error;
-        
-        // 处理业务错误
+    // 优先使用新的分页方法
+    if ([self.baseInteractor respondsToSelector:@selector(fetchDataForPageWithPagination:success:failure:)]) {
+        [self.baseInteractor fetchDataForPageWithPagination:page success:^(NSArray *data, TJPPaginationInfo *pagination) {
+            @strongify(self)
+            [self handleDataLoadSuccess:data pagination:pagination pageKey:pageKey success:success];
+        } failure:^(NSError *error) {
+            @strongify(self)
+            [self handleDataLoadFailure:error pageKey:pageKey failure:failure];
+        }];
+    } else {
+        // 回退到旧方法
+        [self.baseInteractor fetchDataForPageWithCompletion:page  success:^(NSArray *data, NSInteger totalPage) {
+            @strongify(self)
+            // 从旧方法构造分页信息
+            TJPPaginationInfo *pagination = nil;
+            if (totalPage > 0) {
+                pagination = [TJPPaginationInfo pageBasedPaginationWithPage:page pageSize:data.count totalCount:totalPage * data.count];
+            }
+            [self handleDataLoadSuccess:data pagination:pagination pageKey:pageKey success:success];
+        } failure:^(NSError *error) {
+            @strongify(self)
+            [self handleDataLoadFailure:error pageKey:pageKey failure:failure];
+        }];
+    }
+}
+#pragma mark - Data Load Response Handling - 数据加载响应处理
+
+- (void)handleDataLoadSuccess:(NSArray *)data pagination:(TJPPaginationInfo *)pagination pageKey:(NSNumber *)pageKey success:(void (^)(NSArray *, TJPPaginationInfo *))success {
+    
+    // 清理请求状态
+    [self.activeRequests removeObject:pageKey];
+    self.isProcessingRequest = self.activeRequests.count > 0;
+    self.lastError = nil;
+    
+    // 验证响应数据
+    if (![self validateResponseData:data]) {
+        NSError *error = [NSError errorWithDomain:TJPViperErrorDomain
+                                             code:TJPViperErrorDataInvalid
+                                         userInfo:@{NSLocalizedDescriptionKey: @"服务器返回数据格式错误"}];
         [self handleBusinessError:error];
-        
-        TJPLOG_ERROR(@"[%@] 第 %ld 页数据请求失败: %@", NSStringFromClass([self class]), (long)page, error.localizedDescription);
-        
-        if (failure) failure(error);
-    }];
+        return;
+    }
+    
+    // 后处理响应数据
+    [self postprocessResponseData:data];
+    
+    TJPLOG_INFO(@"[%@] 第 %@ 页数据请求成功，分页信息: %@",
+                NSStringFromClass([self class]), pageKey, pagination.debugDescription);
+    
+    if (success) success(data, pagination);
+}
+
+- (void)handleDataLoadFailure:(NSError *)error pageKey:(NSNumber *)pageKey failure:(void (^)(NSError *))failure {
+    
+    // 清理请求状态
+    [self.activeRequests removeObject:pageKey];
+    self.isProcessingRequest = self.activeRequests.count > 0;
+    self.lastError = error;
+    
+    // 处理业务错误
+    [self handleBusinessError:error];
+    
+    TJPLOG_ERROR(@"[%@] 第 %@ 页数据请求失败: %@",
+                 NSStringFromClass([self class]), pageKey, error.localizedDescription);
+    
+    if (failure) failure(error);
 }
 
 #pragma mark - Manage Status
@@ -261,7 +296,6 @@
             @"message": self.lastError.localizedDescription
         };
     }
-    
     return [state copy];
 }
 

@@ -1,0 +1,129 @@
+{
+  "code": 200,
+  "message": "success",
+  "data": {
+    "feeds": [
+      {
+        "type": "news",
+        "id": "news_001",
+        "title": "苹果发布最新iOS 17.4版本",
+        "summary": "新版本带来了多项新功能和安全性改进，包括全新的控制中心设计和更智能的Siri响应机制。此次更新还优化了电池续航表现...",
+        "imageUrl": "https://example.com/news1.jpg",
+        "publishTime": "2024-01-15 10:30:00",
+        "source": "科技新闻",
+        "readCount": 1520
+      },
+      {
+        "type": "image",
+        "id": "img_001",
+        "title": "美丽的春日樱花",
+        "imageUrls": [
+          "https://example.com/cherry1.jpg",
+          "https://example.com/cherry2.jpg",
+          "https://example.com/cherry3.jpg"
+        ],
+        "likes": 892,
+        "comments": 45,
+        "description": "春天的樱花盛开，美不胜收，每一朵花都承载着希望与美好"
+      },
+      {
+        "type": "video",
+        "id": "video_001",
+        "title": "SwiftUI完整教程 - 从零开始构建iOS应用",
+        "coverUrl": "https://example.com/video_cover1.jpg",
+        "videoUrl": "https://example.com/video1.mp4",
+        "duration": "15:30",
+        "playCount": 3420,
+        "author": "iOS开发大师"
+      },
+      {
+        "type": "userDynamic",
+        "id": "dynamic_001",
+        "userName": "张小明",
+        "userAvatar": "https://example.com/avatar1.jpg",
+        "content": "今天学习了VIPER架构，感觉收获很大！分享给大家一些心得体会。VIPER架构确实能让项目结构更清晰，各个模块的职责划分更明确，特别适合大型项目的开发和维护。",
+        "images": [
+          "https://example.com/dynamic1.jpg"
+        ],
+        "publishTime": "2小时前",
+        "likes": 156,
+        "comments": 23
+      },
+      {
+        "type": "product",
+        "id": "product_001",
+        "name": "iPhone 15 Pro Max 1TB 原色钛金属",
+        "price": 9999.00,
+        "originalPrice": 10999.00,
+        "imageUrl": "https://example.com/iphone15.jpg",
+        "rating": 4.8,
+        "sales": 1280,
+        "tags": ["热门", "限时特价", "送货上门"]
+      },
+      {
+        "type": "ad",
+        "id": "ad_001",
+        "title": "学编程，就来慕课网",
+        "subtitle": "千门课程，总有一门适合你",
+        "imageUrl": "https://example.com/ad1.jpg",
+        "actionText": "立即学习",
+        "actionUrl": "https://imooc.com"
+      },
+      {
+        "type": "news",
+        "id": "news_002",
+        "title": "特斯拉FSD测试版全面开放，自动驾驶技术再次突破",
+        "summary": "特斯拉宣布其全自动驾驶（FSD）测试版将向所有车主开放，这标志着自动驾驶技术迈向了新的里程碑。新版本在城市道路的表现尤为出色...",
+        "imageUrl": "https://example.com/tesla_news.jpg",
+        "publishTime": "1小时前",
+        "source": "汽车科技",
+        "readCount": 2340
+      },
+      {
+        "type": "userDynamic",
+        "id": "dynamic_002",
+        "userName": "李设计师",
+        "userAvatar": "https://example.com/avatar2.jpg",
+        "content": "刚完成的APP界面设计，使用了最新的设计语言。整个设计过程花了两周时间，从用户调研到最终交付，每一个细节都精心打磨。希望大家喜欢！",
+        "images": [
+          "https://example.com/design1.jpg",
+          "https://example.com/design2.jpg"
+        ],
+        "publishTime": "4小时前",
+        "likes": 423,
+        "comments": 67
+      },
+      {
+        "type": "video",
+        "id": "video_002",
+        "title": "WWDC 2024 主题演讲精华回顾",
+        "coverUrl": "https://example.com/wwdc_cover.jpg",
+        "videoUrl": "https://example.com/wwdc_video.mp4",
+        "duration": "08:45",
+        "playCount": 8750,
+        "author": "苹果官方"
+      },
+      {
+        "type": "image",
+        "id": "img_002",
+        "title": "北京雪景摄影作品集",
+        "imageUrls": [
+          "https://example.com/snow1.jpg",
+          "https://example.com/snow2.jpg",
+          "https://example.com/snow3.jpg",
+          "https://example.com/snow4.jpg"
+        ],
+        "likes": 1205,
+        "comments": 89,
+        "description": "冬日的北京银装素裹，用镜头记录下这份宁静与美好"
+      }
+    ],
+    "pagination": {
+      "page": 1,
+      "page_size": 10,
+      "total": 30,
+      "total_pages": 3,
+      "has_more": true
+    }
+  }
+}

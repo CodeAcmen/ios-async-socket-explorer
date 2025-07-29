@@ -1,0 +1,123 @@
+{
+  "code": 200,
+  "message": "success",
+  "data": {
+    "feeds": [
+      {
+        "type": "product",
+        "id": "product_005",
+        "name": "MacBook Pro 14英寸 M3 Pro芯片 1TB 深空灰色",
+        "price": 16999,
+        "originalPrice": 18999,
+        "imageUrl": "https://example.com/products/macbook_pro_14.jpg",
+        "rating": 4.8,
+        "sales": 892,
+        "tags": ["Apple官方", "教育优惠", "分期免息"]
+      },
+      {
+        "type": "ad",
+        "id": "ad_005",
+        "title": "双十一提前抢，科技好物特惠",
+        "subtitle": "限时24小时，数量有限先到先得",
+        "imageUrl": "https://example.com/tech_sale_ad.jpg",
+        "actionText": "马上抢购",
+        "actionUrl": "https://shop.example.com/tech-sale"
+      },
+      {
+        "type": "news",
+        "id": "news_006",
+        "title": "苹果发布iOS 18开发者预览版，引入全新AI功能",
+        "summary": "苹果在WWDC 2024上正式发布iOS 18开发者预览版，新系统集成了Apple Intelligence，为用户带来更智能的体验...",
+        "imageUrl": "https://example.com/ios18_news.jpg",
+        "publishTime": "2小时前",
+        "source": "苹果资讯",
+        "readCount": 8923
+      },
+      {
+        "type": "video",
+        "id": "video_005",
+        "title": "SwiftUI 动画进阶教程 - 打造流畅用户体验",
+        "coverUrl": "https://example.com/swiftui_animation_cover.jpg",
+        "videoUrl": "https://example.com/swiftui_animation.mp4",
+        "duration": "18:45",
+        "playCount": 3247,
+        "author": "iOS开发达人"
+      },
+      {
+        "type": "userDynamic",
+        "id": "dynamic_005",
+        "userName": "架构师小李",
+        "userAvatar": "https://example.com/avatar5.jpg",
+        "content": "最近在研究微服务架构的服务治理，发现服务间的依赖关系管理是个大学问。今天尝试了新的服务网格方案，效果还不错。分享给大家一些心得体会。",
+        "images": [
+          "https://example.com/microservice_diagram.jpg"
+        ],
+        "publishTime": "4小时前",
+        "likes": 156,
+        "comments": 28
+      },
+      {
+        "type": "image",
+        "id": "img_005",
+        "title": "极光下的雪山风光",
+        "imageUrls": [
+          "https://example.com/aurora1.jpg",
+          "https://example.com/aurora2.jpg",
+          "https://example.com/aurora3.jpg"
+        ],
+        "likes": 1234,
+        "comments": 67,
+        "description": "北欧之旅第三天，终于等到了梦寐以求的极光，配上雪山简直太美了"
+      },
+      {
+        "type": "product",
+        "id": "product_006",
+        "name": "iPad Air 11英寸 M2芯片 256GB WiFi版 星光色",
+        "price": 4799.00,
+        "originalPrice": 5199.00,
+        "imageUrl": "https://example.com/ipad_air_11.jpg",
+        "rating": 4.6,
+        "sales": 2156,
+        "tags": ["轻薄便携", "学习办公", "创意设计"]
+      },
+      {
+        "type": "news",
+        "id": "news_007",
+        "title": "GitHub推出AI编程助手Copilot企业版，团队协作更高效",
+        "summary": "GitHub宣布推出Copilot企业版，针对团队开发场景进行了深度优化，支持代码库上下文理解和团队知识共享...",
+        "imageUrl": "https://example.com/github_copilot_news.jpg",
+        "publishTime": "8小时前",
+        "source": "开发者资讯",
+        "readCount": 6751
+      },
+      {
+        "type": "userDynamic",
+        "id": "dynamic_006",
+        "userName": "前端工程师Amy",
+        "userAvatar": "https://example.com/avatar6.jpg",
+        "content": "今天遇到了一个有趣的CSS问题：如何实现文字的渐变色效果？用background-clip: text配合transparent color就能搞定！前端的世界总是充满惊喜。",
+        "images": [],
+        "publishTime": "12小时前",
+        "likes": 89,
+        "comments": 15
+      },
+      {
+        "type": "video",
+        "id": "video_006",
+        "title": "React Native 0.74新特性解析与升级指南",
+        "coverUrl": "https://example.com/rn_074_cover.jpg",
+        "videoUrl": "https://example.com/rn_074_video.mp4",
+        "duration": "22:30",
+        "playCount": 1598,
+        "author": "跨端开发专家"
+      }
+    ],
+    "pagination": {
+      "page": 3,
+      "page_size": 10,
+      "total": 30,
+      "total_pages": 3,
+      "has_more": false
+    }
+  }
+}

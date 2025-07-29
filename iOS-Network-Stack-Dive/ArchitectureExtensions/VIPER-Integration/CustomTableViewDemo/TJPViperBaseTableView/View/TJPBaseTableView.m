@@ -289,6 +289,10 @@
     [self.mj_footer endRefreshing];
 }
 
+- (void)noMoreData {
+    [self.mj_footer endRefreshingWithNoMoreData];
+}
+
 //**************************************************
 
 
