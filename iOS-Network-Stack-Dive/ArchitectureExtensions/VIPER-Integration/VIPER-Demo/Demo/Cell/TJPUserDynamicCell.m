@@ -7,6 +7,11 @@
 
 #import "TJPUserDynamicCell.h"
 #import <Masonry/Masonry.h>
+#import <SDWebImage/SDWebImage.h>
+
+#import "TJPNineGridImageView.h"
+#import "TJPLikeCommentAreaView.h"
+
 
 @interface TJPUserDynamicCell ()
 
@@ -14,15 +19,30 @@
 @property (nonatomic, strong) UILabel *userNameLabel;
 @property (nonatomic, strong) UILabel *timeLabel;
 @property (nonatomic, strong) UILabel *contentLabel;
-@property (nonatomic, strong) UIStackView *imageStackView;
 @property (nonatomic, strong) UIView *actionView;
 @property (nonatomic, strong) UIButton *likeButton;
 @property (nonatomic, strong) UIButton *commentButton;
+
+// 九宫格图片
+@property (nonatomic, strong) TJPNineGridImageView *nineGridView;
+// 点赞评论区域
+@property (nonatomic, strong) TJPLikeCommentAreaView *likeCommentArea;
+
 
 @end
 
 @implementation TJPUserDynamicCell
 @synthesize cellModel = _cellModel;
+
+- (void)dealloc {
+}
+
+- (void)prepareForReuse {
+    [super prepareForReuse];
+    // 重置动态内容
+    self.nineGridView.imageUrls = nil;
+    self.likeCommentArea.hidden = YES;
+}
 
 - (void)awakeFromNib {
     [super awakeFromNib];
@@ -73,11 +93,9 @@
     self.contentLabel.numberOfLines = 0;
     [self.contentView addSubview:self.contentLabel];
     
-    // 图片堆栈视图
-    self.imageStackView = [[UIStackView alloc] init];
-    self.imageStackView.axis = UILayoutConstraintAxisHorizontal;
-    self.imageStackView.spacing = 8;
-    [self.contentView addSubview:self.imageStackView];
+    // 九宫格图片视图
+    self.nineGridView = [[TJPNineGridImageView alloc] init];
+    [self.contentView addSubview:self.nineGridView];
     
     // 操作区域
     self.actionView = [[UIView alloc] init];
@@ -97,10 +115,15 @@
     self.commentButton.titleLabel.font = [UIFont systemFontOfSize:12];
     [self.actionView addSubview:self.commentButton];
     
+    // 点赞评论区域
+    self.likeCommentArea = [[TJPLikeCommentAreaView alloc] init];
+    [self.contentView addSubview:self.likeCommentArea];
+    
     [self setupConstraints];
 }
 
 - (void)setupConstraints {
+    
     [self.avatarImageView mas_makeConstraints:^(MASConstraintMaker *make) {
         make.left.equalTo(self.contentView).offset(15);
         make.top.equalTo(self.contentView).offset(12);
@@ -111,80 +134,95 @@
         make.left.equalTo(self.avatarImageView.mas_right).offset(10);
         make.top.equalTo(self.avatarImageView);
         make.right.lessThanOrEqualTo(self.contentView).offset(-15);
+        make.height.equalTo(@20);
     }];
     
     [self.timeLabel mas_makeConstraints:^(MASConstraintMaker *make) {
         make.left.equalTo(self.userNameLabel);
-        make.top.equalTo(self.userNameLabel.mas_bottom).offset(2);
+        make.top.equalTo(self.userNameLabel.mas_bottom).offset(5);
+        make.height.equalTo(@15);
     }];
     
     [self.contentLabel mas_makeConstraints:^(MASConstraintMaker *make) {
         make.left.equalTo(self.userNameLabel);
         make.right.equalTo(self.contentView).offset(-15);
-        make.top.equalTo(self.avatarImageView.mas_bottom).offset(12);
+        make.top.equalTo(self.timeLabel.mas_bottom).offset(8);
     }];
     
-    [self.imageStackView mas_makeConstraints:^(MASConstraintMaker *make) {
+    // 九宫格图片约束
+    [self.nineGridView mas_makeConstraints:^(MASConstraintMaker *make) {
         make.left.equalTo(self.contentLabel);
-        make.right.lessThanOrEqualTo(self.contentView).offset(-15);
         make.top.equalTo(self.contentLabel.mas_bottom).offset(8);
-        make.height.equalTo(@80);
+        make.width.lessThanOrEqualTo(@255); // 3 * 80 + 2 * 5 = 255
+        make.height.equalTo(@0); // 默认高度0，动态设置
     }];
     
     [self.actionView mas_makeConstraints:^(MASConstraintMaker *make) {
         make.left.right.equalTo(self.contentLabel);
-        make.top.equalTo(self.imageStackView.mas_bottom).offset(8);
-        make.bottom.equalTo(self.contentView).offset(-12);
+        make.top.equalTo(self.nineGridView.mas_bottom).offset(10);
+        make.height.equalTo(@30);
+    }];
+    
+    [self.commentButton mas_makeConstraints:^(MASConstraintMaker *make) {
+        make.right.equalTo(self.actionView);
+        make.centerY.equalTo(self.actionView);
+        make.width.equalTo(@60);
         make.height.equalTo(@30);
     }];
     
     [self.likeButton mas_makeConstraints:^(MASConstraintMaker *make) {
-        make.left.equalTo(self.actionView);
+        make.right.equalTo(self.commentButton.mas_left).offset(-20);
         make.centerY.equalTo(self.actionView);
         make.width.equalTo(@60);
+        make.height.equalTo(@30);
     }];
     
-    [self.commentButton mas_makeConstraints:^(MASConstraintMaker *make) {
-        make.left.equalTo(self.likeButton.mas_right).offset(20);
-        make.centerY.equalTo(self.actionView);
-        make.width.equalTo(@60);
+    // 点赞评论区域约束
+    [self.likeCommentArea mas_makeConstraints:^(MASConstraintMaker *make) {
+        make.left.equalTo(self.contentLabel);
+        make.right.equalTo(self.contentView).offset(-15);
+        make.top.equalTo(self.actionView.mas_bottom).offset(8);
+        make.height.equalTo(@0); // 默认高度0，动态设置
     }];
 }
 
 - (void)configureWithModel:(id<TJPBaseCellModelProtocol>)cellModel {
     [super configureWithModel:cellModel];
+
+    TJPUserDynamicCellModel *model = (TJPUserDynamicCellModel *)self.cellModel;
     
-    self.userNameLabel.text = self.cellModel.userName;
-    self.timeLabel.text =  self.cellModel.publishTime;
-    self.contentLabel.text =  self.cellModel.content;
+    // 设置基本信息
+    self.userNameLabel.text = model.userName;
+    self.timeLabel.text = model.publishTime;
+    self.contentLabel.text = model.content;
     
-    [self.likeButton setTitle:[NSString stringWithFormat:@" %ld",  self.cellModel.likes] forState:UIControlStateNormal];
-    [self.commentButton setTitle:[NSString stringWithFormat:@" %ld",  self.cellModel.comments] forState:UIControlStateNormal];
+    // 设置内容高度
+    [self.contentLabel mas_updateConstraints:^(MASConstraintMaker *make) {
+        make.height.equalTo(@([model calculateContentHeight]));
+    }];
     
-    // 清除之前的图片视图
-    for (UIView *subview in self.imageStackView.arrangedSubviews) {
-        [self.imageStackView removeArrangedSubview:subview];
-        [subview removeFromSuperview];
-    }
+    [self.avatarImageView sd_setImageWithURL:[NSURL URLWithString:model.userAvatar]];
+    [self.likeButton setTitle:[NSString stringWithFormat:@" %ld", model.likes] forState:UIControlStateNormal];
+    [self.commentButton setTitle:[NSString stringWithFormat:@" %ld", model.comments] forState:UIControlStateNormal];
     
-    // 添加新的图片视图
-    for (NSString *imageUrl in  self.cellModel.images) {
-        UIImageView *imageView = [[UIImageView alloc] init];
-        imageView.contentMode = UIViewContentModeScaleAspectFill;
-        imageView.clipsToBounds = YES;
-        imageView.layer.cornerRadius = 4;
-        imageView.backgroundColor = [UIColor lightGrayColor];
-        [imageView mas_makeConstraints:^(MASConstraintMaker *make) {
-            make.width.equalTo(@80);
-        }];
-        [self.imageStackView addArrangedSubview:imageView];
-        
-        // 这里可以使用SDWebImage等库加载图片
-        // [imageView sd_setImageWithURL:[NSURL URLWithString:imageUrl]];
-    }
+    // 配置九宫格图片
+    self.nineGridView.imageUrls = model.images;
+    CGFloat gridHeight = [model calculateNineGridHeight];
+    [self.nineGridView mas_updateConstraints:^(MASConstraintMaker *make) {
+        make.height.equalTo(@(gridHeight));
+    }];
+    self.nineGridView.hidden = (gridHeight == 0);
     
-    // 这里可以使用SDWebImage等库加载头像
-    // [self.avatarImageView sd_setImageWithURL:[NSURL URLWithString: self.cellModel.userAvatar]];
+    // 配置点赞评论区域
+    self.likeCommentArea.likeUsers = model.likeUsers;
+    self.likeCommentArea.commentList = model.commentList;
+    CGFloat likeCommentHeight = [model calculateLikeCommentAreaHeight];
+    [self.likeCommentArea mas_updateConstraints:^(MASConstraintMaker *make) {
+        make.height.equalTo(@(likeCommentHeight));
+    }];
+    self.likeCommentArea.hidden = (likeCommentHeight == 0);
+
+    
 }
 
 @end

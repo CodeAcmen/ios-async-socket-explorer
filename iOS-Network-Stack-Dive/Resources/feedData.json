@@ -8,7 +8,7 @@
         "id": "news_001",
         "title": "苹果发布最新iOS 17.4版本",
         "summary": "新版本带来了多项新功能和安全性改进，包括全新的控制中心设计和更智能的Siri响应机制。此次更新还优化了电池续航表现...",
-        "imageUrl": "https://example.com/news1.jpg",
+        "imageUrl": "https://images.unsplash.com/photo-1555774698-0b77e0d5fac6?w=400",
         "publishTime": "2024-01-15 10:30:00",
         "source": "科技新闻",
         "readCount": 1520
@@ -18,9 +18,9 @@
         "id": "img_001",
         "title": "美丽的春日樱花",
         "imageUrls": [
-          "https://example.com/cherry1.jpg",
-          "https://example.com/cherry2.jpg",
-          "https://example.com/cherry3.jpg"
+          "https://plus.unsplash.com/premium_photo-1670444760243-155db6c38716?w=400",
+          "https://images.unsplash.com/photo-1648468091968-3b9c5d84c101?w=400",
+          "https://images.unsplash.com/photo-1429019857339-35b401806fa1?w=400"
         ],
         "likes": 892,
         "comments": 45,
@@ -30,7 +30,7 @@
         "type": "video",
         "id": "video_001",
         "title": "SwiftUI完整教程 - 从零开始构建iOS应用",
-        "coverUrl": "https://example.com/video_cover1.jpg",
+        "coverUrl": "https://images.unsplash.com/photo-1633356122544-f134324a6cee?w=400",
         "videoUrl": "https://example.com/video1.mp4",
         "duration": "15:30",
         "playCount": 3420,
@@ -40,10 +40,10 @@
         "type": "userDynamic",
         "id": "dynamic_001",
         "userName": "张小明",
-        "userAvatar": "https://example.com/avatar1.jpg",
+        "userAvatar": "https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=80",
         "content": "今天学习了VIPER架构，感觉收获很大！分享给大家一些心得体会。VIPER架构确实能让项目结构更清晰，各个模块的职责划分更明确，特别适合大型项目的开发和维护。",
         "images": [
-          "https://example.com/dynamic1.jpg"
+          "https://images.unsplash.com/photo-1626785774573-4b799315345d?w=400"
         ],
         "publishTime": "2小时前",
         "likes": 156,
@@ -55,7 +55,7 @@
         "name": "iPhone 15 Pro Max 1TB 原色钛金属",
         "price": 9999.00,
         "originalPrice": 10999.00,
-        "imageUrl": "https://example.com/iphone15.jpg",
+        "imageUrl": "https://images.unsplash.com/photo-1603921326210-6edd2d60ca68?w=400",
         "rating": 4.8,
         "sales": 1280,
         "tags": ["热门", "限时特价", "送货上门"]
@@ -65,16 +65,23 @@
         "id": "ad_001",
         "title": "学编程，就来慕课网",
         "subtitle": "千门课程，总有一门适合你",
-        "imageUrl": "https://example.com/ad1.jpg",
+        "imageUrl": "https://images.unsplash.com/photo-1555066931-4365d14bab8c?w=400",
         "actionText": "立即学习",
-        "actionUrl": "https://imooc.com"
+        "actionUrl": "https://imooc.com",
+        "flipContent": {
+            "title": "限时优惠！立减1000元",
+            "subtitle": "新用户专享 | 前10名抽取免费机会",
+            "actionText": "抢购",
+            "imageUrl": "https://images.unsplash.com/photo-1607082349566-187342175e2f?w=400",
+            "highlightColor": "#FF6B35"
+        }
       },
       {
         "type": "news",
         "id": "news_002",
         "title": "特斯拉FSD测试版全面开放，自动驾驶技术再次突破",
         "summary": "特斯拉宣布其全自动驾驶（FSD）测试版将向所有车主开放，这标志着自动驾驶技术迈向了新的里程碑。新版本在城市道路的表现尤为出色...",
-        "imageUrl": "https://example.com/tesla_news.jpg",
+        "imageUrl": "https://images.unsplash.com/photo-1580913428735-bd3c269d6a82?w=400",
         "publishTime": "1小时前",
         "source": "汽车科技",
         "readCount": 2340
@@ -83,47 +90,94 @@
         "type": "userDynamic",
         "id": "dynamic_002",
         "userName": "李设计师",
-        "userAvatar": "https://example.com/avatar2.jpg",
+        "userAvatar": "https://images.unsplash.com/photo-1438761681033-6461ffad8d80?w=80",
         "content": "刚完成的APP界面设计，使用了最新的设计语言。整个设计过程花了两周时间，从用户调研到最终交付，每一个细节都精心打磨。希望大家喜欢！",
         "images": [
-          "https://example.com/design1.jpg",
-          "https://example.com/design2.jpg"
+          "https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?w=400",
+          "https://images.unsplash.com/photo-1579403124614-197f69d8187b?w=400",
+          "https://images.unsplash.com/photo-1551650975-87deedd944c3?w=400",
+          "https://images.unsplash.com/photo-1512486130939-2c4f79935e4f?w=400",
+          "https://images.unsplash.com/photo-1547658719-da2b51169166?w=400",
+          "https://images.unsplash.com/photo-1517245386807-bb43f82c33c4?w=400",
+          "https://images.unsplash.com/photo-1517077304055-6e89abbf09b0?w=400",
+          "https://images.unsplash.com/photo-1541462608143-67571c6738dd?w=400",
+          "https://images.unsplash.com/photo-1559028012-481c04fa702d?w=400"
         ],
         "publishTime": "4小时前",
         "likes": 423,
-        "comments": 67
+        "comments": 67,
+        "likeUsers": [
+          {"userName": "张小明", "userId": "user_001"},
+          {"userName": "王小花", "userId": "user_002"},
+          {"userName": "李小强", "userId": "user_003"},
+          {"userName": "赵小美", "userId": "user_004"},
+          {"userName": "陈小帅", "userId": "user_005"}
+        ],
+        "commentList": [
+          {
+            "commentId": "comment_001",
+            "userName": "张小明",
+            "userId": "user_001",
+            "content": "设计风格很棒，简洁大方！",
+            "publishTime": "3小时前"
+          },
+          {
+            "commentId": "comment_002",
+            "userName": "王小花",
+            "userId": "user_002",
+            "content": "用了什么设计工具呀？",
+            "publishTime": "2小时前"
+          },
+          {
+            "commentId": "comment_003",
+            "userName": "李设计师",
+            "userId": "dynamic_002",
+            "content": "主要用Figma，配合Principle做动效",
+            "replyTo": "王小花",
+            "replyToUserId": "user_002",
+            "publishTime": "2小时前"
+          },
+          {
+            "commentId": "comment_004",
+            "userName": "赵小美",
+            "userId": "user_004",
+            "content": "色彩搭配很有层次感，学习了！",
+            "publishTime": "1小时前"
+          }
+        ]
       },
       {
         "type": "video",
         "id": "video_002",
         "title": "WWDC 2024 主题演讲精华回顾",
-        "coverUrl": "https://example.com/wwdc_cover.jpg",
+        "coverUrl": "https://images.unsplash.com/photo-1522542550221-31fd19575a2d?w=400",
         "videoUrl": "https://example.com/wwdc_video.mp4",
         "duration": "08:45",
         "playCount": 8750,
         "author": "苹果官方"
       },
       {
-        "type": "image",
-        "id": "img_002",
-        "title": "北京雪景摄影作品集",
-        "imageUrls": [
-          "https://example.com/snow1.jpg",
-          "https://example.com/snow2.jpg",
-          "https://example.com/snow3.jpg",
-          "https://example.com/snow4.jpg"
-        ],
-        "likes": 1205,
-        "comments": 89,
-        "description": "冬日的北京银装素裹，用镜头记录下这份宁静与美好"
+          "type": "image",
+          "id": "img_002",
+          "title": "北京四季风光摄影集",
+          "imageUrls": [
+              "https://images.unsplash.com/photo-1547981609-4b6bfe67ca0b?w=400",
+              "https://images.unsplash.com/photo-1627573098568-6847a7d440bf?w=400",
+              "https://images.unsplash.com/photo-1556595187-0243f5c916ca?w=400",
+              "https://images.unsplash.com/photo-1666331468685-f6a39ee64cc2?w=400",
+              "https://images.unsplash.com/photo-1550107319-b90144fc945d?w=400"
+          ],
+          "likes": 1205,
+          "comments": 89,
+          "description": "穿越千年时光，感受北京的多维魅力。从皇家宫殿到现代地标，从春花秋月到夏荷冬雪，这些影像记录着这座城市的历史脉动与时代风采。每张照片都是摄影师与北京城的深情对话，邀您一同品味这座古都的独特韵味。"
       }
     ],
     "pagination": {
-      "page": 1,
-      "page_size": 10,
-      "total": 30,
-      "total_pages": 3,
-      "has_more": true
+        "page": 1,
+        "page_size": 10,
+        "total": 30,
+        "total_pages": 3,
+        "has_more": true
     }
   }
 }

@@ -7,6 +7,7 @@
 
 #import "TJPProductCell.h"
 #import <Masonry/Masonry.h>
+#import <SDWebImage/SDWebImage.h>
 
 @interface TJPProductCell ()
 
@@ -155,8 +156,7 @@
     // 设置标签
     [self setupTags:self.cellModel.tags];
     
-    // 这里可以使用SDWebImage等库加载商品图片
-    // [self.productImageView sd_setImageWithURL:[NSURL URLWithString:self.cellModel.imageUrl]];
+     [self.productImageView sd_setImageWithURL:[NSURL URLWithString:self.cellModel.imageUrl]];
 }
 
 - (void)setupRatingStars:(CGFloat)rating {

@@ -18,3 +18,8 @@
 }
 
 @end
+
+@implementation TJPAdFlipContentModel
+
+
+@end

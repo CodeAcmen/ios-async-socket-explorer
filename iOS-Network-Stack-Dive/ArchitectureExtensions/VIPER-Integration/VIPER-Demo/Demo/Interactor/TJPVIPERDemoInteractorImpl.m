@@ -6,8 +6,8 @@
 //
 
 #import "TJPVIPERDemoInteractorImpl.h"
+#import <YYModel/YYModel.h>
 #import "TJPNetworkDefine.h"
-#import "TJPVIPERDemoCellModel.h"
 #import "TJPCacheManager.h"
 #import "TJPBaseSectionModel.h"
 #import "TJPFeedResponse.h"
@@ -27,7 +27,7 @@
 @property (nonatomic, assign) NSInteger totalCount;
 
 
-@property (nonatomic, strong) RACCommand <TJPVIPERDemoCellModel *, NSObject *>*selectedDemoDetilCommand;
+//@property (nonatomic, strong) RACCommand <TJPVIPERDemoCellModel *, NSObject *>*selectedDemoDetilCommand;
 
 
 @property (nonatomic, strong) RACCommand *selectedNewsCommand;
@@ -415,16 +415,18 @@
 }
 
 - (TJPUserDynamicCellModel *)createUserDynamicModelFromDict:(NSDictionary *)dict {
-    TJPUserDynamicCellModel *model = [[TJPUserDynamicCellModel alloc] init];
-    model.userId = dict[@"id"];
+    TJPUserDynamicCellModel *model = [TJPUserDynamicCellModel yy_modelWithDictionary:dict];
+
+//    TJPUserDynamicCellModel *model = [[TJPUserDynamicCellModel alloc] init];
+//    model.userId = dict[@"id"];
 //    model.type = @"userDynamic";
-    model.userName = dict[@"userName"];
-    model.userAvatar = dict[@"userAvatar"];
-    model.content = dict[@"content"];
-    model.images = dict[@"images"];
-    model.publishTime = dict[@"publishTime"];
-    model.likes = [dict[@"likes"] integerValue];
-    model.comments = [dict[@"comments"] integerValue];
+//    model.userName = dict[@"userName"];
+//    model.userAvatar = dict[@"userAvatar"];
+//    model.content = dict[@"content"];
+//    model.images = dict[@"images"];
+//    model.publishTime = dict[@"publishTime"];
+//    model.likes = [dict[@"likes"] integerValue];
+//    model.comments = [dict[@"comments"] integerValue];
     model.selectedCommand = self.selectedUserDynamicCommand;
     return model;
 }
@@ -445,31 +447,32 @@
 }
 
 - (TJPAdCellModel *)createAdModelFromDict:(NSDictionary *)dict {
-    TJPAdCellModel *model = [[TJPAdCellModel alloc] init];
-    model.adId = dict[@"id"];
+    TJPAdCellModel *model = [TJPAdCellModel yy_modelWithDictionary:dict];
+//    TJPAdCellModel *model = [[TJPAdCellModel alloc] init];
+//    model.adId = dict[@"id"];
 //    model.type = @"ad";
-    model.title = dict[@"title"];
-    model.subtitle = dict[@"subtitle"];
-    model.imageUrl = dict[@"imageUrl"];
-    model.actionText = dict[@"actionText"];
-    model.actionUrl = dict[@"actionUrl"];
+//    model.title = dict[@"title"];
+//    model.subtitle = dict[@"subtitle"];
+//    model.imageUrl = dict[@"imageUrl"];
+//    model.actionText = dict[@"actionText"];
+//    model.actionUrl = dict[@"actionUrl"];
     model.selectedCommand = self.selectedAdCommand;
     return model;
 }
 
 #pragma mark - Commands
 
-- (RACCommand<TJPVIPERDemoCellModel *,NSObject *> *)selectedDemoDetilCommand {
-    if (nil == _selectedDemoDetilCommand) {
-        @weakify(self)
-        _selectedDemoDetilCommand = [[RACCommand alloc] initWithSignalBlock:^RACSignal * _Nonnull(TJPVIPERDemoCellModel * _Nullable input) {
-            @strongify(self)
-            [self.navigateToPageSubject sendNext:input];
-            return [RACSignal empty];
-        }];
-    }
-    return _selectedDemoDetilCommand;
-}
+//- (RACCommand<TJPVIPERDemoCellModel *,NSObject *> *)selectedDemoDetilCommand {
+//    if (nil == _selectedDemoDetilCommand) {
+//        @weakify(self)
+//        _selectedDemoDetilCommand = [[RACCommand alloc] initWithSignalBlock:^RACSignal * _Nonnull(TJPVIPERDemoCellModel * _Nullable input) {
+//            @strongify(self)
+//            [self.navigateToPageSubject sendNext:input];
+//            return [RACSignal empty];
+//        }];
+//    }
+//    return _selectedDemoDetilCommand;
+//}
 
 - (RACCommand *)selectedNewsCommand {
     if (!_selectedNewsCommand) {

@@ -18,6 +18,9 @@ target 'iOS-Network-Stack-Dive' do
 #  pod 'MJRefresh'
   pod 'DZNEmptyDataSet'
   pod 'Masonry'
+  pod 'SDWebImage'
+#  pod 'YYKit'
+  pod 'YYModel'
   
 
   target 'iOS-Network-Stack-DiveTests' do

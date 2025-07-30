@@ -7,6 +7,8 @@
 
 #import "TJPNewsCell.h"
 #import <Masonry/Masonry.h>
+#import <SDWebImage/SDWebImage.h>
+
 
 @interface TJPNewsCell ()
 
@@ -107,7 +109,7 @@
     
     [self.sourceLabel mas_makeConstraints:^(MASConstraintMaker *make) {
         make.left.equalTo(self.titleLabel);
-        make.bottom.equalTo(self.newsImageView);
+        make.top.equalTo(self.summaryLabel.mas_bottom).offset(8);
     }];
     
     [self.timeLabel mas_makeConstraints:^(MASConstraintMaker *make) {
@@ -130,7 +132,7 @@
     self.timeLabel.text = self.cellModel.publishTime;
     self.readCountLabel.text = [NSString stringWithFormat:@"%ld阅读", self.cellModel.readCount];
     
-//     [self.newsImageView sd_setImageWithURL:[NSURL URLWithString:self.cellModel.imageUrl]];
+     [self.newsImageView sd_setImageWithURL:[NSURL URLWithString:self.cellModel.imageUrl]];
 }
 
 @end

@@ -7,6 +7,7 @@
 
 #import "TJPVideoCell.h"
 #import <Masonry/Masonry.h>
+#import <SDWebImage/SDWebImage.h>
 
 
 @interface TJPVideoCell ()
@@ -95,8 +96,8 @@
     [self.coverImageView mas_makeConstraints:^(MASConstraintMaker *make) {
         make.left.equalTo(self.contentView).offset(15);
         make.top.equalTo(self.contentView).offset(12);
+        make.bottom.equalTo(self.contentView).offset(-12);
         make.width.equalTo(@120);
-        make.height.equalTo(@90);
     }];
     
     [self.playButton mas_makeConstraints:^(MASConstraintMaker *make) {
@@ -125,7 +126,6 @@
     [self.playCountLabel mas_makeConstraints:^(MASConstraintMaker *make) {
         make.left.equalTo(self.titleLabel);
         make.bottom.equalTo(self.coverImageView);
-        make.bottom.equalTo(self.contentView).offset(-12);
     }];
 }
 
@@ -137,8 +137,7 @@
     self.durationLabel.text = [NSString stringWithFormat:@" %@ ", self.cellModel.duration];
     self.playCountLabel.text = [NSString stringWithFormat:@"%ld次播放", self.cellModel.playCount];
     
-    // 这里可以使用SDWebImage等库加载封面图片
-    // [self.coverImageView sd_setImageWithURL:[NSURL URLWithString:self.cellModel.coverUrl]];
+     [self.coverImageView sd_setImageWithURL:[NSURL URLWithString:self.cellModel.coverUrl]];
 }
 
 @end

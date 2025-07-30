@@ -7,6 +7,8 @@
 
 #import "TJPImageCell.h"
 #import <Masonry/Masonry.h>
+#import <SDWebImage/SDWebImage.h>
+
 
 @interface TJPImageCell ()
 
@@ -65,7 +67,7 @@
     self.descriptionLabel = [[UILabel alloc] init];
     self.descriptionLabel.font = [UIFont systemFontOfSize:14];
     self.descriptionLabel.textColor = [UIColor darkGrayColor];
-    self.descriptionLabel.numberOfLines = 0;
+//    self.descriptionLabel.numberOfLines = 1;
     [self.contentView addSubview:self.descriptionLabel];
     
     // 点赞按钮
@@ -98,7 +100,8 @@
     }];
     
     [self.imageStackView mas_makeConstraints:^(MASConstraintMaker *make) {
-        make.edges.equalTo(self.imageScrollView);
+//        make.edges.equalTo(self.imageScrollView);
+        make.left.right.equalTo(self.imageScrollView).insets(UIEdgeInsetsMake(0, 15, 0, 15));
         make.height.equalTo(self.imageScrollView);
     }];
     
@@ -106,11 +109,10 @@
         make.left.right.equalTo(self.titleLabel);
         make.top.equalTo(self.imageScrollView.mas_bottom).offset(8);
     }];
-    
+        
     [self.likeButton mas_makeConstraints:^(MASConstraintMaker *make) {
         make.left.equalTo(self.titleLabel);
         make.top.equalTo(self.descriptionLabel.mas_bottom).offset(8);
-        make.bottom.equalTo(self.contentView).offset(-12);
         make.width.equalTo(@60);
     }];
     
@@ -148,8 +150,7 @@
         }];
         [self.imageStackView addArrangedSubview:imageView];
         
-        // 这里可以使用SDWebImage等库加载图片
-        // [imageView sd_setImageWithURL:[NSURL URLWithString:imageUrl]];
+         [imageView sd_setImageWithURL:[NSURL URLWithString:imageUrl]];
     }
 }
 

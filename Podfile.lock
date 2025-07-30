@@ -5,6 +5,9 @@ PODS:
   - OCMock (3.9.4)
   - Reachability (3.7.5)
   - ReactiveObjC (3.1.1)
+  - SDWebImage (5.21.1):
+    - SDWebImage/Core (= 5.21.1)
+  - SDWebImage/Core (5.21.1)
   - Typhoon (4.0.9):
     - Typhoon/DeallocNotifier (= 4.0.9)
     - Typhoon/IntrospectionUtils (= 4.0.9)
@@ -13,6 +16,7 @@ PODS:
   - Typhoon/IntrospectionUtils (4.0.9)
   - Typhoon/no-arc (4.0.9):
     - Typhoon/IntrospectionUtils
+  - YYModel (1.0.4)
 
 DEPENDENCIES:
   - CocoaAsyncSocket
@@ -21,7 +25,9 @@ DEPENDENCIES:
   - OCMock
   - Reachability (= 3.7.5)
   - ReactiveObjC
+  - SDWebImage
   - Typhoon
+  - YYModel
 
 SPEC REPOS:
   trunk:
@@ -31,7 +37,9 @@ SPEC REPOS:
     - OCMock
     - Reachability
     - ReactiveObjC
+    - SDWebImage
     - Typhoon
+    - YYModel
 
 SPEC CHECKSUMS:
   CocoaAsyncSocket: 065fd1e645c7abab64f7a6a2007a48038fdc6a99
@@ -40,8 +48,10 @@ SPEC CHECKSUMS:
   OCMock: 589f2c84dacb1f5aaf6e4cec1f292551fe748e74
   Reachability: 44d15955cdaee6cef699877e1f6647dd6f6698cc
   ReactiveObjC: 011caa393aa0383245f2dcf9bf02e86b80b36040
+  SDWebImage: f29024626962457f3470184232766516dee8dfea
   Typhoon: 1973c93ecfb3edb963d78b10e715bc2911475bd2
+  YYModel: 2a7fdd96aaa4b86a824e26d0c517de8928c04b30
 
-PODFILE CHECKSUM: 5174ba062381b1d1018e35549d3138efd6e177c7
+PODFILE CHECKSUM: 5702b619b709c95d4327c5f3ddd34f25d16b4f2d
 
 COCOAPODS: 1.16.2

@@ -542,12 +542,6 @@
 }
 
 - (void)updatePaginationInfo:(TJPPaginationInfo *)paginationInfo {
-    NSLog(@"[DEBUG] updatePaginationInfo 接收到的分页信息:");
-    NSLog(@"  - currentPage: %ld", (long)paginationInfo.currentPage);
-    NSLog(@"  - hasMore: %@", paginationInfo.hasMore ? @"YES" : @"NO");
-    NSLog(@"  - getNextPageNumber: %ld", (long)paginationInfo.getNextPageNumber);
-    NSLog(@"  - paginationType: %ld", (long)paginationInfo.paginationType);
-
     _currentPagination = [paginationInfo copy];
     
     if (paginationInfo.paginationType == TJPPaginationTypePageBased) {

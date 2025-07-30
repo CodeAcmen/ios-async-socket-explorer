@@ -9,7 +9,7 @@
         "name": "MacBook Pro 14英寸 M3 Pro芯片 1TB 深空灰色",
         "price": 16999,
         "originalPrice": 18999,
-        "imageUrl": "https://example.com/products/macbook_pro_14.jpg",
+        "imageUrl": "https://images.unsplash.com/photo-1611186871348-b1ce696e52c9?w=400",
         "rating": 4.8,
         "sales": 892,
         "tags": ["Apple官方", "教育优惠", "分期免息"]
@@ -19,7 +19,7 @@
         "id": "ad_005",
         "title": "双十一提前抢，科技好物特惠",
         "subtitle": "限时24小时，数量有限先到先得",
-        "imageUrl": "https://example.com/tech_sale_ad.jpg",
+        "imageUrl": "https://plus.unsplash.com/premium_photo-1681488183639-f38511a647ef?w=400",
         "actionText": "马上抢购",
         "actionUrl": "https://shop.example.com/tech-sale"
       },
@@ -28,7 +28,7 @@
         "id": "news_006",
         "title": "苹果发布iOS 18开发者预览版，引入全新AI功能",
         "summary": "苹果在WWDC 2024上正式发布iOS 18开发者预览版，新系统集成了Apple Intelligence，为用户带来更智能的体验...",
-        "imageUrl": "https://example.com/ios18_news.jpg",
+        "imageUrl": "https://images.unsplash.com/photo-1727093493807-f11b48fa31a8?w=400",
         "publishTime": "2小时前",
         "source": "苹果资讯",
         "readCount": 8923
@@ -37,7 +37,7 @@
         "type": "video",
         "id": "video_005",
         "title": "SwiftUI 动画进阶教程 - 打造流畅用户体验",
-        "coverUrl": "https://example.com/swiftui_animation_cover.jpg",
+        "coverUrl": "https://images.unsplash.com/photo-1633356122544-f134324a6cee?w=400",
         "videoUrl": "https://example.com/swiftui_animation.mp4",
         "duration": "18:45",
         "playCount": 3247,
@@ -47,10 +47,10 @@
         "type": "userDynamic",
         "id": "dynamic_005",
         "userName": "架构师小李",
-        "userAvatar": "https://example.com/avatar5.jpg",
+        "userAvatar": "https://images.unsplash.com/photo-1560250097-0b93528c311a?w=80",
         "content": "最近在研究微服务架构的服务治理，发现服务间的依赖关系管理是个大学问。今天尝试了新的服务网格方案，效果还不错。分享给大家一些心得体会。",
         "images": [
-          "https://example.com/microservice_diagram.jpg"
+          "https://images.unsplash.com/photo-1513759338966-5de23c844b3a?w=400"
         ],
         "publishTime": "4小时前",
         "likes": 156,
@@ -61,10 +61,12 @@
         "id": "img_005",
         "title": "极光下的雪山风光",
         "imageUrls": [
-          "https://example.com/aurora1.jpg",
-          "https://example.com/aurora2.jpg",
-          "https://example.com/aurora3.jpg"
-        ],
+            "https://plus.unsplash.com/premium_photo-1673002092591-207291eb728c?w=400",
+            "https://images.unsplash.com/photo-1531512073830-ba890ca4eba2?w=400",
+            "https://images.unsplash.com/photo-1652120271356-749cf627f5b0?w=400",
+            "https://images.unsplash.com/photo-1451159212029-6f35f0d0a501?w=400",
+            "https://plus.unsplash.com/premium_photo-1671987556132-313d34dfa559?w=400"
+          ],
         "likes": 1234,
         "comments": 67,
         "description": "北欧之旅第三天，终于等到了梦寐以求的极光，配上雪山简直太美了"
@@ -75,7 +77,7 @@
         "name": "iPad Air 11英寸 M2芯片 256GB WiFi版 星光色",
         "price": 4799.00,
         "originalPrice": 5199.00,
-        "imageUrl": "https://example.com/ipad_air_11.jpg",
+        "imageUrl": "https://images.unsplash.com/photo-1682426526490-667d4912b8de?w=400",
         "rating": 4.6,
         "sales": 2156,
         "tags": ["轻薄便携", "学习办公", "创意设计"]
@@ -85,7 +87,7 @@
         "id": "news_007",
         "title": "GitHub推出AI编程助手Copilot企业版，团队协作更高效",
         "summary": "GitHub宣布推出Copilot企业版，针对团队开发场景进行了深度优化，支持代码库上下文理解和团队知识共享...",
-        "imageUrl": "https://example.com/github_copilot_news.jpg",
+        "imageUrl": "https://images.unsplash.com/photo-1645680827507-9f392edae51c?w=400",
         "publishTime": "8小时前",
         "source": "开发者资讯",
         "readCount": 6751
@@ -94,7 +96,7 @@
         "type": "userDynamic",
         "id": "dynamic_006",
         "userName": "前端工程师Amy",
-        "userAvatar": "https://example.com/avatar6.jpg",
+        "userAvatar": "https://images.unsplash.com/photo-1438761681033-6461ffad8d80?w=80",
         "content": "今天遇到了一个有趣的CSS问题：如何实现文字的渐变色效果？用background-clip: text配合transparent color就能搞定！前端的世界总是充满惊喜。",
         "images": [],
         "publishTime": "12小时前",
@@ -105,7 +107,7 @@
         "type": "video",
         "id": "video_006",
         "title": "React Native 0.74新特性解析与升级指南",
-        "coverUrl": "https://example.com/rn_074_cover.jpg",
+        "coverUrl": "https://images.unsplash.com/photo-1579403124614-197f69d8187b?w=400",
         "videoUrl": "https://example.com/rn_074_video.mp4",
         "duration": "22:30",
         "playCount": 1598,

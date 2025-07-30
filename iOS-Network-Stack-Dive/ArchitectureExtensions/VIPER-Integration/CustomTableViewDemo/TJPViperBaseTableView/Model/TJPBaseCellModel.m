@@ -48,27 +48,9 @@
     return 44;
 }
 
-// 示例
-//- (TJPNavigationModel *)navigationModelForCell {
-//    NSDictionary *params = @{
-//        @"viewControllerClass": @"MessageDetailViewController",
-//        @"navigationType": @(TJPNavigationTypePush),
-//        @"messageId": self.messageId,
-//        @"timestamp": @([[NSDate date] timeIntervalSince1970])
-//    };
-//    
-//    return [TJPNavigationModel modelWithRouteID:@"message/detail"
-//                                    parameters:params];
-    
-//    return [TJPNavigationModel modelWithRouteId:@"" parameters:@{}];
-//}
-
-
-//// 已废弃
-//- (TJPNavigationType)navigationTypeForModel {
-//    return TJPNavigationTypePush;
-//}
-
+- (void)invalidateCellHeightCache {
+    self.cachedHeight = -1;
+}
 
 
 

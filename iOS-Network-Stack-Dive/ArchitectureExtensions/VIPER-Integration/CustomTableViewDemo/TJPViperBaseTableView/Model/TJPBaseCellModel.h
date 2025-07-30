@@ -24,6 +24,8 @@ NS_ASSUME_NONNULL_BEGIN
 - (CGFloat)cellHeight;
 /// 子类实现的计算Cell高度方法
 - (CGFloat)calculateCellHeight;
+/// 刷新缓存
+- (void)invalidateCellHeightCache;
 
 @end
 
