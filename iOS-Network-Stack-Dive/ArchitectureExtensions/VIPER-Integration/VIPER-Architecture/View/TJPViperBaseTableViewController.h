@@ -5,6 +5,20 @@
 //  Created by 唐佳鹏 on 2025/3/31.
 //
 
+/**
+ * 基础TableView视图控制器
+ *
+ * 职责：
+ * - UI管理和视图生命周期
+ * - 数据协调和分页控制
+ * - 缓存管理
+ * - 错误处理
+ *
+ * 抽离的组件：
+ * - 状态机：TJPViewControllerStateMachine
+ * - 可插拔组件：缓存、错误处理、刷新控件
+ */
+
 #import <UIKit/UIKit.h>
 #import "TJPViperBaseViewControllerProtocol.h"
 #import "TJPBaseTableView.h"
@@ -13,17 +27,7 @@
 NS_ASSUME_NONNULL_BEGIN
 
 @protocol TJPViperBasePresenterProtocol;
-
-typedef NS_ENUM(NSInteger, TJPViewControllerState) {
-    TJPViewControllerStateIdle,           // 空闲状态
-    TJPViewControllerStateInitialLoading, // 初始加载
-    TJPViewControllerStateContent,        // 内容显示
-    TJPViewControllerStateRefreshing,     // 刷新中
-    TJPViewControllerStateLoadingMore,    // 加载更多
-    TJPViewControllerStateEmpty,          // 空数据
-    TJPViewControllerStateError           // 错误状态
-};
-
+@class TJPViewControllerStateMachine;
 
 @interface TJPViperBaseTableViewController : UIViewController <TJPViperBaseViewControllerProtocol>
 // 核心组件
@@ -32,7 +36,7 @@ typedef NS_ENUM(NSInteger, TJPViewControllerState) {
 @property (nonatomic, strong) id<TJPViperBasePresenterProtocol> basePresenter;
 
 // 状态管理
-@property (nonatomic, assign, readonly) TJPViewControllerState currentState;
+@property (nonatomic, strong, readonly) TJPViewControllerStateMachine *stateMachine;
 
 
 /// 是否启用下拉刷新
@@ -40,24 +44,18 @@ typedef NS_ENUM(NSInteger, TJPViewControllerState) {
 /// 是否启用上拉加载更多
 @property (nonatomic, assign) BOOL shouldEnablePullUpRefresh;
 
-/// 是否启用缓存
-@property (nonatomic, assign) BOOL shouldEnableCache;
+/// 重复请求管理
 @property (nonatomic, assign) BOOL shouldPreventDuplicateRequests;
-
 
 // 分页信息
 @property (nonatomic, assign, readonly) NSInteger currentPage;
 @property (nonatomic, assign, readonly) NSInteger totalPage;
 
-// 缓存配置
-@property (nonatomic, assign) NSTimeInterval cacheExpiration;
-
 
 // 子类可重写的方法
 - (void)setupTableViewStyle;
 - (void)configureInitialState;
-- (void)handleStateTransition:(TJPViewControllerState)fromState toState:(TJPViewControllerState)toState;
-- (void)updateUIForState:(TJPViewControllerState)state withData:(nullable id)data;
+
 - (NSString *)cacheKeyForPage:(NSInteger)page;
 - (NSString *)requestKeyForPage:(NSInteger)page;
 
@@ -73,10 +71,6 @@ typedef NS_ENUM(NSInteger, TJPViewControllerState) {
 - (void)refreshData;
 - (void)loadMoreData;
 
-
-// 状态控制方法
-- (BOOL)transitionToState:(TJPViewControllerState)newState withData:(nullable id)data;
-- (void)resetToIdleState;
 
 @end
 

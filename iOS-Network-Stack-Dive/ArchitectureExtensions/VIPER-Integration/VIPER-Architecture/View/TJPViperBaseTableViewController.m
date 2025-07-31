@@ -9,24 +9,18 @@
 #import <Masonry/Masonry.h>
 
 #import "TJPToast.h"
+#import "TJPViewControllerStateMachine.h"
 #import "TJPViperBasePresenterProtocol.h"
 #import "TJPNetworkDefine.h"
 #import "TJPViperDefaultErrorHandler.h"
-#import "TJPCacheManager.h"
-#import "TJPMemoryCache.h"
 
-
-@interface TJPViperBaseTableViewController () <TJPBaseTableViewDelegate>
+@interface TJPViperBaseTableViewController () <TJPBaseTableViewDelegate, TJPViewControllerStateMachineDelegate>
 
 // 状态管理
-@property (nonatomic, assign) TJPViewControllerState currentState;
-@property (nonatomic, strong) NSMutableDictionary<NSNumber *, NSArray *> *stateTransitionRules;
+@property (nonatomic, strong) TJPViewControllerStateMachine *stateMachine;
 
-
-/// 错误处理器
+// 错误处理器
 @property (nonatomic, strong) id<TJPViperErrorHandlerProtocol> errorHandler;
-/// 缓存
-@property (nonatomic, strong) TJPCacheManager *cacheManager;
 
 
 // 数据管理
@@ -78,10 +72,9 @@
     
     // 配置初始状态
     [self configureInitialState];
-    
+    // 初始化UI
     [self initializationUI];
-        
-    //触发初始化数据
+    // 初始化数据
     [self triggerInitialDataLoad];
     
     self.isInitialized = YES;
@@ -109,8 +102,10 @@
 //**************************************************
 //    Private Methods
 - (void)commonInit {
-    // 初始化状态
-    _currentState = TJPViewControllerStateIdle;
+    // 初始化状态机
+    _stateMachine = [[TJPViewControllerStateMachine alloc] initWithInitialState:TJPViewControllerStateIdle];
+    _stateMachine.delegate = self;
+
     // 初始化为0，表示还没有加载任何页面
     _currentPage = 0;
     _totalPage = 1;
@@ -121,62 +116,11 @@
     // 默认配置
     _shouldEnablePullDownRefresh = YES;
     _shouldEnablePullUpRefresh = YES;
-    _shouldEnableCache = YES;
     _shouldPreventDuplicateRequests = YES;
-    _cacheExpiration = TJPCacheExpireTimeMedium;
     
     // 初始化错误处理
     _errorHandler = [TJPViperDefaultErrorHandler sharedHandler];
 //    _errorHandler.delegate = self;
-    
-    // 初始化缓存管理器（使用内存缓存策略）
-    _cacheManager = [[TJPCacheManager alloc] initWithCacheStrategy:[[TJPMemoryCache alloc] init]];
-
-    // 设置状态转换规则
-    [self setupStateTransitionRules];
-}
-
-- (void)setupStateTransitionRules {
-    self.stateTransitionRules = [NSMutableDictionary dictionaryWithDictionary:@{
-        @(TJPViewControllerStateIdle): @[
-            @(TJPViewControllerStateInitialLoading),
-            @(TJPViewControllerStateError)
-        ],
-        @(TJPViewControllerStateInitialLoading): @[
-            @(TJPViewControllerStateContent),
-            @(TJPViewControllerStateEmpty),
-            @(TJPViewControllerStateError),
-            @(TJPViewControllerStateIdle)
-        ],
-        @(TJPViewControllerStateContent): @[
-            @(TJPViewControllerStateRefreshing),
-            @(TJPViewControllerStateLoadingMore),
-            @(TJPViewControllerStateError),
-            @(TJPViewControllerStateEmpty)
-        ],
-        @(TJPViewControllerStateRefreshing): @[
-            @(TJPViewControllerStateContent),
-            @(TJPViewControllerStateEmpty),
-            @(TJPViewControllerStateError)
-        ],
-        @(TJPViewControllerStateLoadingMore): @[
-            @(TJPViewControllerStateContent),
-            @(TJPViewControllerStateError)
-        ],
-        @(TJPViewControllerStateEmpty): @[
-            @(TJPViewControllerStateInitialLoading),
-            @(TJPViewControllerStateRefreshing),
-            @(TJPViewControllerStateContent),
-            @(TJPViewControllerStateError)
-        ],
-        @(TJPViewControllerStateError): @[
-            @(TJPViewControllerStateInitialLoading),
-            @(TJPViewControllerStateRefreshing),
-            @(TJPViewControllerStateContent),
-            @(TJPViewControllerStateEmpty),
-            @(TJPViewControllerStateIdle)
-        ]
-    }];
 }
 
 - (void)configureInitialState {
@@ -215,17 +159,16 @@
         return;
     }
     
-    //绑定Interactor层跳转信号
+    // 绑定Interactor透传的跳转信号
     [self bindInteractorSignals];
-    
+    // 下拉刷新
     [self pullDownRefresh];
-    
+    // 请求第一页数据
     [self loadDataForPage:1];
 
 }
 
 - (void)bindInteractorSignals {
-    
     [self.basePresenter bindInteractorToPageSubjectWithContextProvider:self];
     // 绑定数据更新信号
     [self.basePresenter bindInteractorDataUpdateSubject];
@@ -248,27 +191,36 @@
 }
 
 #pragma mark - State Management
+- (TJPViewControllerState)currentState {
+    return self.stateMachine.currentState;
+}
 
-- (BOOL)transitionToState:(TJPViewControllerState)newState withData:(nullable id)data {
-    // 检查状态转换是否合法
-    NSArray *allowedStates = self.stateTransitionRules[@(self.currentState)];
-    if (![allowedStates containsObject:@(newState)]) {
-        TJPLOG_WARN(@"无效的状态转换: %ld -> %ld", (long)self.currentState, (long)newState);
-        return NO;
-    }
-    
-    TJPViewControllerState oldState = self.currentState;
-    self.currentState = newState;
-    
-    TJPLOG_INFO(@"状态转换: %@ -> %@", [self stateDescription:oldState], [self stateDescription:newState]);
+- (BOOL)transitionToState:(TJPViewControllerState)newState {
+    return [self.stateMachine transitionToState:newState];
+}
 
-    // 处理状态转换
-    [self handleStateTransition:oldState toState:newState];
+- (void)resetToIdleState {
+    [self.stateMachine resetToIdleState];
+}
+
+
+#pragma mark - TJPViewControllerStateMachineDelegate
+
+- (void)stateMachine:(TJPViewControllerStateMachine *)stateMachine didTransitionFromState:(TJPViewControllerState)fromState toState:(TJPViewControllerState)toState {
+    // 处理状态转换逻辑
+    [self handleStateTransition:fromState toState:toState];
     
     // 更新UI
-    [self updateUIForState:newState withData:data];
-    
+    [self updateUIForState:toState withData:self.dataArray];
+}
+
+- (BOOL)stateMachine:(TJPViewControllerStateMachine *)stateMachine shouldTransitionFromState:(TJPViewControllerState)fromState toState:(TJPViewControllerState)toState {
+    // 可以在这里添加状态转换的前置条件检查
     return YES;
+}
+
+- (void)stateMachine:(TJPViewControllerStateMachine *)stateMachine failedTransitionFromState:(TJPViewControllerState)fromState toState:(TJPViewControllerState)toState {
+    TJPLOG_WARN(@"状态转换失败: %@ -> %@", [stateMachine stateDescription:fromState], [stateMachine stateDescription:toState]);
 }
 
 - (void)handleStateTransition:(TJPViewControllerState)fromState toState:(TJPViewControllerState)toState {
@@ -307,13 +259,7 @@
         }
     });
 }
-
-- (void)resetToIdleState {
-    [self transitionToState:TJPViewControllerStateIdle withData:nil];
-}
-
 #pragma mark - Data Management
-
 - (void)reloadData {
     [self resetToIdleState];
     [self loadDataForPage:1];
@@ -326,27 +272,16 @@
         TJPLOG_INFO(@"第 %ld 页的请求已经在进行中", (long)page);
         return;
     }
-    
-    // 先检查缓存
-    if (self.shouldEnableCache) {
-        NSString *cacheKey = [self cacheKeyForPage:page];
-        NSArray *cachedData = [self.cacheManager loadCacheForKey:cacheKey];
-        if (cachedData) {
-            TJPLOG_INFO(@"使用缓存数据，第 %ld 页", (long)page);
-            [self handleDataFetchSuccess:cachedData totalPage:self.totalPage];
-            return;
-        }
-    }
-    
+        
     // 更新状态
     if (page == 1) {
         if (self.currentState == TJPViewControllerStateContent) {
-            [self transitionToState:TJPViewControllerStateRefreshing withData:nil];
+            [self.stateMachine transitionToState:TJPViewControllerStateRefreshing];
         } else {
-            [self transitionToState:TJPViewControllerStateInitialLoading withData:nil];
+            [self.stateMachine transitionToState:TJPViewControllerStateInitialLoading];
         }
     } else {
-        [self transitionToState:TJPViewControllerStateLoadingMore withData:nil];
+        [self.stateMachine transitionToState:TJPViewControllerStateLoadingMore];
     }
     
     // 标记请求开始
@@ -373,7 +308,6 @@
 - (void)fetchDataForPage:(NSInteger)page {
     // 记录当前请求的页码
     self.requestingPage = page;
-
     NSDate *startTime = [NSDate date];
     NSNumber *pageKey = @(page);
     
@@ -388,13 +322,7 @@
 
         // 移除请求标记
         [self.activeRequests removeObject:pageKey];
-        
-        // 缓存数据
-        if (self.shouldEnableCache && data.count > 0) {
-            NSString *cacheKey = [self cacheKeyForPage:page];
-            [self.cacheManager saveCacheWithData:data forKey:cacheKey expireTime:self.cacheExpiration];
-        }
-        
+                
         // 传递请求的页码
         [self handleDataFetchSuccess:data totalPage:totalPage forPage:page];
 
@@ -411,27 +339,27 @@
     }];
 }
 - (void)handleDataFetchSuccess:(NSArray *)data totalPage:(NSInteger)totalPage forPage:(NSInteger)requestPage {
-    // 只有请求的是第1页或者处于刷新状态时才重置数据
+    // 重置数据的条件：第一页或刷新状态
     if (requestPage == 1 || self.currentState == TJPViewControllerStateRefreshing) {
         // 第一页或刷新，替换数据源
         [self.dataArray removeAllObjects];
         self.currentPage = 0;  // 重置为0
-        NSLog(@"[DEBUG] 重置数据，currentPage设置为0");
+        TJPLOG_DEBUG(@"[TJPViperBaseTableViewController] 重置数据，currentPage设置为0");
     }
     
     if (data.count > 0) {
         [self.dataArray addObjectsFromArray:data];
-        self.currentPage = requestPage;  // 🔧 修正：直接设置为请求完成的页码
-        NSLog(@"[DEBUG] 数据添加完成，currentPage更新为: %ld", (long)self.currentPage);
+        self.currentPage = requestPage;
+        TJPLOG_DEBUG(@"[TJPViperBaseTableViewController] 数据添加完成，currentPage更新为: %ld", (long)self.currentPage);
     }
     
     self.totalPage = totalPage;
     
     // 更新状态
     if (self.dataArray.count == 0) {
-        [self transitionToState:TJPViewControllerStateEmpty withData:nil];
+        [self.stateMachine transitionToState:TJPViewControllerStateEmpty];
     } else {
-        [self transitionToState:TJPViewControllerStateContent withData:self.dataArray];
+        [self.stateMachine transitionToState:TJPViewControllerStateContent];
     }
     
     // 结束刷新
@@ -443,7 +371,6 @@
 }
 
 - (void)handleDataFetchError:(NSError *)error forPage:(NSInteger)page {
-    // 使用你的错误处理器处理错误
     @weakify(self)
     [self.errorHandler handleError:error inContext:self completion:^(BOOL shouldRetry) {
         @strongify(self)
@@ -451,7 +378,7 @@
             [self fetchDataForPage:page];
         } else {
             // 更新状态为错误
-            [self transitionToState:TJPViewControllerStateError withData:error];
+            [self.stateMachine transitionToState:TJPViewControllerStateError];
             [self.tableView endRefreshing];
         }
     }];
@@ -459,7 +386,7 @@
 
 #pragma mark - UI State Methods
 - (void)showInitialLoadingState {
-//    [self.tableView showLoading];
+    
 }
 
 - (void)showContentState:(NSArray *)data {
@@ -472,7 +399,8 @@
 }
 
 - (void)showErrorState:(NSError *)error {
-    [self.tableView showEmptyData]; // 可以显示错误专用的空状态页
+    // 显示错误专用的空状态页
+    [self.tableView showEmptyData];
 }
 
 
@@ -510,17 +438,8 @@
     return [NSString stringWithFormat:@"%@_request_%ld", NSStringFromClass([self class]), (long)page];
 }
 
-- (NSString *)stateDescription:(TJPViewControllerState)state {
-    switch (state) {
-        case TJPViewControllerStateIdle: return @"Idle";
-        case TJPViewControllerStateInitialLoading: return @"InitialLoading";
-        case TJPViewControllerStateContent: return @"Content";
-        case TJPViewControllerStateRefreshing: return @"Refreshing";
-        case TJPViewControllerStateLoadingMore: return @"LoadingMore";
-        case TJPViewControllerStateEmpty: return @"Empty";
-        case TJPViewControllerStateError: return @"Error";
-        default: return @"Unknown";
-    }
+- (void)updateTableViewUIForExtensionOperate {
+    //交给子类去实现
 }
 
 - (void)handleDataUpdate:(NSDictionary *)updateDict {
@@ -555,11 +474,6 @@
     //对tableView进行额外扩展操作
     [self updateTableViewUIForExtensionOperate];
 }
-
-- (void)updateTableViewUIForExtensionOperate {
-    //交给子类去实现
-}
-
 
 - (NSString *)getErrorMessageForError:(NSError *)error {
     if (error.code == NSURLErrorNotConnectedToInternet) {
