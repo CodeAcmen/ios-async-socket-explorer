@@ -317,7 +317,7 @@
         // 移除请求标记
         [self.activeRequests removeObject:pageKey];
                 
-        // 传递请求的页码
+        // 处理成功状态下的数据
         [self handleDataFetchSuccess:data totalPage:totalPage forPage:page];
 
     } failure:^(NSError *error) {
@@ -328,7 +328,7 @@
 
         // 移除请求标记
         [self.activeRequests removeObject:pageKey];
-        
+        // 处理失败状态下的数据
         [self handleDataFetchError:error forPage:page];
     }];
 }
